@@ -18,14 +18,16 @@ package androidx.media3.exoplayer.mediacodec;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.MediaCodecInfo;
-import android.util.Pair;
-import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.shadows.ShadowBuild;
 
 /** Unit tests for {@link MediaCodecUtil}. */
 @RunWith(AndroidJUnit4.class)
@@ -226,13 +228,58 @@ public final class MediaCodecUtilTest {
     assertThat(MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format)).isNull();
   }
 
+  @Test
+  public void getAlternativeCodecMimeType_withNonFallbackCompatibleFormat_returnsNull() {
+    // Profile 10.0 (Full Range PQ) which does NOT allow fallback.
+    Format formatDav1NoFallbackPossible =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
+    // Profile 10.1 (Limited Range PQ) which allows fallback to AV1.
+    Format formatDav1FallbackToAv1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .build())
+            .build();
+
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1NoFallbackPossible)).isNull();
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1FallbackToAv1))
+        .isEqualTo(MimeTypes.VIDEO_AV1);
+  }
+
+  @Test
+  public void getAlternativeCodecMimeType_withEac3JocFormatOnNonGoogleDevice_returnsEac3() {
+    ShadowBuild.setManufacturer("Samsung");
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC).build();
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(format)).isEqualTo(MimeTypes.AUDIO_E_AC3);
+  }
+
+  @Test
+  public void getAlternativeCodecMimeType_withEac3JocFormatOnGoogleDevice_returnsNull() {
+    ShadowBuild.setManufacturer("Google");
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC).build();
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(format)).isNull();
+  }
+
   private static void assertHevcBaseLayerCodecProfileAndLevelForFormat(
       Format format, int profile, int level) {
-    @Nullable
-    Pair<Integer, Integer> codecProfileAndLevel =
+    MediaCodecProfileAndLevel codecProfileAndLevel =
         MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
-    assertThat(codecProfileAndLevel).isNotNull();
-    assertThat(codecProfileAndLevel.first).isEqualTo(profile);
-    assertThat(codecProfileAndLevel.second).isEqualTo(level);
+    assertThat(codecProfileAndLevel.isSupportableByMediaCodec()).isTrue();
+    assertThat(codecProfileAndLevel.getProfile()).isEqualTo(profile);
+    assertThat(codecProfileAndLevel.getLevel()).isEqualTo(level);
   }
 }

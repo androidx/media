@@ -181,7 +181,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // Resets the flag if user cancels loading.
       loadCancelled = false;
     } finally {
-      if (checkNotNull(dataChannel).needsClosingOnLoadCompletion()) {
+      if (dataChannel != null && dataChannel.needsClosingOnLoadCompletion()) {
         DataSourceUtil.closeQuietly(dataChannel);
         dataChannel = null;
       }

@@ -178,6 +178,7 @@ public interface DrmSessionEventListener {
      * Dispatches {@link #onDrmKeysLoaded(int, MediaPeriodId)}. and {@link #onDrmKeysLoaded(int,
      * MediaPeriodId, KeyRequestInfo)}
      */
+    @SuppressWarnings("deprecation") // Calling deprecated listener callback.
     public void drmKeysLoaded(KeyRequestInfo keyRequestInfo) {
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         DrmSessionEventListener listener = listenerAndHandler.listener;

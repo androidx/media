@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
+import static androidx.media3.common.util.Util.nullSafeListToArray;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
@@ -70,6 +71,7 @@ import java.util.List;
   private SsManifest manifest;
   private ChunkSampleStream<SsChunkSource>[] sampleStreams;
   private SequenceableLoader compositeSequenceableLoader;
+  private long endPositionUs;
 
   public SsMediaPeriod(
       SsManifest manifest,
@@ -99,6 +101,7 @@ import java.util.List;
     trackGroups = buildTrackGroups(manifest, drmSessionManager, chunkSourceFactory);
     sampleStreams = newSampleStreamArray(0);
     compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
+    endPositionUs = C.TIME_END_OF_SOURCE;
   }
 
   public void updateManifest(SsManifest manifest) {
@@ -162,7 +165,7 @@ import java.util.List;
       }
     }
     sampleStreams = newSampleStreamArray(sampleStreamsList.size());
-    sampleStreamsList.toArray(sampleStreams);
+    nullSafeListToArray(sampleStreamsList, sampleStreams);
     compositeSequenceableLoader =
         compositeSequenceableLoaderFactory.create(
             sampleStreamsList,
@@ -238,6 +241,15 @@ import java.util.List;
     return positionUs;
   }
 
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    this.endPositionUs = endPositionUs;
+    for (ChunkSampleStream<SsChunkSource> sampleStream : sampleStreams) {
+      sampleStream.setEndPositionUs(endPositionUs);
+    }
+    return endPositionUs;
+  }
+
   // SequenceableLoader.Callback implementation.
 
   @Override
@@ -258,20 +270,24 @@ import java.util.List;
             selection,
             transferListener,
             cmcdConfiguration);
-    return new ChunkSampleStream<>(
-        manifest.streamElements[streamElementIndex].type,
-        null,
-        null,
-        chunkSource,
-        this,
-        allocator,
-        positionUs,
-        drmSessionManager,
-        drmEventDispatcher,
-        loadErrorHandlingPolicy,
-        mediaSourceEventDispatcher,
-        /* canReportInitialDiscontinuity= */ false,
-        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
+    ChunkSampleStream<SsChunkSource> stream =
+        new ChunkSampleStream<>(
+            manifest.streamElements[streamElementIndex].type,
+            null,
+            null,
+            chunkSource,
+            this,
+            allocator,
+            positionUs,
+            drmSessionManager,
+            drmEventDispatcher,
+            loadErrorHandlingPolicy,
+            mediaSourceEventDispatcher,
+            /* handleInitialDiscontinuity= */ false,
+            /* firstChunkStartTimeUs= */ C.TIME_UNSET,
+            downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
+    stream.setEndPositionUs(endPositionUs);
+    return stream;
   }
 
   private static TrackGroupArray buildTrackGroups(

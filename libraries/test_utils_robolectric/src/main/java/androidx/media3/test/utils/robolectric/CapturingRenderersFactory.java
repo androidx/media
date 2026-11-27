@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.media.MediaCodec;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.SparseArray;
@@ -27,6 +28,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -58,6 +60,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -147,6 +150,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
    * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
   public final CapturingRenderersFactory experimentalSetParseAv1SampleDependencies(
       boolean parseAv1SampleDependencies) {
     this.parseAv1SampleDependencies = parseAv1SampleDependencies;
@@ -257,7 +261,9 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(maxDroppedFramesToNotify)
-              .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies));
+              .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
+              // Do not drop input buffers due to slow processing.
+              .experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET));
     }
 
     @Override
@@ -322,6 +328,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
 
     private static final String INPUT_BUFFER_INTERACTION_TYPE = "inputBuffers";
     private static final String OUTPUT_BUFFER_INTERACTION_TYPE = "outputBuffers";
+    private static final String SET_PARAMETERS_INTERACTION_TYPE = "setParameters";
 
     // TODO(internal b/175710547): Consider using MediaCodecInfo, but currently Robolectric (v4.5)
     // doesn't correctly implement MediaCodec#getCodecInfo() (getName() works).
@@ -429,6 +436,15 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     }
 
     @Override
+    public void setParameters(Bundle bundle) {
+      if (!bundle.isEmpty()) {
+        capturedInteractions.put(
+            SET_PARAMETERS_INTERACTION_TYPE, new CapturedSetParameters(new Bundle(bundle)));
+      }
+      super.setParameters(bundle);
+    }
+
+    @Override
     public boolean needsReconfiguration() {
       return false;
     }
@@ -524,6 +540,38 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
         }
         dumper.add("size", bufferSize);
         dumper.add("rendered", rendered);
+        dumper.endBlock();
+      }
+    }
+
+    /** Records the data passed to {@link CapturingMediaCodecAdapter#setParameters(Bundle)}. */
+    private static class CapturedSetParameters implements CapturedInteraction {
+      private final Bundle bundle;
+
+      private CapturedSetParameters(Bundle bundle) {
+        this.bundle = new Bundle(bundle);
+      }
+
+      @Override
+      public void dump(Dumper dumper) {
+        dumper.startBlock("set parameters");
+        ImmutableList<String> sortedKeys = ImmutableList.sortedCopyOf(bundle.keySet());
+        for (int i = 0; i < sortedKeys.size(); i++) {
+          String key = sortedKeys.get(i);
+          Object value = bundle.get(key);
+          if (value instanceof byte[]) {
+            dumper.add(key, (byte[]) value);
+          } else if (value instanceof Float) {
+            float rounded = Float.parseFloat(String.format(Locale.US, "%.2f", (Float) value));
+            dumper.add(key, rounded);
+          } else if (value instanceof Integer) {
+            dumper.add(key, value);
+          } else if (value instanceof Long) {
+            dumper.add(key, value);
+          } else {
+            dumper.add(key, String.valueOf(value));
+          }
+        }
         dumper.endBlock();
       }
     }

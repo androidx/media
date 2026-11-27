@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.util.UnstableApi;
@@ -97,4 +98,15 @@ public interface ProgressiveMediaExtractor {
    * @throws IOException If an error occurred reading from the input.
    */
   int read(PositionHolder positionHolder) throws IOException;
+
+  /**
+   * Returns the name of the underlying infrastructure for reading from the input.
+   *
+   * @return The name, or {@code null} if the underlying infrastructure has not been determined yet
+   *     or if providing a name is not supported.
+   */
+  @Nullable
+  default String getUnderlyingImplementationName() {
+    return null;
+  }
 }

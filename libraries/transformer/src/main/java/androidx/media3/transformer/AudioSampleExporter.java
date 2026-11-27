@@ -87,7 +87,6 @@ import org.checkerframework.dataflow.qual.Pure;
             .setSampleRate(currentEncoderInputAudioFormat.sampleRate)
             .setChannelCount(currentEncoderInputAudioFormat.channelCount)
             .setPcmEncoding(currentEncoderInputAudioFormat.encoding)
-            .setCodecs(firstInputFormat.codecs)
             .build();
 
     // TODO: b/324426022 - Move logic for supported mime types to DefaultEncoderFactory.

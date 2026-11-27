@@ -156,6 +156,7 @@ public class BitmapFactoryImageDecoderTest {
   }
 
   @Test
+  @Config(minSdk = 26) // ShadowBitmapFactory produces non-null result for invalid data on API < 26.
   public void decodeBitmap_withInvalidData_throws() throws ImageDecoderException {
     assertThrows(
         ImageDecoderException.class, () -> decode(new Format.Builder().build(), new byte[1]));

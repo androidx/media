@@ -90,6 +90,20 @@ public final class EditedMediaItemSequence {
         .build();
   }
 
+  /**
+   * Creates a sequence from a single {@link EditedMediaItem}.
+   *
+   * <p>This initializes the sequence to determine the output tracks based on the provided {@link
+   * EditedMediaItem} rather than filtering or generating silent tracks. This is intended for
+   * single-asset exports.
+   *
+   * @param item The single {@link EditedMediaItem} for the sequence.
+   * @return A new {@link EditedMediaItemSequence}.
+   */
+  /* package */ static EditedMediaItemSequence fromSingleItem(EditedMediaItem item) {
+    return new EditedMediaItemSequence.Builder().addItem(item).build();
+  }
+
   /** A builder for instances of {@link EditedMediaItemSequence}. */
   public static final class Builder {
     private final ImmutableList.Builder<EditedMediaItem> items;
@@ -137,6 +151,12 @@ public final class EditedMediaItemSequence {
     public Builder(List<EditedMediaItem> editedMediaItems) {
       this.trackTypes = ImmutableSet.of(C.TRACK_TYPE_NONE);
       this.items = new ImmutableList.Builder<EditedMediaItem>().addAll(editedMediaItems);
+    }
+
+    /** Creates an instance with {@link C#TRACK_TYPE_NONE}. */
+    private Builder() {
+      this.trackTypes = ImmutableSet.of(C.TRACK_TYPE_NONE);
+      this.items = new ImmutableList.Builder<>();
     }
 
     /** Creates a new instance to build upon the provided {@link EditedMediaItemSequence}. */

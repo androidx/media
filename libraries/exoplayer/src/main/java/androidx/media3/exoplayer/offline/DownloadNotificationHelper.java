@@ -15,18 +15,15 @@
  */
 package androidx.media3.exoplayer.offline;
 
+import static android.app.Notification.FOREGROUND_SERVICE_IMMEDIATE;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.core.app.NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE;
 
-import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
-import androidx.core.app.NotificationCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.R;
@@ -39,15 +36,18 @@ public final class DownloadNotificationHelper {
 
   private static final @StringRes int NULL_STRING_ID = 0;
 
-  private final NotificationCompat.Builder notificationBuilder;
+  private final Notification.Builder notificationBuilder;
 
   /**
    * @param context A context.
    * @param channelId The id of the notification channel to use.
    */
   public DownloadNotificationHelper(Context context, String channelId) {
+    Context applicationContext = context.getApplicationContext();
     this.notificationBuilder =
-        new NotificationCompat.Builder(context.getApplicationContext(), channelId);
+        SDK_INT >= 26
+            ? new Notification.Builder(applicationContext, channelId)
+            : new Notification.Builder(applicationContext);
   }
 
   /**
@@ -207,6 +207,8 @@ public final class DownloadNotificationHelper {
         /* showWhen= */ true);
   }
 
+  // Missing annotations on Notification.Builder
+  @SuppressWarnings("nullness:argument.type.incompatible")
   private Notification buildNotification(
       Context context,
       @DrawableRes int smallIcon,
@@ -223,22 +225,13 @@ public final class DownloadNotificationHelper {
         titleStringId == NULL_STRING_ID ? null : context.getResources().getString(titleStringId));
     notificationBuilder.setContentIntent(contentIntent);
     notificationBuilder.setStyle(
-        message == null ? null : new NotificationCompat.BigTextStyle().bigText(message));
+        message == null ? null : new Notification.BigTextStyle().bigText(message));
     notificationBuilder.setProgress(maxProgress, currentProgress, indeterminateProgress);
     notificationBuilder.setOngoing(ongoing);
     notificationBuilder.setShowWhen(showWhen);
     if (SDK_INT >= 31) {
-      Api31.setForegroundServiceBehavior(notificationBuilder);
-    }
-    return notificationBuilder.build();
-  }
-
-  @RequiresApi(31)
-  private static final class Api31 {
-    @SuppressLint("WrongConstant") // TODO(b/254277605): remove lint suppression
-    public static void setForegroundServiceBehavior(
-        NotificationCompat.Builder notificationBuilder) {
       notificationBuilder.setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE);
     }
+    return notificationBuilder.build();
   }
 }

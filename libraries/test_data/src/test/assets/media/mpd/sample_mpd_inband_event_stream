@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD availabilityStartTime="2014-06-19T23:07:42" type="dynamic">
+    <Period start="PT6462826.784S" id="0">
+        <AdaptationSet id="100" mimeType="video/mp4">
+            <Representation id="1001" bandwidth="200000" codecs="avc1.42c01f">
+                <InbandEventStream
+                    id="inBandId"
+                    schemeIdUri="urn:mpeg:dash:event:2012"
+                    value="inBandValue"/>
+            </Representation>
+            <Representation id="1002" bandwidth="400000" codecs="avc1.42c01f">
+                <InbandEventStream
+                    id="inBandId"
+                    schemeIdUri="urn:mpeg:dash:event:2012"
+                    value="inBandValue"/>
+            </Representation>
+        </AdaptationSet>
+        <AdaptationSet id="101" mimeType="video/mp4">
+            <Representation id="1010" bandwidth="800000" codecs="avc1.42c01f">
+                <InbandEventStream
+                    id="inBandId"
+                    schemeIdUri="urn:mpeg:dash:event:2012"
+                    value="inBandValue"/>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>

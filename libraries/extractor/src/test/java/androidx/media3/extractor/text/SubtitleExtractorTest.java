@@ -18,6 +18,7 @@ package androidx.media3.extractor.text;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
@@ -48,6 +49,15 @@ public class SubtitleExtractorTest {
           + "\n"
           + "00:02.600 --> 00:04.567\n"
           + "This is the third subtitle.\n";
+
+  private static final String TEST_DATA_LONG_DURATION_CUE =
+      "WEBVTT\n"
+          + "\n"
+          + "00:00.000 --> 01:00:00.000\n"
+          + "This is a long-duration cue.\n"
+          + "\n"
+          + "00:05.000 --> 00:10.000\n"
+          + "This is a short cue.\n";
 
   private CueDecoder decoder;
 
@@ -281,6 +291,52 @@ public class SubtitleExtractorTest {
     extractor.release();
     extractor.release();
     // Calling realease() twice does not throw an exception.
+  }
+
+  @Test
+  public void extractor_seekMapAndTrackDuration_updatedToMaxEndTimeUs() throws Exception {
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(Util.getUtf8Bytes(TEST_DATA))
+            .setSimulatePartialReads(true)
+            .build();
+    SubtitleExtractor extractor =
+        new SubtitleExtractor(
+            new WebvttParser(), new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build());
+    extractor.init(output);
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+
+    while (extractor.read(input, null) != Extractor.RESULT_END_OF_INPUT) {}
+
+    // The seekMap and track durationUs should be updated to the maximum endTimeUs (4_567_000)
+    // across all subtitle cues, not left as C.TIME_UNSET.
+    assertThat(output.trackOutputs.size()).isEqualTo(1);
+    assertThat(output.trackOutputs.valueAt(0).getDurationUs()).isEqualTo(4_567_000);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(4_567_000);
+  }
+
+  @Test
+  public void extractor_longDurationCue_seekMapAndTrackDurationReflectsEndTime() throws Exception {
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(Util.getUtf8Bytes(TEST_DATA_LONG_DURATION_CUE))
+            .setSimulatePartialReads(true)
+            .build();
+    SubtitleExtractor extractor =
+        new SubtitleExtractor(
+            new WebvttParser(), new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build());
+    extractor.init(output);
+
+    while (extractor.read(input, null) != Extractor.RESULT_END_OF_INPUT) {}
+
+    // The seekMap and track durationUs should reflect the long-duration cue's endTimeUs (1 hour),
+    // not the largest sample startTimeUs (10 seconds).
+    assertThat(output.trackOutputs.size()).isEqualTo(1);
+    assertThat(output.trackOutputs.valueAt(0).getDurationUs()).isEqualTo(3_600_000_000L);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(3_600_000_000L);
   }
 
   private CuesWithTiming decodeSample(FakeTrackOutput trackOutput, int sampleIndex) {

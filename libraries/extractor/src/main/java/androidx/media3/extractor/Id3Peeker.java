@@ -21,6 +21,7 @@ import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_HEADER_LENGT
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.id3.Id3Decoder;
@@ -34,6 +35,8 @@ import java.io.IOException;
  */
 @UnstableApi
 public final class Id3Peeker {
+
+  private static final String TAG = "Id3Peeker";
 
   private final ParsableByteArray scratch;
 
@@ -78,6 +81,16 @@ public final class Id3Peeker {
       scratch.skipBytes(6); // Skip header, major version, minor version and flags.
       int framesLength = scratch.readSynchSafeInt();
       int tagLength = ID3_HEADER_LENGTH + framesLength;
+      if (input.getLength() != C.LENGTH_UNSET
+          && input.getPeekPosition() + framesLength > input.getLength()) {
+        Log.w(
+            TAG,
+            "Skipping ID3 tag with tagLength="
+                + tagLength
+                + " greater than input length="
+                + input.getLength());
+        break;
+      }
 
       if (metadata == null) {
         byte[] id3Data = new byte[tagLength];
@@ -129,7 +142,12 @@ public final class Id3Peeker {
       scratch.setPosition(headerStartIndexInScratch);
       scratch.setLimit(headerEndIndexInScratch);
       if (scratch.peekUnsignedInt24() == Id3Decoder.ID3_TAG) {
-        return true;
+        scratch.skipBytes(3);
+        int majorVersion = scratch.readUnsignedByte();
+        if (Id3Decoder.isSupportedMajorVersion(majorVersion)) {
+          scratch.setPosition(headerStartIndexInScratch);
+          return true;
+        }
       } else if (MpegAudioUtil.getFrameSize(scratch.peekInt()) != C.LENGTH_UNSET) {
         // We've found something that looks like an MP3 header, stop searching for ID3 headers.
         return false;

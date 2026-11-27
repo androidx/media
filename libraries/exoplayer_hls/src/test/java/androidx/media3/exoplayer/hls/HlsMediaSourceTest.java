@@ -16,28 +16,39 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.Context;
+import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.os.SystemClock;
+import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.Player;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Util;
+import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
@@ -47,12 +58,17 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test for {@link HlsMediaSource}. */
 @RunWith(AndroidJUnit4.class)
 public class HlsMediaSourceTest {
+
+  @Rule
+  public ShadowMediaCodecConfig mediaCodecConfig =
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void loadLivePlaylist_noTargetLiveOffsetDefined_fallbackToThreeTargetDuration()
@@ -737,7 +753,7 @@ public class HlsMediaSourceTest {
 
     TrackGroupArray trackGroupArray = prepareAndWaitForTracks(mediaSource);
 
-    assertThat(trackGroupArray.length).isEqualTo(6);
+    assertThat(trackGroupArray.length).isEqualTo(8);
     ImmutableList<TrackGroup> groups =
         ImmutableList.of(
             trackGroupArray.get(0),
@@ -745,7 +761,9 @@ public class HlsMediaSourceTest {
             trackGroupArray.get(2),
             trackGroupArray.get(3),
             trackGroupArray.get(4),
-            trackGroupArray.get(5));
+            trackGroupArray.get(5),
+            trackGroupArray.get(6),
+            trackGroupArray.get(7));
     assertThat(groups.stream().mapToInt(group -> group.type))
         .containsExactly(
             C.TRACK_TYPE_VIDEO,
@@ -753,26 +771,24 @@ public class HlsMediaSourceTest {
             C.TRACK_TYPE_AUDIO,
             C.TRACK_TYPE_TEXT,
             C.TRACK_TYPE_TEXT,
+            C.TRACK_TYPE_METADATA,
+            C.TRACK_TYPE_METADATA,
             C.TRACK_TYPE_METADATA);
     assertThat(
             groups.stream()
                 .filter(group -> group.type != C.TRACK_TYPE_METADATA)
                 .mapToInt(group -> group.length))
-        .containsExactly(2, 2, 2, 2, 2);
+        .containsExactly(2, 1, 1, 1, 1);
     assertThat(
             groups.stream()
                 .filter(group -> group.type == C.TRACK_TYPE_AUDIO)
-                .map(
-                    group ->
-                        ImmutableList.of(group.getFormat(0).language, group.getFormat(1).language)))
-        .containsExactly(ImmutableList.of("en", "en"), ImmutableList.of("fr", "fr"));
+                .map(group -> group.getFormat(0).language))
+        .containsExactly("en", "fr");
     assertThat(
             groups.stream()
                 .filter(group -> group.type == C.TRACK_TYPE_TEXT)
-                .map(
-                    group ->
-                        ImmutableList.of(group.getFormat(0).language, group.getFormat(1).language)))
-        .containsExactly(ImmutableList.of("de", "de"), ImmutableList.of("zh", "zh"));
+                .map(group -> group.getFormat(0).language))
+        .containsExactly("de", "zh");
   }
 
   @Test
@@ -851,7 +867,7 @@ public class HlsMediaSourceTest {
     List<Timeline> timelines = new ArrayList<>();
     MediaSource.MediaSourceCaller mediaSourceCaller = (source, timeline) -> timelines.add(timeline);
 
-    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> timelines.size() == 1);
     mediaSource.onPrimaryPlaylistRefreshed(secondPlaylist);
     runMainLooperUntil(() -> timelines.size() == 2);
@@ -1051,10 +1067,101 @@ public class HlsMediaSourceTest {
         .isEqualTo(updatedMediaItem);
   }
 
+  @Test
+  public void selectTracks_withOptionalMetadataTracks_appliesUpdatesSuccessfully()
+      throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaItem(MediaItem.fromUri("asset:///media/cmaf/multi-segment/playlist.m3u8"));
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    Tracks tracksAllEnabled = player.getCurrentTracks();
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    Tracks tracksDisabledAudio = player.getCurrentTracks();
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    Tracks tracksDisabledAudioAndVideo = player.getCurrentTracks();
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    Tracks tracksDisabledVideo = player.getCurrentTracks();
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    Tracks tracksAllEnabled2 = player.getCurrentTracks();
+    player.release();
+    surface.release();
+
+    String videoGroupId =
+        tracksAllEnabled.getGroups().stream()
+            .filter(group -> group.getType() == C.TRACK_TYPE_VIDEO)
+            .map(group -> group.getMediaTrackGroup().id)
+            .findFirst()
+            .get();
+    String audioGroupId =
+        tracksAllEnabled.getGroups().stream()
+            .filter(group -> group.getType() == C.TRACK_TYPE_AUDIO)
+            .map(group -> group.getMediaTrackGroup().id)
+            .findFirst()
+            .get();
+    assertThat(tracksAllEnabled.isTypeSelected(C.TRACK_TYPE_AUDIO)).isTrue();
+    assertThat(tracksAllEnabled.isTypeSelected(C.TRACK_TYPE_VIDEO)).isTrue();
+    assertThat(tracksAllEnabled.isTypeSelected(C.TRACK_TYPE_METADATA)).isTrue();
+    assertThat(
+            tracksAllEnabled.getGroups().stream()
+                .filter(group -> group.isSelected() && group.getType() == C.TRACK_TYPE_METADATA))
+        .hasSize(2);
+    assertThat(tracksDisabledAudio.isTypeSelected(C.TRACK_TYPE_AUDIO)).isFalse();
+    assertThat(tracksDisabledAudio.isTypeSelected(C.TRACK_TYPE_VIDEO)).isTrue();
+    assertThat(tracksDisabledAudio.isTypeSelected(C.TRACK_TYPE_METADATA)).isTrue();
+    assertThat(
+            tracksDisabledAudio.getGroups().stream()
+                .filter(group -> group.isSelected() && group.getType() == C.TRACK_TYPE_METADATA)
+                .map(group -> group.getTrackFormat(0).primaryTrackGroupId))
+        .containsExactly(videoGroupId);
+    assertThat(tracksDisabledAudioAndVideo.isTypeSelected(C.TRACK_TYPE_AUDIO)).isFalse();
+    assertThat(tracksDisabledAudioAndVideo.isTypeSelected(C.TRACK_TYPE_VIDEO)).isFalse();
+    assertThat(tracksDisabledAudioAndVideo.isTypeSelected(C.TRACK_TYPE_METADATA)).isFalse();
+    assertThat(tracksDisabledVideo.isTypeSelected(C.TRACK_TYPE_AUDIO)).isTrue();
+    assertThat(tracksDisabledVideo.isTypeSelected(C.TRACK_TYPE_VIDEO)).isFalse();
+    assertThat(tracksDisabledVideo.isTypeSelected(C.TRACK_TYPE_METADATA)).isTrue();
+    assertThat(
+            tracksDisabledVideo.getGroups().stream()
+                .filter(group -> group.isSelected() && group.getType() == C.TRACK_TYPE_METADATA)
+                .map(group -> group.getTrackFormat(0).primaryTrackGroupId))
+        .containsExactly(audioGroupId);
+    assertThat(tracksAllEnabled2).isEqualTo(tracksAllEnabled);
+  }
+
   private static HlsMediaSource.Factory createHlsMediaSourceFactory(
       String playlistUri, String playlist) {
     return createHlsMediaSourceFactory(
-        playlistUri, playlist, /* playlistUrl2= */ null, /* playlist2= */ null);
+        playlistUri, playlist, /* playlistUri2= */ null, /* playlist2= */ null);
   }
 
   private static HlsMediaSource.Factory createHlsMediaSourceFactory(
@@ -1076,9 +1183,7 @@ public class HlsMediaSourceTest {
       throws TimeoutException {
     AtomicReference<Timeline> receivedTimeline = new AtomicReference<>();
     mediaSource.prepareSource(
-        (source, timeline) -> receivedTimeline.set(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        (source, timeline) -> receivedTimeline.set(timeline), PlayerId.UNSET, BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> receivedTimeline.get() != null);
     return receivedTimeline.get();
   }

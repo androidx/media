@@ -103,7 +103,7 @@ public final class DefaultGainProvider implements GainProvider {
      * <p>You can implement a basic linear fade as follows:
      *
      * <pre>{@code
-     * @Override
+     * &#64;Override
      * public float getGainFactorAt(long index, long duration) {
      *   return (float) index / duration;
      * }

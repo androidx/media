@@ -19,13 +19,12 @@ import static androidx.annotation.VisibleForTesting.NONE;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.decoder.iamf.IamfDecoder;
+import androidx.media3.exoplayer.audio.IamfUtil;
 import com.google.common.collect.ImmutableList;
 
 /** Class executing native code in the IAMF module that relies on a correct proguard config. */
 @VisibleForTesting(otherwise = NONE)
 public final class IamfModuleProguard {
-
-  private IamfModuleProguard() {}
 
   // This is a valid initialization data for the IAMF decoder taken from a test file.
   private static final ImmutableList<byte[]> IAMF_INITIALIZATION_DATA =
@@ -39,13 +38,32 @@ public final class IamfModuleProguard {
             -128, 0, 0, 100, -128, 125, -128, 0, 0, 1, -128, 0, -54, 81, -51, -79
           });
 
+  private IamfModuleProguard() {}
+
   /**
    * Creates an {@link IamfDecoder} that relies on unobfuscated native method names and native code
    * calls.
    */
   public static void createIamfDecoder() throws Exception {
     IamfDecoder decoder =
-        new IamfDecoder(IAMF_INITIALIZATION_DATA, /* spatializationSupported= */ false);
+        new IamfDecoder(
+            IAMF_INITIALIZATION_DATA,
+            IamfUtil.OUTPUT_LAYOUT_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
+            IamfDecoder.CHANNEL_ORDERING_UNSET);
+    decoder.release();
+  }
+
+  public static void createIamfDecoderWithParameters() throws Exception {
+    IamfDecoder decoder =
+        new IamfDecoder(
+            IAMF_INITIALIZATION_DATA,
+            IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
+            IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
+
     decoder.release();
   }
 }

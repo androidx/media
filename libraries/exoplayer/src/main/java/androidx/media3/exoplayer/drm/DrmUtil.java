@@ -187,14 +187,14 @@ public final class DrmUtil {
         try {
           byte[] response = ByteStreams.toByteArray(inputStream);
           LoadEventInfo loadEventInfo =
-              new LoadEventInfo(
-                  -1, // This will be replaced with the actual taskId from the request.
-                  originalDataSpec,
-                  statsDataSource.getLastOpenedUri(),
-                  statsDataSource.getLastResponseHeaders(),
-                  SystemClock.elapsedRealtime(),
-                  /* loadDurationMs= */ 0,
-                  response.length);
+              new LoadEventInfo.Builder(
+                      -1, // This will be replaced with the actual taskId from the request.
+                      originalDataSpec,
+                      SystemClock.elapsedRealtime())
+                  .setUri(statsDataSource.getLastOpenedUri())
+                  .setResponseHeaders(statsDataSource.getLastResponseHeaders())
+                  .setBytesLoaded(response.length)
+                  .build();
           return new MediaDrmCallback.Response.Builder(response)
               .setLoadEventInfo(loadEventInfo)
               .build();

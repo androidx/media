@@ -16,7 +16,8 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,9 +25,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.MuteButton as MuteStateContainer
+import androidx.media3.ui.compose.material3.PlayerTokens
 import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.state.MuteButtonState
 
@@ -42,7 +45,10 @@ import androidx.media3.ui.compose.state.MuteButtonState
  * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
  *   composable lambda with [MuteButtonState] as its receiver, allowing the icon to be updated based
  *   on the button's current state (e.g. [MuteButtonState.showMuted]).
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
+ * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
+ *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -57,11 +63,13 @@ import androidx.media3.ui.compose.state.MuteButtonState
 @UnstableApi
 @Composable
 fun MuteButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable MuteButtonState.() -> Painter = defaultMutePainterIcon,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,
-  tint: Color = LocalContentColor.current,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
+  tint: Color = Color.Unspecified,
   onClick: MuteButtonState.() -> Unit = MuteButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -73,7 +81,9 @@ fun MuteButton(
       modifier,
       isEnabled,
       icon = painter(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
+      colors = colors,
       tint = tint,
       onClick = { customOnClick() },
     )
@@ -92,6 +102,9 @@ fun MuteButton(
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
  *   is a composable lambda with [MuteButtonState] as its receiver, allowing the icon to be updated
  *   based on the button's current state (e.g. [MuteButtonState.showMuted]).
+ * @param iconSize The size of the icon.
+ * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
+ *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.
  * @param contentDescription The content description for accessibility purposes.
@@ -108,11 +121,13 @@ fun MuteButton(
 @UnstableApi
 @Composable
 fun MuteButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: MuteButtonState.() -> ImageVector,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,
-  tint: Color = LocalContentColor.current,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
+  tint: Color = Color.Unspecified,
   onClick: MuteButtonState.() -> Unit = MuteButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -124,7 +139,9 @@ fun MuteButton(
       modifier,
       isEnabled,
       icon = imageVector(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
+      colors = colors,
       tint = tint,
       onClick = { customOnClick() },
     )

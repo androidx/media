@@ -15,7 +15,9 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -28,6 +30,7 @@ import android.media.MediaCodecInfo;
 import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -43,6 +46,8 @@ import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.ThrowingRunnable;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.GlEffect;
@@ -50,20 +55,30 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -163,7 +178,7 @@ public final class AndroidTestUtil {
     }
 
     /** Runs the given task and blocks until it completes, or timeoutSeconds has elapsed. */
-    public static void runAsyncTaskAndWait(ThrowingRunnable task, int timeoutSeconds)
+    public static void runAsyncTaskAndWait(ThrowingRunnable<?> task, int timeoutSeconds)
         throws TimeoutException, InterruptedException {
       CountDownLatch countDownLatch = new CountDownLatch(1);
       AtomicReference<@NullableType Exception> unexpectedExceptionReference =
@@ -203,9 +218,48 @@ public final class AndroidTestUtil {
     }
   }
 
-  /** A type that can be used to succinctly wrap throwing {@link Runnable} objects. */
-  public interface ThrowingRunnable {
-    void run() throws Exception;
+  /**
+   * A {@link DefaultRenderersFactory} implementation that returns a {@link
+   * NoFrameDroppingVideoRenderer} video renderer.
+   */
+  public static final class NoFrameDroppingRendererFactory extends DefaultRenderersFactory {
+
+    public NoFrameDroppingRendererFactory(Context context) {
+      super(context);
+    }
+
+    @Override
+    protected void buildVideoRenderers(
+        Context context,
+        @ExtensionRendererMode int extensionRendererMode,
+        MediaCodecSelector mediaCodecSelector,
+        boolean enableDecoderFallback,
+        Handler eventHandler,
+        VideoRendererEventListener eventListener,
+        long allowedVideoJoiningTimeMs,
+        ArrayList<Renderer> out) {
+      out.add(new NoFrameDroppingVideoRenderer(context));
+    }
+  }
+
+  /** A {@link MediaCodecVideoRenderer} implementation that doesn't drop frames. */
+  public static final class NoFrameDroppingVideoRenderer extends MediaCodecVideoRenderer {
+
+    public NoFrameDroppingVideoRenderer(Context context) {
+      super(new Builder(context).experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET));
+    }
+
+    @Override
+    protected boolean shouldDropOutputBuffer(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
+    }
+
+    @Override
+    protected boolean shouldDropBuffersToKeyframe(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
+    }
   }
 
   /**
@@ -318,6 +372,11 @@ public final class AndroidTestUtil {
     public Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
         throws ExportException {
       return encoderFactory.createForVideoEncoding(format, logSessionId);
+    }
+
+    @Override
+    public boolean isVideoFormatSupported(Format format) {
+      return encoderFactory.isVideoFormatSupported(format);
     }
 
     @Override
@@ -542,6 +601,20 @@ public final class AndroidTestUtil {
       }
     }
     throw new AssumptionViolatedException("Profile not supported");
+  }
+
+  /**
+   * Returns the video timestamps of the given file from the {@link FakeTrackOutput}.
+   *
+   * @param filePath The {@link String filepath} to get video timestamps for.
+   * @return The {@link List} of video timestamps.
+   */
+  public static ImmutableList<Long> getVideoSampleTimesUs(String filePath) throws IOException {
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
+    return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+        .getSampleTimesUs();
   }
 
   private AndroidTestUtil() {}

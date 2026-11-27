@@ -22,6 +22,7 @@ import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import android.media.AudioFormat;
 import androidx.annotation.Nullable;
 import androidx.media3.test.utils.FakeMetadataEntry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -110,6 +111,23 @@ public final class FormatTest {
                 .build());
   }
 
+  @Test
+  public void formatBuild_withChannelCountAndChannelMaskSetButNoMatch_throwsException() {
+    Format.Builder builder =
+        new Format.Builder().setChannelCount(2).setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1);
+    assertThrows(IllegalStateException.class, () -> builder.build());
+  }
+
+  @Test
+  public void withManifestFormatInfo_preservesManifestSelectionPriority() {
+    Format manifestFormat = new Format.Builder().setSelectionPriority(3f).build();
+    Format sampleFormat = new Format.Builder().setSelectionPriority(Format.NO_VALUE).build();
+
+    Format format = sampleFormat.withManifestFormatInfo(manifestFormat);
+
+    assertThat(format.selectionPriority).isEqualTo(3f);
+  }
+
   private static Format createTestFormat() {
     byte[] initData1 = new byte[] {1, 2, 3};
     byte[] initData2 = new byte[] {4, 5, 6};
@@ -143,11 +161,13 @@ public final class FormatTest {
         .setLanguage("language")
         .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
         .setRoleFlags(C.ROLE_FLAG_MAIN)
+        .setSelectionPriority(2f)
         .setAverageBitrate(1024)
         .setPeakBitrate(2048)
         .setCodecs("codec")
         .setMetadata(metadata)
         .setCustomData(new TestCustomData("CustomData", 100))
+        .setPrimaryTrackGroupId("primary-id")
         .setContainerMimeType(VIDEO_MP4)
         .setSampleMimeType(MimeTypes.VIDEO_H264)
         .setMaxInputSize(5000)
@@ -163,6 +183,7 @@ public final class FormatTest {
         .setStereoMode(C.STEREO_MODE_TOP_BOTTOM)
         .setColorInfo(colorInfo)
         .setChannelCount(6)
+        .setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1)
         .setSampleRate(44100)
         .setPcmEncoding(C.ENCODING_PCM_24BIT)
         .setEncoderDelay(1001)

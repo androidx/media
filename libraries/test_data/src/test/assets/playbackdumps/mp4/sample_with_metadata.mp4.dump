@@ -544,7 +544,7 @@ MediaCodecAdapter (media3.video.avc):
 AudioSink:
   buffer count = 45
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #0:
@@ -689,4 +689,6 @@ Listener.onMediaMetadata:
     trackNumber = 2
     totalTrackCount = 12
     recordingYear = 2024
+    discNumber = 2
+    totalDiscCount = 3
     genre = Gorpcore

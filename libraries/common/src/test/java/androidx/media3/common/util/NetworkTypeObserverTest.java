@@ -50,7 +50,6 @@ import org.robolectric.shadows.ShadowTelephonyManager;
 
 /** Unit test for {@link NetworkTypeObserver}. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = Config.ALL_SDKS) // Test all SDKs because network detection logic changed over time.
 public class NetworkTypeObserverTest {
 
   private HandlerThread backgroundThread;

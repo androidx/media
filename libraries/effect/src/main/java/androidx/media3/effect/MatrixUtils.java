@@ -15,16 +15,19 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.opengl.Matrix;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.Size;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 
 /** Utility functions for working with matrices, vertices, and polygons. */
-/* package */ final class MatrixUtils {
+@RestrictTo(LIBRARY_GROUP)
+public final class MatrixUtils {
   /**
    * Contains the normal vectors of the clipping planes in homogeneous coordinates which
    * conveniently also double as origin vectors and parameters of the normal form of the planes ax +
@@ -235,6 +238,69 @@ import java.util.List;
     }
 
     return outputSize;
+  }
+
+  /**
+   * Sets a 4x4 GL transformation matrix from the input geometry parameters.
+   *
+   * <p>Applies cropping, Y-flipping, and rotation in order.
+   *
+   * @param matrix The 4x4 float array to be populated with the transformation matrix.
+   * @param bufferWidth The width of the input buffer.
+   * @param bufferHeight The height of the input buffer.
+   * @param formatWidth The width of the video frame after rotation is applied.
+   * @param formatHeight The height of the video frame after rotation is applied.
+   * @param rotationDegrees The clockwise rotation to apply in degrees.
+   */
+  public static void populateTransformationMatrix(
+      float[] matrix,
+      int bufferWidth,
+      int bufferHeight,
+      int formatWidth,
+      int formatHeight,
+      int rotationDegrees) {
+    Matrix.setIdentityM(matrix, /* smOffset= */ 0);
+    int unrotatedFormatWidth =
+        (rotationDegrees == 90 || rotationDegrees == 270) ? formatHeight : formatWidth;
+    int unrotatedFormatHeight =
+        (rotationDegrees == 90 || rotationDegrees == 270) ? formatWidth : formatHeight;
+    // Crop (Scale from origin in Android coordinate space)
+    Matrix.scaleM(
+        matrix,
+        /* mOffset= */ 0,
+        (float) unrotatedFormatWidth / bufferWidth,
+        (float) unrotatedFormatHeight / bufferHeight,
+        /* z= */ 1f);
+
+    // Y-Flip (Convert GL coordinate space back to Android coordinate space)
+    Matrix.translateM(matrix, /* mOffset= */ 0, /* x= */ 0f, /* y= */ 1f, /* z= */ 0f);
+    Matrix.scaleM(matrix, /* mOffset= */ 0, /* x= */ 1f, /* y= */ -1f, /* z= */ 1f);
+
+    // Rotate back around the center (in GL coordinate space)
+    // android.graphics.Matrix rotates around (px, py). android.opengl.Matrix rotates around
+    // (0,0,0). So we translate, rotate, then translate back.
+    Matrix.translateM(matrix, /* mOffset= */ 0, /* x= */ 0.5f, /* y= */ 0.5f, /* z= */ 0f);
+    Matrix.rotateM(
+        matrix, /* mOffset= */ 0, rotationDegrees, /* x= */ 0f, /* y= */ 0f, /* z= */ 1f);
+    Matrix.translateM(matrix, /* mOffset= */ 0, /* x= */ -0.5f, /* y= */ -0.5f, /* z= */ 0f);
+  }
+
+  /**
+   * Returns whether a transformation (crop or rotation) is required.
+   *
+   * @param bufferWidth The width of the input buffer.
+   * @param bufferHeight The height of the input buffer.
+   * @param formatWidth The width of the video frame after rotation is applied.
+   * @param formatHeight The height of the video frame after rotation is applied.
+   * @param rotationDegrees The clockwise rotation to apply in degrees.
+   */
+  public static boolean needTransformation(
+      int bufferWidth, int bufferHeight, int formatWidth, int formatHeight, int rotationDegrees) {
+    if (rotationDegrees != 0) {
+      return true;
+    }
+    // If rotation is 0, unrotated dimensions are same as format dimensions.
+    return bufferWidth != formatWidth || bufferHeight != formatHeight;
   }
 
   /** Class only contains static methods. */

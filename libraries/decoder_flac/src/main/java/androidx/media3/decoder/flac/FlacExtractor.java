@@ -69,7 +69,7 @@ public final class FlacExtractor implements Extractor {
   @Target(TYPE_USE)
   @IntDef(
       flag = true,
-      value = {FLAG_DISABLE_ID3_METADATA})
+      value = {FLAG_DISABLE_ID3_METADATA, FLAG_DISABLE_ARTWORK_METADATA})
   public @interface Flags {}
 
   /**
@@ -79,10 +79,15 @@ public final class FlacExtractor implements Extractor {
   public static final int FLAG_DISABLE_ID3_METADATA =
       androidx.media3.extractor.flac.FlacExtractor.FLAG_DISABLE_ID3_METADATA;
 
+  /** Flag to disable parsing of artwork metadata. */
+  public static final int FLAG_DISABLE_ARTWORK_METADATA =
+      androidx.media3.extractor.flac.FlacExtractor.FLAG_DISABLE_ARTWORK_METADATA;
+
   // LINT.ThenChange(../../../../../../../../extractor/src/main/java/androidx/media3/extractor/flac/FlacExtractor.java)
 
   private final ParsableByteArray outputBuffer;
   private final boolean id3MetadataDisabled;
+  private final boolean ignoreArtwork;
 
   @Nullable private FlacDecoderJni decoderJni;
   private @MonotonicNonNull ExtractorOutput extractorOutput;
@@ -109,6 +114,7 @@ public final class FlacExtractor implements Extractor {
   public FlacExtractor(int flags) {
     outputBuffer = new ParsableByteArray();
     id3MetadataDisabled = (flags & FLAG_DISABLE_ID3_METADATA) != 0;
+    ignoreArtwork = (flags & FLAG_DISABLE_ARTWORK_METADATA) != 0;
   }
 
   @Override
@@ -125,14 +131,16 @@ public final class FlacExtractor implements Extractor {
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    id3Metadata = FlacMetadataReader.peekId3Metadata(input, /* parseData= */ !id3MetadataDisabled);
+    id3Metadata =
+        FlacMetadataReader.peekId3Metadata(
+            input, /* parseData= */ !id3MetadataDisabled, ignoreArtwork);
     return FlacMetadataReader.checkAndPeekStreamMarker(input);
   }
 
   @Override
   public int read(final ExtractorInput input, PositionHolder seekPosition) throws IOException {
     if (input.getPosition() == 0 && !id3MetadataDisabled && id3Metadata == null) {
-      id3Metadata = FlacMetadataReader.peekId3Metadata(input, /* parseData= */ true);
+      id3Metadata = FlacMetadataReader.peekId3Metadata(input, /* parseData= */ true, ignoreArtwork);
     }
 
     FlacDecoderJni decoderJni = initDecoderJni(input);

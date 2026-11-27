@@ -59,7 +59,6 @@ class PlayerActivity : AppCompatActivity() {
   private lateinit var mediaItemListView: ListView
   private lateinit var mediaItemListAdapter: MediaItemListAdapter
   private val mediaItemList: MutableList<MediaItem> = mutableListOf()
-  private var lastMediaItemId: String? = null
 
   @OptIn(UnstableApi::class) // PlayerView.hideController
   override fun onCreate(savedInstanceState: Bundle?) {

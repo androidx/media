@@ -176,10 +176,10 @@ public class TransformerMp4EditListTrimAndroidTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
                         new EditedMediaItem.Builder(mediaItem).build(),
-                        new EditedMediaItem.Builder(mediaItem).build())
-                    .build())
+                        new EditedMediaItem.Builder(mediaItem).build())))
             .build();
 
     ExportTestResult result =
@@ -218,10 +218,10 @@ public class TransformerMp4EditListTrimAndroidTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(new EditedMediaItem.Builder(mediaItem).build())
-                    .build(),
-                new EditedMediaItemSequence.Builder(new EditedMediaItem.Builder(mediaItem).build())
-                    .build())
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
             .build();
 
     ExportTestResult result =

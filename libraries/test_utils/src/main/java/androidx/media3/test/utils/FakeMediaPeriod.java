@@ -52,7 +52,6 @@ import com.google.common.collect.Sets;
 import com.google.common.math.DoubleMath;
 import java.io.IOException;
 import java.math.RoundingMode;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -131,7 +130,8 @@ public class FakeMediaPeriod implements MediaPeriod {
   private boolean deferOnPrepared;
   private boolean prepared;
   private long seekOffsetUs;
-  private long discontinuityPositionUs;
+  private long pendingDiscontinuityUs;
+  private boolean usesStreamPrerollFlags;
   private long lastSeekPositionUs;
 
   /**
@@ -260,7 +260,7 @@ public class FakeMediaPeriod implements MediaPeriod {
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
     sampleStreams = Sets.newIdentityHashSet();
-    discontinuityPositionUs = C.TIME_UNSET;
+    pendingDiscontinuityUs = C.TIME_UNSET;
     fakePreparationLoadTaskId = LoadEventInfo.getNewId();
   }
 
@@ -271,7 +271,7 @@ public class FakeMediaPeriod implements MediaPeriod {
    * @param discontinuityPositionUs The position to be returned, in microseconds.
    */
   public void setDiscontinuityPositionUs(long discontinuityPositionUs) {
-    this.discontinuityPositionUs = discontinuityPositionUs;
+    this.pendingDiscontinuityUs = discontinuityPositionUs;
   }
 
   /** Allows the fake media period to complete preparation. May be called on any thread. */
@@ -303,7 +303,9 @@ public class FakeMediaPeriod implements MediaPeriod {
   @Override
   public synchronized void prepare(Callback callback, long positionUs) {
     mediaSourceEventDispatcher.loadStarted(
-        new LoadEventInfo(fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime()),
+        new LoadEventInfo.Builder(
+                fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime())
+            .build(),
         C.DATA_TYPE_MEDIA,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,
@@ -366,10 +368,16 @@ public class FakeMediaPeriod implements MediaPeriod {
                 drmEventDispatcher,
                 selection.getSelectedFormat(),
                 sampleStreamItems);
+        if (pendingDiscontinuityUs != C.TIME_UNSET) {
+          sampleStream.setFlags(SampleStream.FLAG_HAS_PREROLL);
+        }
         sampleStreams.add(sampleStream);
         streams[i] = sampleStream;
         streamResetFlags[i] = true;
       }
+    }
+    if (usesStreamPrerollFlags) {
+      pendingDiscontinuityUs = C.TIME_UNSET;
     }
     return seekToUs(positionUs);
   }
@@ -387,10 +395,15 @@ public class FakeMediaPeriod implements MediaPeriod {
   }
 
   @Override
+  public void setUsesStreamPrerollFlags() {
+    this.usesStreamPrerollFlags = true;
+  }
+
+  @Override
   public long readDiscontinuity() {
     assertThat(prepared).isTrue();
-    long positionDiscontinuityUs = this.discontinuityPositionUs;
-    this.discontinuityPositionUs = C.TIME_UNSET;
+    long positionDiscontinuityUs = this.pendingDiscontinuityUs;
+    this.pendingDiscontinuityUs = C.TIME_UNSET;
     return positionDiscontinuityUs;
   }
 
@@ -506,14 +519,10 @@ public class FakeMediaPeriod implements MediaPeriod {
     prepared = true;
     Util.castNonNull(prepareCallback).onPrepared(this);
     mediaSourceEventDispatcher.loadCompleted(
-        new LoadEventInfo(
-            fakePreparationLoadTaskId,
-            FAKE_DATA_SPEC,
-            FAKE_DATA_SPEC.uri,
-            /* responseHeaders= */ Collections.emptyMap(),
-            SystemClock.elapsedRealtime(),
-            /* loadDurationMs= */ 0,
-            /* bytesLoaded= */ 100),
+        new LoadEventInfo.Builder(
+                fakePreparationLoadTaskId, FAKE_DATA_SPEC, SystemClock.elapsedRealtime())
+            .setBytesLoaded(100)
+            .build(),
         C.DATA_TYPE_MEDIA,
         C.TRACK_TYPE_UNKNOWN,
         /* trackFormat= */ null,

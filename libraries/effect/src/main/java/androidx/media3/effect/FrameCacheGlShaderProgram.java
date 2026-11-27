@@ -31,10 +31,6 @@ import java.io.IOException;
  * <p>Implements {@link FrameCache}.
  */
 /* package */ class FrameCacheGlShaderProgram extends BaseGlShaderProgram {
-  private static final String VERTEX_SHADER_TRANSFORMATION_ES2_PATH =
-      "shaders/vertex_shader_transformation_es2.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_ES2_PATH =
-      "shaders/fragment_shader_transformation_es2.glsl";
 
   private final GlProgram copyProgram;
 
@@ -47,8 +43,8 @@ import java.io.IOException;
       this.copyProgram =
           new GlProgram(
               context,
-              VERTEX_SHADER_TRANSFORMATION_ES2_PATH,
-              FRAGMENT_SHADER_TRANSFORMATION_ES2_PATH);
+              /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+              /* fragmentShaderResId= */ R.raw.fragment_shader_transformation_es2);
     } catch (IOException | GlUtil.GlException e) {
       throw VideoFrameProcessingException.from(e);
     }

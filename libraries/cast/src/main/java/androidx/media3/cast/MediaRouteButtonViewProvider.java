@@ -19,12 +19,11 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.ViewProvider;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.mediarouter.app.MediaRouteButton;
-import com.google.android.gms.cast.framework.CastButtonFactory;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 /** A provider of a media route button view to be displayed in the player UI. */
@@ -51,11 +50,8 @@ public final class MediaRouteButtonViewProvider implements ViewProvider {
         (MediaRouteButton)
             inflater.inflate(
                 R.layout.media_route_button_view, viewGroup, /* attachToRoot= */ false);
-    return CallbackToFutureAdapter.getFuture(
-        completer ->
-            CastButtonFactory.setUpMediaRouteButton(
-                    context, BackgroundExecutor.get(), mediaRouteButton)
-                .addOnSuccessListener(unused -> completer.set(mediaRouteButton))
-                .addOnFailureListener(e -> completer.setException(e)));
+    ListenableFuture<Void> setUpFuture =
+        MediaRouteButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
+    return Futures.transform(setUpFuture, unused -> mediaRouteButton, BackgroundExecutor.get());
   }
 }

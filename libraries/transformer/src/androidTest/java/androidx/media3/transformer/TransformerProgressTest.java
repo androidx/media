@@ -15,18 +15,16 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION;
-import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
+import static androidx.media3.test.utils.TestUtil.createInternalCacheFile;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
@@ -43,6 +41,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -118,7 +117,8 @@ public class TransformerProgressTest {
                 new Composition.Builder(
                         EditedMediaItemSequence.withAudioAndVideoFrom(
                             ImmutableList.of(
-                                new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                new EditedMediaItem.Builder(
+                                        MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
                                     .setEffects(
                                         new Effects(
                                             /* audioProcessors= */ ImmutableList.of(),
@@ -127,7 +127,7 @@ public class TransformerProgressTest {
                                     .build())))
                     .build();
             File outputVideoFile =
-                createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+                createInternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
             Transformer transformer = new Transformer.Builder(context).build();
             transformer.addListener(listener);
             transformer.start(composition, outputVideoFile.getPath());
@@ -165,12 +165,12 @@ public class TransformerProgressTest {
   }
 
   @Test
+  // MediaCodec returns a segmentation fault fails at this SDK level on emulators.
+  @SdkSuppress(excludedSdks = 26)
   public void getProgress_trimOptimizationEnabledAndApplied_givesIncreasingPercentages()
       throws Exception {
     // The trim optimization is only guaranteed to work on emulator for this file.
     assumeTrue(isRunningOnEmulator());
-    // MediaCodec returns a segmentation fault fails at this SDK level on emulators.
-    assumeFalse(SDK_INT == 26);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
@@ -206,7 +206,7 @@ public class TransformerProgressTest {
                   }
                 })
             .build();
-    File outputVideoFile = createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+    File outputVideoFile = createInternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(
@@ -243,13 +243,13 @@ public class TransformerProgressTest {
     }
   }
 
+  // MediaCodec returns a segmentation fault fails at this SDK level on emulators.
+  @SdkSuppress(excludedSdks = 26)
   @Test
   public void getProgress_trimOptimizationEnabledAndActive_returnsConsistentStates()
       throws Exception {
     // The trim optimization is only guaranteed to work on emulator for this file.
     assumeTrue(isRunningOnEmulator());
-    // MediaCodec returns a segmentation fault fails at this SDK level on emulators.
-    assumeFalse(SDK_INT == 26);
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
@@ -286,7 +286,7 @@ public class TransformerProgressTest {
                   }
                 })
             .build();
-    File outputVideoFile = createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+    File outputVideoFile = createInternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(

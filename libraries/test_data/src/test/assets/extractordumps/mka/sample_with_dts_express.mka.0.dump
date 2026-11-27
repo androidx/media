@@ -1,0 +1,63 @@
+seekMap:
+  isSeekable = true
+  duration = 938000
+  getPosition(0) = [[timeUs=0, position=469]]
+  getPosition(1) = [[timeUs=0, position=469]]
+  getPosition(469000) = [[timeUs=0, position=469]]
+  getPosition(938000) = [[timeUs=0, position=469]]
+numberOfTracks = 1
+track 1:
+  total output bytes = 45056
+  sample count = 11
+  format 0:
+    id = 1
+    containerMimeType = video/x-matroska
+    sampleMimeType = audio/vnd.dts.hd;profile=lbr
+    channelCount = 6
+    sampleRate = 48000
+    language = und
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 4096, hash 1F0B79C5
+  sample 1:
+    time = 85000
+    flags = 1
+    data = length 4096, hash 2EC282A1
+  sample 2:
+    time = 171000
+    flags = 1
+    data = length 4096, hash 6B7902F0
+  sample 3:
+    time = 256000
+    flags = 1
+    data = length 4096, hash 8FC4EE2C
+  sample 4:
+    time = 341000
+    flags = 1
+    data = length 4096, hash 67899547
+  sample 5:
+    time = 427000
+    flags = 1
+    data = length 4096, hash 1BE4CF1C
+  sample 6:
+    time = 512000
+    flags = 1
+    data = length 4096, hash 620F5E51
+  sample 7:
+    time = 597000
+    flags = 1
+    data = length 4096, hash 4D3E0644
+  sample 8:
+    time = 683000
+    flags = 1
+    data = length 4096, hash F69B5FED
+  sample 9:
+    time = 768000
+    flags = 1
+    data = length 4096, hash 93D31EA7
+  sample 10:
+    time = 853000
+    flags = 1
+    data = length 4096, hash 41F1D921
+tracksEnded = true

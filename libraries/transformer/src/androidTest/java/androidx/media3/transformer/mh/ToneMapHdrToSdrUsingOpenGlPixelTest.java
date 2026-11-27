@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -49,6 +50,7 @@ import org.junit.runner.RunWith;
  * output matches expected output, either from a golden file or from another edit.
  */
 // TODO: b/263395272 - Move this test to effects/mh tests.
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class ToneMapHdrToSdrUsingOpenGlPixelTest {
   private static final String TAG = "ToneMapHdrToSdrGl";

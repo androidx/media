@@ -33,6 +33,6 @@ import androidx.media3.ui.compose.state.rememberShuffleButtonState
  */
 @UnstableApi
 @Composable
-fun ShuffleButton(player: Player, content: @Composable ShuffleButtonState.() -> Unit) {
+fun ShuffleButton(player: Player?, content: @Composable ShuffleButtonState.() -> Unit) {
   rememberShuffleButtonState(player).content()
 }

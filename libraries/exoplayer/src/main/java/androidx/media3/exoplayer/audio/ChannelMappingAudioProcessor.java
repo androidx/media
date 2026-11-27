@@ -23,12 +23,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.primitives.ImmutableIntArray;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 /**
  * An {@link AudioProcessor} that applies a mapping from input channels onto specified output
@@ -37,26 +36,34 @@ import java.util.Arrays;
 @UnstableApi
 public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
 
-  @Nullable private int[] pendingOutputChannels;
-  @Nullable private int[] outputChannels;
+  @Nullable private ImmutableIntArray pendingOutputChannels;
+  @Nullable private ImmutableIntArray outputChannels;
+
+  /**
+   * @deprecated Use {@link #setChannelMap(ImmutableIntArray)} instead.
+   */
+  @Deprecated
+  public void setChannelMap(@Nullable int[] outputChannels) {
+    setChannelMap(outputChannels == null ? null : ImmutableIntArray.copyOf(outputChannels));
+  }
 
   /**
    * Resets the channel mapping. After calling this method, call {@link #configure(AudioFormat)} to
    * start using the new channel map.
    *
-   * <p>See {@link AudioSink#configure(Format, int, int[])}.
+   * <p>See {@link AudioSink#configure(AudioSink.AudioSinkConfig)}.
    *
    * @param outputChannels The mapping from input to output channel indices, or {@code null} to
    *     leave the input unchanged.
    */
-  public void setChannelMap(@Nullable int[] outputChannels) {
+  public void setChannelMap(@Nullable ImmutableIntArray outputChannels) {
     pendingOutputChannels = outputChannels;
   }
 
   @Override
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
-    @Nullable int[] outputChannels = pendingOutputChannels;
+    @Nullable ImmutableIntArray outputChannels = pendingOutputChannels;
     if (outputChannels == null) {
       return AudioFormat.NOT_SET;
     }
@@ -65,34 +72,33 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
 
-    boolean active = inputAudioFormat.channelCount != outputChannels.length;
-    for (int i = 0; i < outputChannels.length; i++) {
-      int channelIndex = outputChannels[i];
+    int outputLength = outputChannels.length();
+    boolean active = inputAudioFormat.channelCount != outputLength;
+    for (int i = 0; i < outputLength; i++) {
+      int channelIndex = outputChannels.get(i);
       if (channelIndex >= inputAudioFormat.channelCount) {
         throw new UnhandledAudioFormatException(
-            "Channel map ("
-                + Arrays.toString(outputChannels)
-                + ") trying to access non-existent input channel.",
+            "Channel map (" + outputChannels + ") trying to access non-existent input channel.",
             inputAudioFormat);
       }
       active |= (channelIndex != i);
     }
     return active
-        ? new AudioFormat(
-            inputAudioFormat.sampleRate, outputChannels.length, inputAudioFormat.encoding)
+        ? new AudioFormat(inputAudioFormat.sampleRate, outputLength, inputAudioFormat.encoding)
         : AudioFormat.NOT_SET;
   }
 
   @Override
   public void queueInput(ByteBuffer inputBuffer) {
-    int[] outputChannels = checkNotNull(this.outputChannels);
+    ImmutableIntArray outputChannels = checkNotNull(this.outputChannels);
     int position = inputBuffer.position();
     int limit = inputBuffer.limit();
     int frameCount = (limit - position) / inputAudioFormat.bytesPerFrame;
     int outputSize = frameCount * outputAudioFormat.bytesPerFrame;
     ByteBuffer buffer = replaceOutputBuffer(outputSize);
     while (position < limit) {
-      for (int channelIndex : outputChannels) {
+      for (int i = 0; i < outputChannels.length(); i++) {
+        int channelIndex = outputChannels.get(i);
         int inputIndex = position + getByteDepth(inputAudioFormat.encoding) * channelIndex;
         switch (inputAudioFormat.encoding) {
           case C.ENCODING_PCM_8BIT:
@@ -111,7 +117,12 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
             buffer.putInt(inputBuffer.getInt(inputIndex));
             break;
           case C.ENCODING_PCM_FLOAT:
+          case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
             buffer.putFloat(inputBuffer.getFloat(inputIndex));
+            break;
+          case C.ENCODING_PCM_DOUBLE:
+          case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+            buffer.putDouble(inputBuffer.getDouble(inputIndex));
             break;
           default:
             throw new IllegalStateException("Unexpected encoding: " + inputAudioFormat.encoding);
@@ -124,7 +135,7 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
   }
 
   @Override
-  protected void onFlush() {
+  protected void onFlush(StreamMetadata streamMetadata) {
     outputChannels = pendingOutputChannels;
   }
 

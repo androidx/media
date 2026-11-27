@@ -45,6 +45,7 @@ public final class AssetInfo {
     private int videoFrameCount;
     private int audioSampleCount;
     private long videoDurationUs;
+    private long audioDurationUs;
     private @MonotonicNonNull ImmutableList<Long> videoTimestampsUs;
 
     public Builder(String uri) {
@@ -53,6 +54,7 @@ public final class AssetInfo {
       videoFrameCount = C.LENGTH_UNSET;
       audioSampleCount = C.LENGTH_UNSET;
       videoDurationUs = C.TIME_UNSET;
+      audioDurationUs = C.TIME_UNSET;
     }
 
     /** See {@link AssetInfo#trackCount}. */
@@ -92,6 +94,13 @@ public final class AssetInfo {
       return this;
     }
 
+    /** See {@link AssetInfo#audioDurationUs}. */
+    @CanIgnoreReturnValue
+    public Builder setAudioDurationUs(long durationUs) {
+      this.audioDurationUs = durationUs;
+      return this;
+    }
+
     /** See {@link AssetInfo#videoTimestampsUs}. */
     @CanIgnoreReturnValue
     public Builder setVideoTimestampsUs(ImmutableList<Long> videoTimestampsUs) {
@@ -111,6 +120,7 @@ public final class AssetInfo {
           trackCount,
           videoFormat,
           videoDurationUs,
+          audioDurationUs,
           videoFrameCount,
           audioSampleCount,
           videoTimestampsUs);
@@ -211,6 +221,7 @@ public final class AssetInfo {
                   .setSampleMimeType(VIDEO_H264)
                   .setWidth(1920)
                   .setHeight(1080)
+                  .setCodecs("avc1.42C028")
                   .setFrameRate(30.f)
                   .build())
           .build();
@@ -228,6 +239,40 @@ public final class AssetInfo {
                   .setHeight(360)
                   .setFrameRate(30.0f)
                   .build())
+          .build();
+
+  public static final AssetInfo MP4_12_5FPS =
+      new AssetInfo.Builder("asset:///media/mp4/sample_12_5fps_720p_1s.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(12.5f)
+                  .build())
+          .setVideoDurationUs(1_030_000L)
+          .setVideoFrameCount(13)
+          .setVideoTimestampsUs(
+              ImmutableList.of(
+                  0L, 80_000L, 160_000L, 240_000L, 320_000L, 400_000L, 480_000L, 560_000L, 640_000L,
+                  720_000L, 800_000L, 880_000L, 960_000L))
+          .build();
+
+  public static final AssetInfo MP4_15FPS =
+      new AssetInfo.Builder("asset:///media/mp4/sample_15fps_720p_1s.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(15f)
+                  .build())
+          .setVideoDurationUs(1_030_000L)
+          .setVideoFrameCount(15)
+          .setVideoTimestampsUs(
+              ImmutableList.of(
+                  0L, 66_666L, 133_333L, 200_000L, 266_666L, 333_333L, 400_000L, 466_666L, 533_333L,
+                  600_000L, 666_666L, 733_333L, 800_000L, 866_666L, 933_333L))
           .build();
 
   /**
@@ -284,7 +329,11 @@ public final class AssetInfo {
                   .build())
           .build();
 
-  public static final AssetInfo MP4_ASSET =
+  /**
+   * An advanced MP4 test asset with edit lists, B-frames, non-standard 1080x720 video resolution.
+   * Consider using {@link #MP4_SIMPLE_ASSET} instead.
+   */
+  public static final AssetInfo MP4_ADVANCED_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/sample.mp4")
           .setVideoFormat(
               new Format.Builder()
@@ -296,6 +345,32 @@ public final class AssetInfo {
                   .build())
           .setTrackCount(2)
           .setVideoDurationUs(1_024_000L)
+          .setVideoFrameCount(30)
+          .setAudioSampleCount(45)
+          .setVideoTimestampsUs(
+              ImmutableList.of(
+                  0L, 33_366L, 66_733L, 100_100L, 133_466L, 166_833L, 200_200L, 233_566L, 266_933L,
+                  300_300L, 333_666L, 367_033L, 400_400L, 433_766L, 467_133L, 500_500L, 533_866L,
+                  567_233L, 600_600L, 633_966L, 667_333L, 700_700L, 734_066L, 767_433L, 800_800L,
+                  834_166L, 867_533L, 900_900L, 934_266L, 967_633L))
+          .build();
+
+  /**
+   * A simple MP4 test asset with standard QVGA resolution, and constrained baseline H.264 profile
+   * which should be widely supported on devices and emulators.
+   */
+  public static final AssetInfo MP4_SIMPLE_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_simple.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(320)
+                  .setHeight(240)
+                  .setFrameRate(29.97f)
+                  .setCodecs("avc1.42C00D")
+                  .build())
+          .setTrackCount(2)
+          .setVideoDurationUs(1_089_000L)
           .setVideoFrameCount(30)
           .setAudioSampleCount(45)
           .setVideoTimestampsUs(
@@ -548,6 +623,7 @@ public final class AssetInfo {
                           .build())
                   .build())
           .setVideoFrameCount(60)
+          .setVideoDurationUs(1_009_000L)
           .build();
 
   public static final AssetInfo MP4_ASSET_WITH_SHORTER_AUDIO =
@@ -638,6 +714,7 @@ public final class AssetInfo {
                           .build())
                   .setCodecs("hvc1.2.4.L153")
                   .build())
+          .setVideoDurationUs(300_000)
           .build();
 
   public static final AssetInfo MP4_ASSET_720P_4_SECOND_HDR10 =
@@ -685,7 +762,7 @@ public final class AssetInfo {
                   .setWidth(1280)
                   .setHeight(720)
                   .setFrameRate(30.00f)
-                  .setCodecs("hev1.08.02")
+                  .setCodecs("dvhe.08.02")
                   .setColorInfo(
                       new ColorInfo.Builder()
                           .setColorTransfer(C.COLOR_TRANSFER_HLG)
@@ -1118,12 +1195,24 @@ public final class AssetInfo {
   public static final AssetInfo MP3_ASSET =
       new AssetInfo.Builder("asset:///media/mp3/test-cbr-info-header.mp3").build();
 
+  public static final AssetInfo MP3_ASSET_CBR_TRAILING_GARBAGE =
+      new AssetInfo.Builder("asset:///media/mp3/bear-cbr-no-seek-table-trailing-garbage.mp3")
+          .setAudioDurationUs(2_821_187L)
+          .build();
+
+  public static final AssetInfo MP3_ASSET_CBR_TRAILING_ID3V1 =
+      new AssetInfo.Builder("asset:///media/mp3/sine-wave-cbr-trailing-id3v1.mp3")
+          .setAudioDurationUs(1_044_875)
+          .build();
+
   // This file contains 1 second of audio at 44.1kHZ.
   public static final AssetInfo WAV_ASSET =
-      new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
+      new AssetInfo.Builder("asset:///media/wav/sample.wav").setAudioDurationUs(1_000_000).build();
 
   public static final AssetInfo WAV_96KHZ_ASSET =
-      new AssetInfo.Builder("asset:///media/wav/sample_96khz.wav").build();
+      new AssetInfo.Builder("asset:///media/wav/sample_96khz.wav")
+          .setAudioDurationUs(1_000_000)
+          .build();
 
   public static final AssetInfo WAV_192KHZ_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample_192khz.wav").build();
@@ -1132,23 +1221,35 @@ public final class AssetInfo {
       new AssetInfo.Builder("asset:///media/wav/sample_80KHz_mono_20_repeating_1_samples.wav")
           .build();
 
+  public static final AssetInfo WAV_24LE_PCM_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sine_24le.wav")
+          .setAudioSampleCount(44100)
+          .setAudioDurationUs(1_000_000)
+          .build();
+
+  public static final AssetInfo WAV_32LE_PCM_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sine_32le.wav")
+          .setAudioSampleCount(44100)
+          .setAudioDurationUs(1_000_000)
+          .build();
+
   public static final AssetInfo FLAC_STEREO_ASSET =
       new AssetInfo.Builder("asset:///media/flac/bear.flac").build();
 
   public static final AssetInfo AMR_NB_3GP_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/bbb_mono_8kHz_12.2kbps_amrnb.3gp")
+      new AssetInfo.Builder("asset:///media/3gp/bbb_mono_8kHz_12.2kbps_amrnb.3gp")
           .setTrackCount(1)
           .setAudioSampleCount(151)
           .build();
 
   public static final AssetInfo AMR_WB_3GP_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/bbb_mono_16kHz_23.05kbps_amrwb.3gp")
+      new AssetInfo.Builder("asset:///media/3gp/bbb_mono_16kHz_23.05kbps_amrwb.3gp")
           .setTrackCount(1)
           .setAudioSampleCount(150)
           .build();
 
   public static final AssetInfo H263_3GP_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/bbb_176x144_128kbps_15fps_h263.3gp")
+      new AssetInfo.Builder("asset:///media/3gp/bbb_176x144_128kbps_15fps_h263.3gp")
           .setTrackCount(1)
           .setVideoFrameCount(15)
           .build();
@@ -1158,6 +1259,12 @@ public final class AssetInfo {
           .setTrackCount(1)
           .setVideoFrameCount(15)
           .build();
+
+  public static final AssetInfo RAW_AAC_ASSET =
+      new AssetInfo.Builder("asset:///media/aac/sine.aac").setAudioDurationUs(1_040_000).build();
+
+  public static final AssetInfo AMR_NB_SINE_ASSET =
+      new AssetInfo.Builder("asset:///media/amr/sine-nb.amr").setAudioDurationUs(1_050_000).build();
 
   public static final AssetInfo VORBIS_OGG_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/bbb_1ch_16kHz_q10_vorbis.ogg")
@@ -1180,6 +1287,9 @@ public final class AssetInfo {
   /** Video duration in microseconds, or {@link C#TIME_UNSET}. */
   public final long videoDurationUs;
 
+  /** Audio duration in microseconds, or {@link C#TIME_UNSET}. */
+  public final long audioDurationUs;
+
   /** Video frame count, or {@link C#LENGTH_UNSET}. */
   public final int videoFrameCount;
 
@@ -1194,6 +1304,7 @@ public final class AssetInfo {
       int trackCount,
       @Nullable Format videoFormat,
       long videoDurationUs,
+      long audioDurationUs,
       int videoFrameCount,
       int audioSampleCount,
       @Nullable ImmutableList<Long> videoTimestampsUs) {
@@ -1201,6 +1312,7 @@ public final class AssetInfo {
     this.trackCount = trackCount;
     this.videoFormat = videoFormat;
     this.videoDurationUs = videoDurationUs;
+    this.audioDurationUs = audioDurationUs;
     this.videoFrameCount = videoFrameCount;
     this.audioSampleCount = audioSampleCount;
     this.videoTimestampsUs = videoTimestampsUs;

@@ -43,7 +43,7 @@ public class MediaTestUtilsTest {
     try {
       parcel.writeBundle(invalid);
       parcel.setDataPosition(0);
-      restoredBundle = parcel.readBundle();
+      restoredBundle = parcel.readBundle(MediaTestUtilsTest.class.getClassLoader());
     } finally {
       parcel.recycle();
     }

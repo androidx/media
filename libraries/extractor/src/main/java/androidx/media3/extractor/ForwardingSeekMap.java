@@ -45,4 +45,9 @@ public class ForwardingSeekMap implements SeekMap {
   public SeekPoints getSeekPoints(long timeUs) {
     return seekMap.getSeekPoints(timeUs);
   }
+
+  @Override
+  public boolean isEstimated() {
+    return seekMap.isEstimated();
+  }
 }

@@ -127,6 +127,7 @@ public final class ImaAdsLoader implements AdsLoader {
     private boolean focusSkipButtonWhenAvailable;
     private boolean playAdBeforeStartPosition;
     private boolean debugModeEnabled;
+    private boolean enableCustomTabs;
     private ImaUtil.ImaFactory imaFactory;
 
     /**
@@ -142,6 +143,7 @@ public final class ImaAdsLoader implements AdsLoader {
       mediaBitrate = BITRATE_UNSET;
       focusSkipButtonWhenAvailable = true;
       playAdBeforeStartPosition = true;
+      enableCustomTabs = false;
       imaFactory = new DefaultImaFactory();
     }
 
@@ -326,6 +328,21 @@ public final class ImaAdsLoader implements AdsLoader {
     }
 
     /**
+     * Sets whether to enable custom tabs for the ad click-through URLs. The default value is {@code
+     * false}.
+     *
+     * @param enableCustomTabs Whether to enable custom tabs for the ad click-through URLs.
+     * @return This builder, for convenience.
+     * @see AdsRenderingSettings#setEnableCustomTabs(boolean)
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setEnableCustomTabs(boolean enableCustomTabs) {
+      this.enableCustomTabs = enableCustomTabs;
+      return this;
+    }
+
+    /**
      * Sets the media maximum recommended bitrate for ads, in bps.
      *
      * @param bitrate The media maximum recommended bitrate for ads, in bps.
@@ -410,6 +427,7 @@ public final class ImaAdsLoader implements AdsLoader {
               mediaLoadTimeoutMs,
               focusSkipButtonWhenAvailable,
               playAdBeforeStartPosition,
+              enableCustomTabs,
               mediaBitrate,
               enableContinuousPlayback,
               adMediaMimeTypes,

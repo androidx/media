@@ -25,6 +25,7 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Integer.max;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -40,6 +41,7 @@ import androidx.annotation.StringRes;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.BitmapLoader;
@@ -309,8 +311,8 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       ImmutableList<CommandButton> mediaButtonPreferences,
       MediaNotification.ActionFactory actionFactory,
       Callback onNotificationChangedCallback) {
-    ensureNotificationChannel();
-
+    Util.ensureNotificationChannel(
+        notificationManager, channelId, context.getString(channelNameResourceId));
     Player player = mediaSession.getPlayer();
     NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId);
     int notificationId = notificationIdProvider.getNotificationId(mediaSession);
@@ -404,6 +406,11 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     return false;
   }
 
+  @Override
+  public NotificationChannelInfo getNotificationChannelInfo() {
+    return new NotificationChannelInfo(channelId, context.getString(channelNameResourceId));
+  }
+
   // Other methods
 
   /**
@@ -434,7 +441,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * <p>To make the media button preferences and custom commands work, you need to {@linkplain
    * MediaSession#setMediaButtonPreferences set the media button preferences} and add the custom
    * commands to the available commands when a controller {@linkplain
-   * MediaSession.Callback#onConnect(MediaSession, MediaSession.ControllerInfo) connects to the
+   * MediaSession.Callback#onConnectAsync(MediaSession, MediaSession.ControllerInfo) connects to the
    * session}. Controllers that connect after you called {@link
    * MediaSession#setMediaButtonPreferences} need the custom command set in {@link
    * MediaSession.Callback#onPostConnect(MediaSession, MediaSession.ControllerInfo)} too.
@@ -454,7 +461,10 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       boolean showPauseButton) {
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
     boolean hasCustomBackButton =
         CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK);
     boolean hasCustomForwardButton =
@@ -622,14 +632,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     return metadata.artist;
   }
 
-  private void ensureNotificationChannel() {
-    if (SDK_INT < 26 || notificationManager.getNotificationChannel(channelId) != null) {
-      return;
-    }
-    Api26.createNotificationChannel(
-        notificationManager, channelId, context.getString(channelNameResourceId));
-  }
-
   private static long getPlaybackStartTimeEpochMs(Player player) {
     if (player.isPlaying()
         && !player.isPlayingAd()
@@ -645,11 +647,23 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   private static int getMaxNotificationIconSize() {
     Resources res = Resources.getSystem();
     try {
-      int id = res.getIdentifier("notification_right_icon_size", "dimen", "android");
-      return res.getDimensionPixelSize(id);
+      int rightIconSizeId = res.getIdentifier("notification_right_icon_size", "dimen", "android");
+      int iconSize = res.getDimensionPixelSize(rightIconSizeId);
+      if (SDK_INT < 31) {
+        int mediaImageMaxHeightId =
+            res.getIdentifier("notification_media_image_max_height", "dimen", "android");
+        int mediaImageMaxHeight = res.getDimensionPixelSize(mediaImageMaxHeightId);
+        int mediaImageMaxWidthId =
+            res.getIdentifier("notification_media_image_max_width", "dimen", "android");
+        int mediaImageMaxWidth = res.getDimensionPixelSize(mediaImageMaxWidthId);
+        iconSize = max(max(iconSize, mediaImageMaxWidth), mediaImageMaxHeight);
+      }
+      return iconSize;
     } catch (Resources.NotFoundException e) {
-      // Fallback to assumed icon size of 48dp if the system property is missing.
-      return (int) (48 * res.getDisplayMetrics().density);
+      // Fallback to default AOSP icon size if the system property is missing (48dp for right icon
+      // size and 280dp for media image max width used before API 31).
+      int assumedSizeDp = SDK_INT < 31 ? 280 : 48;
+      return (int) (assumedSizeDp * res.getDisplayMetrics().density);
     }
   }
 
@@ -687,22 +701,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       if (!discarded) {
         Log.w(TAG, getBitmapLoadErrorMessage(t));
       }
-    }
-  }
-
-  @RequiresApi(26)
-  private static class Api26 {
-    public static void createNotificationChannel(
-        NotificationManager notificationManager, String channelId, String channelName) {
-      NotificationChannel channel =
-          new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW);
-      if (SDK_INT <= 27) {
-        // API 28+ will automatically hide the app icon 'badge' for notifications using
-        // Notification.MediaStyle, but we have to manually hide it for APIs 26 (when badges were
-        // added) and 27.
-        channel.setShowBadge(false);
-      }
-      notificationManager.createNotificationChannel(channel);
     }
   }
 

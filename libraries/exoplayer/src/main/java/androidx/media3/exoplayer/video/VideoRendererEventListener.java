@@ -197,7 +197,6 @@ public interface VideoRendererEventListener {
      * Invokes {@link VideoRendererEventListener#onVideoInputFormatChanged(Format,
      * DecoderReuseEvaluation)}.
      */
-    @SuppressWarnings("deprecation") // Calling deprecated listener method.
     public void inputFormatChanged(
         Format format, @Nullable DecoderReuseEvaluation decoderReuseEvaluation) {
       if (handler != null) {

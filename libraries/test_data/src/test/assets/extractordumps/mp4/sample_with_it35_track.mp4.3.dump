@@ -1,0 +1,171 @@
+seekMap:
+  isSeekable = true
+  duration = 1003000
+  getPosition(0) = [[timeUs=0, position=48]]
+  getPosition(1) = [[timeUs=0, position=48]]
+  getPosition(501500) = [[timeUs=0, position=48]]
+  getPosition(1003000) = [[timeUs=0, position=48]]
+numberOfTracks = 2
+track 0:
+  total output bytes = 43683
+  sample count = 30
+  track duration = 1003000
+  format 0:
+    averageBitrate = 348493
+    peakBitrate = 348493
+    id = 1
+    containerMimeType = video/mp4
+    sampleMimeType = video/av01
+    codecs = av01.0.00M.10
+    maxInputSize = 18085
+    width = 480
+    height = 270
+    frameRate = 29.92
+    colorInfo:
+      colorSpace = 6
+      colorRange = 2
+      colorTransfer = 6
+      lumaBitdepth = 10
+      chromaBitdepth = 10
+    language = en
+    metadata = entries=[TSSE: description=null: values=[Lavf62.12.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=0]
+    initializationData:
+      data = length 20, hash 27B68A02
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 18055, hash 4A4CEBD8
+  sample 1:
+    time = 33426
+    flags = 0
+    data = length 10390, hash 1A97B887
+  sample 2:
+    time = 66852
+    flags = 0
+    data = length 3, hash D5E0
+  sample 3:
+    time = 100278
+    flags = 0
+    data = length 111, hash F52A3D2C
+  sample 4:
+    time = 133704
+    flags = 0
+    data = length 3, hash D5D0
+  sample 5:
+    time = 167130
+    flags = 0
+    data = length 748, hash 7FA30B17
+  sample 6:
+    time = 200557
+    flags = 0
+    data = length 3, hash D610
+  sample 7:
+    time = 233983
+    flags = 0
+    data = length 94, hash D426B3A3
+  sample 8:
+    time = 267409
+    flags = 0
+    data = length 3, hash D5C0
+  sample 9:
+    time = 300835
+    flags = 0
+    data = length 1487, hash 1B89F2D3
+  sample 10:
+    time = 334261
+    flags = 0
+    data = length 3, hash D5D0
+  sample 11:
+    time = 367688
+    flags = 0
+    data = length 243, hash 83AC8EF9
+  sample 12:
+    time = 401114
+    flags = 0
+    data = length 3, hash D600
+  sample 13:
+    time = 434540
+    flags = 0
+    data = length 719, hash 3F9A2D2F
+  sample 14:
+    time = 467966
+    flags = 0
+    data = length 3, hash D5E0
+  sample 15:
+    time = 501392
+    flags = 0
+    data = length 398, hash 29898A8D
+  sample 16:
+    time = 534818
+    flags = 0
+    data = length 200, hash 18678644
+  sample 17:
+    time = 568245
+    flags = 0
+    data = length 3, hash D5B0
+  sample 18:
+    time = 601671
+    flags = 0
+    data = length 8443, hash 90C5F9E
+  sample 19:
+    time = 635097
+    flags = 0
+    data = length 3, hash D5C0
+  sample 20:
+    time = 668523
+    flags = 0
+    data = length 299, hash 3219B04
+  sample 21:
+    time = 701949
+    flags = 0
+    data = length 222, hash FBB32D8
+  sample 22:
+    time = 735376
+    flags = 0
+    data = length 3, hash D600
+  sample 23:
+    time = 768802
+    flags = 0
+    data = length 645, hash 3FF6F2DF
+  sample 24:
+    time = 802228
+    flags = 0
+    data = length 3, hash D5E0
+  sample 25:
+    time = 835654
+    flags = 0
+    data = length 251, hash 83CE17A6
+  sample 26:
+    time = 869080
+    flags = 0
+    data = length 253, hash 34714BEA
+  sample 27:
+    time = 902506
+    flags = 0
+    data = length 3, hash D610
+  sample 28:
+    time = 935933
+    flags = 0
+    data = length 482, hash 4D8E647E
+  sample 29:
+    time = 969359
+    flags = 536870912
+    data = length 607, hash 230AC585
+track 1:
+  total output bytes = 245
+  sample count = 1
+  track duration = 1003000
+  format 0:
+    averageBitrate = 58637
+    id = 2
+    containerMimeType = video/mp4
+    sampleMimeType = application/x-itut-t35
+    maxInputSize = 275
+    metadata = entries=[TSSE: description=null: values=[Lavf62.12.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    initializationData:
+      data = length 5, hash FD925165
+  sample 0:
+    time = 969359
+    flags = 536870913
+    data = length 245, hash 7D03F36A
+tracksEnded = true

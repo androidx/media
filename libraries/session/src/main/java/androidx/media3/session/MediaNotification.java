@@ -35,8 +35,8 @@ public final class MediaNotification {
    * Event key to indicate a media notification was dismissed.
    *
    * <p>This event key can be used as an extras key for a boolean extra on a media button pending
-   * intent, and as as custom session command action to inform the media notification controller
-   * that a notification was dismissed.
+   * intent, and as custom session command action to inform the media notification controller that a
+   * notification was dismissed.
    */
   @UnstableApi
   public static final String NOTIFICATION_DISMISSED_EVENT_KEY =
@@ -95,7 +95,7 @@ public final class MediaNotification {
      * provider} that provided them.
      *
      * <p>The returned {@link NotificationCompat.Action} will have a {@link PendingIntent} with the
-     * extras from {@link SessionCommand#customExtras}. Accordingly the {@linkplain
+     * extras from {@link SessionCommand#customExtras}. Accordingly, the {@linkplain
      * SessionCommand#customExtras command's extras} will be passed to {@link
      * Provider#handleCustomCommand(MediaSession, String, Bundle)} when the action is executed.
      *
@@ -110,10 +110,11 @@ public final class MediaNotification {
      * Creates a {@link PendingIntent} for a media action that will be handled by the library.
      *
      * @param mediaSession The media session to which the action will be sent.
-     * @param command The {@link PendingIntent}.
+     * @param command The {@link Player.Command}.
+     * @return The {@link PendingIntent}.
      */
     PendingIntent createMediaActionPendingIntent(
-        MediaSession mediaSession, @Player.Command long command);
+        MediaSession mediaSession, @Player.Command int command);
 
     /**
      * Creates a {@link PendingIntent} triggered when the notification is dismissed.
@@ -159,6 +160,28 @@ public final class MediaNotification {
       void onNotificationChanged(MediaNotification notification);
     }
 
+    /** Properties of the notification channel used for the notification. */
+    class NotificationChannelInfo {
+      private final String id;
+      private final String name;
+
+      /** Creates an instance. */
+      public NotificationChannelInfo(String id, String name) {
+        this.id = id;
+        this.name = name;
+      }
+
+      /** Returns the channel ID. */
+      public String getId() {
+        return id;
+      }
+
+      /** Returns the channel name. */
+      public String getName() {
+        return name;
+      }
+    }
+
     /**
      * Creates a new {@link MediaNotification}.
      *
@@ -189,6 +212,13 @@ public final class MediaNotification {
      * @see ActionFactory#createCustomAction
      */
     boolean handleCustomCommand(MediaSession session, String action, Bundle extras);
+
+    /**
+     * Returns the info of the notification channel used when creating a notification.
+     *
+     * @return The {@linkplain NotificationChannelInfo notification channel info}.
+     */
+    NotificationChannelInfo getNotificationChannelInfo();
   }
 
   /** The notification id. */

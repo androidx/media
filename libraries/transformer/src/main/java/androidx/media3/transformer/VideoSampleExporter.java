@@ -13,69 +13,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package androidx.media3.transformer;
 
 import static androidx.media3.common.C.COLOR_RANGE_FULL;
 import static androidx.media3.common.C.COLOR_SPACE_BT2020;
 import static androidx.media3.common.C.COLOR_TRANSFER_HLG;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
-import static androidx.media3.common.ColorInfo.SRGB_BT709_FULL;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
-import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
-import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
 import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME;
-import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-import static androidx.media3.transformer.TransformerUtil.getOutputMimeTypeAndHdrModeAfterFallback;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
-import android.util.Pair;
-import android.view.Surface;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.Consumer;
-import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.SingleInputVideoGraph;
 import com.google.common.collect.ImmutableList;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.initialization.qual.Initialized;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.checkerframework.dataflow.qual.Pure;
 
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {
 
   private final VideoGraphWrapper videoGraph;
-  private final EncoderWrapper encoderWrapper;
+  private final VideoEncoderWrapper encoderWrapper;
   private final DecoderInputBuffer encoderOutputBuffer;
 
   /**
@@ -138,7 +118,7 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     encoderWrapper =
-        new EncoderWrapper(
+        new VideoEncoderWrapper(
             encoderFactory,
             firstInputFormat.buildUpon().setColorInfo(videoGraphOutputColor).build(),
             allowedEncodingRotationDegrees,
@@ -240,270 +220,7 @@ import org.checkerframework.dataflow.qual.Pure;
     return encoderWrapper.isEnded() || videoGraph.hasEncoderReleasedAllBuffersAfterEndOfStream();
   }
 
-  /**
-   * Wraps an {@linkplain Codec encoder} and provides its input {@link Surface}.
-   *
-   * <p>The encoder is created once the {@link Surface} is {@linkplain #getSurfaceInfo(int, int)
-   * requested}. If it is {@linkplain #getSurfaceInfo(int, int) requested} again with different
-   * dimensions, the same encoder is used and the provided dimensions stay fixed.
-   */
-  @VisibleForTesting
-  /* package */ static final class EncoderWrapper {
-    /** MIME type to use for output video if the input type is not a video. */
-    private static final String DEFAULT_OUTPUT_MIME_TYPE = MimeTypes.VIDEO_H265;
-
-    private final Codec.EncoderFactory encoderFactory;
-    private final Format inputFormat;
-    private final ImmutableList<Integer> allowedEncodingRotationDegrees;
-    private final List<String> muxerSupportedMimeTypes;
-    private final TransformationRequest transformationRequest;
-    private final FallbackListener fallbackListener;
-    private final String requestedOutputMimeType;
-    private final @Composition.HdrMode int hdrModeAfterFallback;
-    @Nullable private final LogSessionId logSessionId;
-
-    private @MonotonicNonNull SurfaceInfo encoderSurfaceInfo;
-
-    private volatile @MonotonicNonNull Codec encoder;
-    private volatile int outputRotationDegrees;
-    private volatile boolean releaseEncoder;
-
-    public EncoderWrapper(
-        Codec.EncoderFactory encoderFactory,
-        Format inputFormat,
-        ImmutableList<Integer> allowedEncodingRotationDegrees,
-        List<String> muxerSupportedMimeTypes,
-        TransformationRequest transformationRequest,
-        FallbackListener fallbackListener,
-        @Nullable LogSessionId logSessionId) {
-      checkArgument(inputFormat.colorInfo != null);
-      this.encoderFactory = encoderFactory;
-      this.inputFormat = inputFormat;
-      this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
-      this.muxerSupportedMimeTypes = muxerSupportedMimeTypes;
-      this.transformationRequest = transformationRequest;
-      this.fallbackListener = fallbackListener;
-      this.logSessionId = logSessionId;
-      Pair<String, Integer> outputMimeTypeAndHdrModeAfterFallback =
-          getRequestedOutputMimeTypeAndHdrModeAfterFallback(inputFormat, transformationRequest);
-      requestedOutputMimeType = outputMimeTypeAndHdrModeAfterFallback.first;
-      hdrModeAfterFallback = outputMimeTypeAndHdrModeAfterFallback.second;
-    }
-
-    private static Pair<String, Integer> getRequestedOutputMimeTypeAndHdrModeAfterFallback(
-        Format inputFormat, TransformationRequest transformationRequest) {
-      String inputSampleMimeType = checkNotNull(inputFormat.sampleMimeType);
-      String requestedOutputMimeType;
-      if (transformationRequest.videoMimeType != null) {
-        requestedOutputMimeType = transformationRequest.videoMimeType;
-      } else if (MimeTypes.isImage(inputSampleMimeType)) {
-        requestedOutputMimeType = DEFAULT_OUTPUT_MIME_TYPE;
-      } else {
-        requestedOutputMimeType = inputSampleMimeType;
-      }
-
-      return getOutputMimeTypeAndHdrModeAfterFallback(
-          transformationRequest.hdrMode, requestedOutputMimeType, inputFormat.colorInfo);
-    }
-
-    public @Composition.HdrMode int getHdrModeAfterFallback() {
-      return hdrModeAfterFallback;
-    }
-
-    @Nullable
-    public SurfaceInfo getSurfaceInfo(int requestedWidth, int requestedHeight)
-        throws ExportException {
-      if (releaseEncoder) {
-        return null;
-      }
-      if (encoderSurfaceInfo != null) {
-        return encoderSurfaceInfo;
-      }
-
-      // Encoders commonly support higher maximum widths than maximum heights. This may rotate the
-      // frame before encoding, so the encoded frame's width >= height. In this case, the VideoGraph
-      // rotates the decoded video frames counter-clockwise, and the muxer adds a clockwise rotation
-      // to the metadata.
-      if (requestedWidth < requestedHeight) {
-        int temp = requestedWidth;
-        requestedWidth = requestedHeight;
-        requestedHeight = temp;
-        outputRotationDegrees = 90;
-      }
-
-      // Try to match the inputFormat's rotation, but preserve landscape/portrait mode. This is a
-      // best-effort attempt to preserve input video properties (helpful for trim optimization), but
-      // is not guaranteed to work when effects are applied.
-      if (inputFormat.rotationDegrees % 180 == outputRotationDegrees % 180) {
-        outputRotationDegrees = inputFormat.rotationDegrees;
-      }
-
-      if (!allowedEncodingRotationDegrees.contains(outputRotationDegrees)) {
-        int alternativeOutputRotationDegreesWithSameWidthAndHeight =
-            (outputRotationDegrees + 180) % 360;
-        if (allowedEncodingRotationDegrees.contains(
-            alternativeOutputRotationDegreesWithSameWidthAndHeight)) {
-          outputRotationDegrees = alternativeOutputRotationDegreesWithSameWidthAndHeight;
-        } else {
-          // No allowed rotation of the same orientation. Swap width and height, and use any allowed
-          // orientation.
-          int temp = requestedWidth;
-          requestedWidth = requestedHeight;
-          requestedHeight = temp;
-          outputRotationDegrees = allowedEncodingRotationDegrees.get(0);
-        }
-      }
-
-      // Rotation is handled by this class. The encoder must see a video with zero degrees rotation.
-      Format requestedEncoderFormat =
-          new Format.Builder()
-              .setWidth(requestedWidth)
-              .setHeight(requestedHeight)
-              .setRotationDegrees(0)
-              .setFrameRate(inputFormat.frameRate)
-              .setSampleMimeType(requestedOutputMimeType)
-              .setColorInfo(getSupportedInputColor())
-              .setCodecs(inputFormat.codecs)
-              .build();
-
-      // TODO: b/324426022 - Move logic for supported mime types to DefaultEncoderFactory.
-      encoder =
-          encoderFactory.createForVideoEncoding(
-              requestedEncoderFormat
-                  .buildUpon()
-                  .setSampleMimeType(
-                      findSupportedMimeTypeForEncoderAndMuxer(
-                          requestedEncoderFormat, muxerSupportedMimeTypes))
-                  .build(),
-              logSessionId);
-
-      Format actualEncoderFormat = encoder.getConfigurationFormat();
-
-      fallbackListener.onTransformationRequestFinalized(
-          createSupportedTransformationRequest(
-              transformationRequest,
-              /* hasOutputFormatRotation= */ outputRotationDegrees != 0,
-              requestedEncoderFormat,
-              actualEncoderFormat,
-              hdrModeAfterFallback));
-
-      encoderSurfaceInfo =
-          new SurfaceInfo(
-              encoder.getInputSurface(),
-              actualEncoderFormat.width,
-              actualEncoderFormat.height,
-              outputRotationDegrees,
-              /* isEncoderInputSurface= */ true);
-
-      if (releaseEncoder) {
-        encoder.release();
-      }
-      return encoderSurfaceInfo;
-    }
-
-    /** Returns the {@link ColorInfo} expected from the input surface. */
-    private ColorInfo getSupportedInputColor() {
-      boolean isInputToneMapped =
-          isTransferHdr(inputFormat.colorInfo) && hdrModeAfterFallback != HDR_MODE_KEEP_HDR;
-      if (isInputToneMapped) {
-        // When tone-mapping HDR to SDR is enabled, assume we get BT.709 to avoid having the encoder
-        // populate default color info, which depends on the resolution.
-        return SDR_BT709_LIMITED;
-      }
-      if (SRGB_BT709_FULL.equals(inputFormat.colorInfo)) {
-        return SDR_BT709_LIMITED;
-      }
-      return checkNotNull(inputFormat.colorInfo);
-    }
-
-    /**
-     * Creates a {@link TransformationRequest}, based on an original {@code TransformationRequest}
-     * and parameters specifying alterations to it that indicate device support.
-     *
-     * @param transformationRequest The requested transformation.
-     * @param hasOutputFormatRotation Whether the input video will be rotated to landscape during
-     *     processing, with {@link Format#rotationDegrees} of 90 added to the output format.
-     * @param requestedFormat The requested format.
-     * @param supportedFormat A format supported by the device.
-     * @param supportedHdrMode A {@link Composition.HdrMode} supported by the device.
-     * @return The created instance.
-     */
-    @Pure
-    private static TransformationRequest createSupportedTransformationRequest(
-        TransformationRequest transformationRequest,
-        boolean hasOutputFormatRotation,
-        Format requestedFormat,
-        Format supportedFormat,
-        @Composition.HdrMode int supportedHdrMode) {
-      // TODO: b/255953153 - Consider including bitrate in the revised fallback.
-
-      TransformationRequest.Builder supportedRequestBuilder = transformationRequest.buildUpon();
-      if (transformationRequest.hdrMode != supportedHdrMode) {
-        supportedRequestBuilder.setHdrMode(supportedHdrMode);
-      }
-
-      if (!Objects.equals(requestedFormat.sampleMimeType, supportedFormat.sampleMimeType)) {
-        supportedRequestBuilder.setVideoMimeType(supportedFormat.sampleMimeType);
-      }
-
-      if (hasOutputFormatRotation) {
-        if (requestedFormat.width != supportedFormat.width) {
-          supportedRequestBuilder.setResolution(/* outputHeight= */ supportedFormat.width);
-        }
-      } else if (requestedFormat.height != supportedFormat.height) {
-        supportedRequestBuilder.setResolution(supportedFormat.height);
-      }
-
-      return supportedRequestBuilder.build();
-    }
-
-    public void signalEndOfInputStream() throws ExportException {
-      if (encoder != null) {
-        encoder.signalEndOfInputStream();
-      }
-    }
-
-    @Nullable
-    public Format getOutputFormat() throws ExportException {
-      if (encoder == null) {
-        return null;
-      }
-      @Nullable Format outputFormat = encoder.getOutputFormat();
-      if (outputFormat != null && outputRotationDegrees != 0) {
-        outputFormat = outputFormat.buildUpon().setRotationDegrees(outputRotationDegrees).build();
-      }
-      return outputFormat;
-    }
-
-    @Nullable
-    public ByteBuffer getOutputBuffer() throws ExportException {
-      return encoder != null ? encoder.getOutputBuffer() : null;
-    }
-
-    @Nullable
-    public MediaCodec.BufferInfo getOutputBufferInfo() throws ExportException {
-      return encoder != null ? encoder.getOutputBufferInfo() : null;
-    }
-
-    public void releaseOutputBuffer(boolean render) throws ExportException {
-      if (encoder != null) {
-        encoder.releaseOutputBuffer(render);
-      }
-    }
-
-    public boolean isEnded() {
-      return encoder != null && encoder.isEnded();
-    }
-
-    public void release() {
-      if (encoder != null) {
-        encoder.release();
-      }
-      releaseEncoder = true;
-    }
-  }
-
-  private final class VideoGraphWrapper implements VideoGraph.Listener {
+  public final class VideoGraphWrapper implements VideoGraph.Listener {
 
     private final VideoGraph videoGraph;
     private final Object lock;
@@ -572,7 +289,7 @@ import org.checkerframework.dataflow.qual.Pure;
       videoGraph.registerInput(inputIndex);
       // Applies the composition effects here if there's only one input. In multiple-input case, the
       // effects are applied as a part of the video graph.
-      return new VideoGraphInput(videoGraph, inputIndex, initialTimestampOffsetUs);
+      return new VideoEncoderGraphInput(videoGraph, inputIndex, initialTimestampOffsetUs);
     }
 
     public void release() {
@@ -650,130 +367,6 @@ import org.checkerframework.dataflow.qual.Pure;
       if (shouldRender) {
         videoGraph.renderOutputFrame(RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME);
       }
-    }
-  }
-
-  /** A wrapper for {@link VideoGraph} input that handles {@link GraphInput} events. */
-  private static final class VideoGraphInput implements GraphInput {
-    private final VideoGraph videoGraph;
-    private final int inputIndex;
-    private final long initialTimestampOffsetUs;
-    private final AtomicLong mediaItemOffsetUs;
-
-    public VideoGraphInput(VideoGraph videoGraph, int inputIndex, long initialTimestampOffsetUs) {
-      this.videoGraph = videoGraph;
-      this.inputIndex = inputIndex;
-      this.initialTimestampOffsetUs = initialTimestampOffsetUs;
-      mediaItemOffsetUs = new AtomicLong();
-    }
-
-    @Override
-    public void onMediaItemChanged(
-        EditedMediaItem editedMediaItem,
-        long durationUs,
-        @Nullable Format decodedFormat,
-        boolean isLast,
-        @IntRange(from = 0) long positionOffsetUs) {
-      boolean isSurfaceAssetLoaderMediaItem = isMediaItemForSurfaceAssetLoader(editedMediaItem);
-      durationUs = editedMediaItem.getDurationAfterEffectsApplied(durationUs);
-      if (decodedFormat != null) {
-        decodedFormat = applyDecoderRotation(decodedFormat);
-        videoGraph.registerInputStream(
-            inputIndex,
-            isSurfaceAssetLoaderMediaItem
-                ? VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION
-                : getInputTypeForMimeType(checkNotNull(decodedFormat.sampleMimeType)),
-            decodedFormat,
-            editedMediaItem.effects.videoEffects,
-            /* offsetToAddUs= */ initialTimestampOffsetUs + mediaItemOffsetUs.get());
-      }
-      mediaItemOffsetUs.addAndGet(durationUs);
-    }
-
-    @Override
-    public @InputResult int queueInputBitmap(
-        Bitmap inputBitmap, TimestampIterator timestampIterator) {
-      return videoGraph.queueInputBitmap(inputIndex, inputBitmap, timestampIterator)
-          ? INPUT_RESULT_SUCCESS
-          : INPUT_RESULT_TRY_AGAIN_LATER;
-    }
-
-    @Override
-    public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {
-      videoGraph.setOnInputFrameProcessedListener(inputIndex, listener);
-    }
-
-    @Override
-    public void setOnInputSurfaceReadyListener(Runnable runnable) {
-      videoGraph.setOnInputSurfaceReadyListener(inputIndex, runnable);
-    }
-
-    @Override
-    public @InputResult int queueInputTexture(int texId, long presentationTimeUs) {
-      return videoGraph.queueInputTexture(inputIndex, texId, presentationTimeUs)
-          ? INPUT_RESULT_SUCCESS
-          : INPUT_RESULT_TRY_AGAIN_LATER;
-    }
-
-    @Override
-    public Surface getInputSurface() {
-      return videoGraph.getInputSurface(inputIndex);
-    }
-
-    @Override
-    public int getPendingVideoFrameCount() {
-      return videoGraph.getPendingInputFrameCount(inputIndex);
-    }
-
-    @Override
-    public boolean registerVideoFrame(long presentationTimeUs) {
-      return videoGraph.registerInputFrame(inputIndex);
-    }
-
-    @Override
-    public void signalEndOfVideoInput() {
-      videoGraph.signalEndOfInput(inputIndex);
-    }
-
-    private static Format applyDecoderRotation(Format format) {
-      // The decoder rotates encoded frames for display by format.rotationDegrees.
-      if (format.rotationDegrees % 180 == 0) {
-        return format;
-      }
-      return format
-          .buildUpon()
-          .setWidth(format.height)
-          .setHeight(format.width)
-          .setRotationDegrees(0)
-          .build();
-    }
-
-    private static @VideoFrameProcessor.InputType int getInputTypeForMimeType(
-        String sampleMimeType) {
-      if (MimeTypes.isImage(sampleMimeType)) {
-        return INPUT_TYPE_BITMAP;
-      }
-      if (sampleMimeType.equals(MimeTypes.VIDEO_RAW)) {
-        return INPUT_TYPE_TEXTURE_ID;
-      }
-      if (MimeTypes.isVideo(sampleMimeType)) {
-        return INPUT_TYPE_SURFACE;
-      }
-      throw new IllegalArgumentException("MIME type not supported " + sampleMimeType);
-    }
-
-    private static boolean isMediaItemForSurfaceAssetLoader(EditedMediaItem editedMediaItem) {
-      @Nullable
-      MediaItem.LocalConfiguration localConfiguration =
-          editedMediaItem.mediaItem.localConfiguration;
-      if (localConfiguration == null) {
-        return false;
-      }
-      @Nullable String scheme = localConfiguration.uri.getScheme();
-      if (scheme == null) {
-        return false;
-      }
-      return scheme.equals(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME);
     }
   }
 }

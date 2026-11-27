@@ -63,6 +63,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private long firstReceivedTimestamp;
   private int previousSequenceNumber;
+  private long previousTimestamp;
 
   /** The combined size of a sample that is fragmented into multiple RTP packets. */
   private int fragmentedSampleSizeBytes;
@@ -73,7 +74,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * If a Fragmentation Unit is lost then following units corresponding to the same NAL unit should
    * be discarded (RFC6184 Section 5.8).
    */
-  boolean discardPacketsUntilNextNalUnit;
+  private boolean isCurrentAccessUnitCorrupted;
+
+  private boolean isProcessingFragmentationUnit;
 
   /** Creates an instance. */
   public RtpH264Reader(RtpPayloadFormat payloadFormat) {
@@ -81,6 +84,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     fuScratchBuffer = new ParsableByteArray();
     firstReceivedTimestamp = C.TIME_UNSET;
     previousSequenceNumber = C.INDEX_UNSET;
+    previousTimestamp = C.TIME_UNSET;
+    isCurrentAccessUnitCorrupted = false;
+    isProcessingFragmentationUnit = false;
   }
 
   @Override
@@ -96,52 +102,72 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @Override
   public void consume(ParsableByteArray data, long timestamp, int sequenceNumber, boolean rtpMarker)
       throws ParserException {
-
-    int rtpH264PacketMode;
-    try {
-      // RFC6184 Section 5.6, 5.7 and 5.8.
-      rtpH264PacketMode = data.getData()[0] & 0x1F;
-    } catch (IndexOutOfBoundsException e) {
-      throw ParserException.createForMalformedManifest(/* message= */ null, e);
-    }
-
     checkNotNull(trackOutput);
+    int rtpH264PacketMode;
 
-    if (rtpH264PacketMode != RTP_PACKET_TYPE_FU_A) {
-      resetReaderStateForNewNalUnit();
+    // 1. Detect AU Boundary by timestamp change.
+    if (previousTimestamp != C.TIME_UNSET && timestamp != previousTimestamp) {
+      resetReaderStateForNewAccessUnit();
     }
 
-    if (rtpH264PacketMode > 0 && rtpH264PacketMode < 24) {
-      processSingleNalUnitPacket(data);
-    } else if (rtpH264PacketMode == RTP_PACKET_TYPE_STAP_A) {
-      processSingleTimeAggregationPacket(data);
-    } else if (rtpH264PacketMode == RTP_PACKET_TYPE_FU_A) {
-      processFragmentationUnitPacket(data, sequenceNumber);
-    } else {
-      throw ParserException.createForMalformedManifest(
-          String.format("RTP H264 packetization mode [%d] not supported.", rtpH264PacketMode),
-          /* cause= */ null);
+    // 2. Handle Packet Processing.
+    if (!isCurrentAccessUnitCorrupted) {
+      try {
+        // RFC6184 Section 5.6, 5.7 and 5.8.
+        rtpH264PacketMode = data.getData()[0] & 0x1F;
+      } catch (IndexOutOfBoundsException e) {
+        throw ParserException.createForMalformedManifest(/* message= */ null, e);
+      }
+
+      if (isProcessingFragmentationUnit && rtpH264PacketMode != RTP_PACKET_TYPE_FU_A) {
+        isCurrentAccessUnitCorrupted = true;
+      }
+
+      if (!isCurrentAccessUnitCorrupted) {
+        if (rtpH264PacketMode > 0 && rtpH264PacketMode < 24) {
+          processSingleNalUnitPacket(data);
+        } else if (rtpH264PacketMode == RTP_PACKET_TYPE_STAP_A) {
+          processSingleTimeAggregationPacket(data);
+        } else if (rtpH264PacketMode == RTP_PACKET_TYPE_FU_A) {
+          processFragmentationUnitPacket(data, sequenceNumber);
+        } else {
+          throw ParserException.createForMalformedManifest(
+              Util.formatInvariant(
+                  "RTP H264 packetization mode [%d] not supported.", rtpH264PacketMode),
+              /* cause= */ null);
+        }
+      }
     }
 
+    // 3. Metadata and State Update.
     if (firstReceivedTimestamp == C.TIME_UNSET) {
       firstReceivedTimestamp = timestamp;
     }
 
-    if (rtpMarker && !discardPacketsUntilNextNalUnit) {
-      long timeUs =
-          toSampleTimeUs(
-              startTimeOffsetUs, timestamp, firstReceivedTimestamp, MEDIA_CLOCK_FREQUENCY);
-      trackOutput.sampleMetadata(
-          timeUs, bufferFlags, fragmentedSampleSizeBytes, /* offset= */ 0, /* cryptoData= */ null);
+    if (rtpMarker) {
+      if (!isCurrentAccessUnitCorrupted) {
+        long timeUs =
+            toSampleTimeUs(
+                startTimeOffsetUs, timestamp, firstReceivedTimestamp, MEDIA_CLOCK_FREQUENCY);
+        trackOutput.sampleMetadata(
+            timeUs,
+            bufferFlags,
+            fragmentedSampleSizeBytes,
+            /* offset= */ 0,
+            /* cryptoData= */ null);
+      }
+      resetReaderStateForNewAccessUnit();
     }
 
+    previousTimestamp = timestamp;
     previousSequenceNumber = sequenceNumber;
   }
 
   @Override
   public void seek(long nextRtpTimestamp, long timeUs) {
     firstReceivedTimestamp = nextRtpTimestamp;
-    fragmentedSampleSizeBytes = 0;
+    previousTimestamp = C.TIME_UNSET;
+    resetReaderStateForNewAccessUnit();
     startTimeOffsetUs = timeUs;
   }
 
@@ -259,7 +285,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     boolean isLastFuPacket = (fuHeader & 0x40) > 0;
 
     if (isFirstFuPacket) {
-      resetReaderStateForNewNalUnit();
+      if (isProcessingFragmentationUnit) {
+        // Interruption: A new FU started before the previous one finished.
+        isCurrentAccessUnitCorrupted = true;
+        fragmentedSampleSizeBytes = 0;
+      }
+      isProcessingFragmentationUnit = true;
       // Prepends starter code.
       fragmentedSampleSizeBytes += writeStartCode();
 
@@ -269,13 +300,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       fuScratchBuffer.reset(data.getData());
       fuScratchBuffer.setPosition(1);
     } else {
-      if (discardPacketsUntilNextNalUnit) {
+      if (isCurrentAccessUnitCorrupted) {
         return;
       }
       // Check that this packet is in the sequence of the previous packet.
       int expectedSequenceNumber = RtpPacket.getNextSequenceNumber(previousSequenceNumber);
       if (packetSequenceNumber != expectedSequenceNumber) {
-        discardPacketsUntilNextNalUnit = true;
+        isCurrentAccessUnitCorrupted = true;
         Log.w(
             TAG,
             Util.formatInvariant(
@@ -295,8 +326,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     fragmentedSampleSizeBytes += fragmentSize;
 
     if (isLastFuPacket) {
+      isProcessingFragmentationUnit = false;
       bufferFlags = getBufferFlagsFromNalType(nalHeader & 0x1F);
     }
+  }
+
+  private void resetReaderStateForNewAccessUnit() {
+    isCurrentAccessUnitCorrupted = false;
+    isProcessingFragmentationUnit = false;
+    fragmentedSampleSizeBytes = 0;
+    bufferFlags = 0;
   }
 
   private int writeStartCode() {
@@ -304,11 +343,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int bytesWritten = nalStartCodeArray.bytesLeft();
     checkNotNull(trackOutput).sampleData(nalStartCodeArray, bytesWritten);
     return bytesWritten;
-  }
-
-  private void resetReaderStateForNewNalUnit() {
-    discardPacketsUntilNextNalUnit = false;
-    fragmentedSampleSizeBytes = 0;
   }
 
   private static @C.BufferFlags int getBufferFlagsFromNalType(int nalType) {

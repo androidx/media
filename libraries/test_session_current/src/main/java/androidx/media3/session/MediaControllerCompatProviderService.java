@@ -156,6 +156,12 @@ public class MediaControllerCompatProviderService extends Service {
       controller.sendCommand(command, params, cb);
     }
 
+    @Override
+    public String getPackageName(String controllerId) throws RemoteException {
+      MediaControllerCompat controller = mediaControllerCompatMap.get(controllerId);
+      return controller.getPackageName();
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // MediaControllerCompat.TransportControls methods
     ////////////////////////////////////////////////////////////////////////////////

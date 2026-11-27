@@ -116,7 +116,9 @@ public final class AlphaScaleShaderProgramPixelTest {
 
   @Test
   public void noOpAlpha_matchesGoldenFile() throws Exception {
-    alphaScaleShaderProgram = new AlphaScale(1.0f).toGlShaderProgram(context, /* useHdr= */ false);
+    alphaScaleShaderProgram =
+        (AlphaScaleShaderProgram)
+            new AlphaScale(1.0f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);
     Bitmap expectedBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_PNG_ASSET_PATH);
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "input", expectedBitmap, /* path= */ null);
@@ -135,7 +137,9 @@ public final class AlphaScaleShaderProgramPixelTest {
 
   @Test
   public void zeroAlpha_matchesGoldenFile() throws Exception {
-    alphaScaleShaderProgram = new AlphaScale(0.0f).toGlShaderProgram(context, /* useHdr= */ false);
+    alphaScaleShaderProgram =
+        (AlphaScaleShaderProgram)
+            new AlphaScale(0.0f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);
     Bitmap expectedBitmap = readBitmapUnpremultipliedAlpha(ZERO_ALPHA_PNG_ASSET_PATH);
 
@@ -153,7 +157,9 @@ public final class AlphaScaleShaderProgramPixelTest {
 
   @Test
   public void decreaseAlpha_matchesGoldenFile() throws Exception {
-    alphaScaleShaderProgram = new AlphaScale(0.5f).toGlShaderProgram(context, /* useHdr= */ false);
+    alphaScaleShaderProgram =
+        (AlphaScaleShaderProgram)
+            new AlphaScale(0.5f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);
     Bitmap expectedBitmap = readBitmapUnpremultipliedAlpha(DECREASE_ALPHA_PNG_ASSET_PATH);
 
@@ -171,7 +177,9 @@ public final class AlphaScaleShaderProgramPixelTest {
 
   @Test
   public void increaseAlpha_matchesGoldenFile() throws Exception {
-    alphaScaleShaderProgram = new AlphaScale(1.5f).toGlShaderProgram(context, /* useHdr= */ false);
+    alphaScaleShaderProgram =
+        (AlphaScaleShaderProgram)
+            new AlphaScale(1.5f).toGlShaderProgram(context, /* useHdr= */ false);
     Size outputSize = alphaScaleShaderProgram.configure(inputWidth, inputHeight);
     Bitmap expectedBitmap = readBitmapUnpremultipliedAlpha(INCREASE_ALPHA_PNG_ASSET_PATH);
 

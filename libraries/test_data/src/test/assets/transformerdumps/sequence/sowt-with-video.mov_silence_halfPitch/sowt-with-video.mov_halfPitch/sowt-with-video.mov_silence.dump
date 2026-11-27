@@ -2,8 +2,9 @@ format audio:
   averageBitrate = 131072
   sampleMimeType = audio/raw
   channelCount = 2
+  channelMask = 0x0000000C
   sampleRate = 44100
-  pcmEncoding = 2
+  pcmEncoding = pcm-16
 format video:
   averageBitrate = 5946664
   id = 1
@@ -1319,8 +1320,8 @@ sample:
   isKeyFrame = true
 sample:
   trackType = audio
-  dataHashCode = -734338303
-  size = 1640
+  dataHashCode = 90082177
+  size = 1636
   isKeyFrame = true
 sample:
   trackType = video

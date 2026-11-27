@@ -41,6 +41,8 @@ import java.util.Objects;
 
   private final String packageName;
 
+  @Nullable private final String packageNameOverride;
+
   private final String serviceName;
 
   @Nullable private final ComponentName componentName;
@@ -62,7 +64,8 @@ import java.util.Objects;
         /* componentName= */ serviceComponent,
         /* iSession= */ null,
         /* extras= */ Bundle.EMPTY,
-        /* platformToken= */ null);
+        /* platformToken= */ null,
+        /* packageNameOverride= */ null);
   }
 
   public SessionTokenImplBase(
@@ -73,7 +76,8 @@ import java.util.Objects;
       String packageName,
       IMediaSession iSession,
       Bundle tokenExtras,
-      @Nullable MediaSession.Token platformToken) {
+      @Nullable MediaSession.Token platformToken,
+      @Nullable String packageNameOverride) {
     this(
         uid,
         type,
@@ -84,7 +88,8 @@ import java.util.Objects;
         /* componentName= */ null,
         iSession.asBinder(),
         checkNotNull(tokenExtras),
-        platformToken);
+        platformToken,
+        packageNameOverride);
   }
 
   private SessionTokenImplBase(
@@ -97,7 +102,8 @@ import java.util.Objects;
       @Nullable ComponentName componentName,
       @Nullable IBinder iSession,
       Bundle extras,
-      @Nullable MediaSession.Token platformToken) {
+      @Nullable MediaSession.Token platformToken,
+      @Nullable String packageNameOverride) {
     this.uid = uid;
     this.type = type;
     this.libraryVersion = libraryVersion;
@@ -108,6 +114,7 @@ import java.util.Objects;
     this.iSession = iSession;
     this.extras = extras;
     this.platformToken = platformToken;
+    this.packageNameOverride = packageNameOverride;
   }
 
   @Override
@@ -121,7 +128,8 @@ import java.util.Objects;
         serviceName,
         componentName,
         iSession,
-        platformToken);
+        platformToken,
+        packageNameOverride);
   }
 
   @Override
@@ -138,7 +146,8 @@ import java.util.Objects;
         && TextUtils.equals(serviceName, other.serviceName)
         && Objects.equals(componentName, other.componentName)
         && Objects.equals(iSession, other.iSession)
-        && Objects.equals(platformToken, other.platformToken);
+        && Objects.equals(platformToken, other.platformToken)
+        && Objects.equals(packageNameOverride, other.packageNameOverride);
   }
 
   @Override
@@ -172,6 +181,11 @@ import java.util.Objects;
 
   @Override
   public String getPackageName() {
+    return packageNameOverride == null ? packageName : packageNameOverride;
+  }
+
+  @Override
+  public String getOriginalPackageName() {
     return packageName;
   }
 
@@ -229,8 +243,9 @@ import java.util.Objects;
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(7);
   private static final String FIELD_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
   private static final String FIELD_PLATFORM_TOKEN = Util.intToStringMaxRadix(9);
+  private static final String FIELD_PACKAGE_NAME_OVERRIDE = Util.intToStringMaxRadix(10);
 
-  // Next field key = 10
+  // Next field key = 11
 
   @Override
   public Bundle toBundle() {
@@ -246,6 +261,9 @@ import java.util.Objects;
     bundle.putInt(FIELD_INTERFACE_VERSION, interfaceVersion);
     if (platformToken != null) {
       bundle.putParcelable(FIELD_PLATFORM_TOKEN, platformToken);
+    }
+    if (packageNameOverride != null) {
+      bundle.putString(FIELD_PACKAGE_NAME_OVERRIDE, packageNameOverride);
     }
     return bundle;
   }
@@ -274,6 +292,7 @@ import java.util.Objects;
     if (platformTokenFromBundle != null) {
       platformToken = platformTokenFromBundle;
     }
+    @Nullable String packageNameOverride = bundle.getString(FIELD_PACKAGE_NAME_OVERRIDE);
     return new SessionTokenImplBase(
         uid,
         type,
@@ -284,6 +303,7 @@ import java.util.Objects;
         componentName,
         iSession,
         extras == null ? Bundle.EMPTY : extras,
-        platformToken);
+        platformToken,
+        packageNameOverride);
   }
 }

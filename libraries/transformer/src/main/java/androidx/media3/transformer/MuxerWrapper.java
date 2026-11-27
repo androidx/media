@@ -131,7 +131,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     void onSampleWrittenOrDropped();
 
-    void onEnded(long approximateDurationMs, long fileSizeBytes);
+    void onEnded(long approximateDurationMs);
+
+    void onFileSizeBytesAvailable(long fileSizeBytes);
 
     void onError(ExportException exportException);
   }
@@ -632,12 +634,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (muxerMode == MUXER_MODE_MUX_PARTIAL
         && muxedPartialVideo
         && (muxedPartialAudio || trackCount == 1)) {
-      listener.onEnded(approximateDurationMs, getCurrentOutputSizeBytes());
+      listener.onEnded(approximateDurationMs);
       return;
     }
 
     if (isEnded) {
-      listener.onEnded(approximateDurationMs, getCurrentOutputSizeBytes());
+      listener.onEnded(approximateDurationMs);
     }
   }
 
@@ -686,6 +688,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
         throw e;
       }
+    }
+    if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
+      // Make sure to only read the output file size after the muxer and underlying file are closed.
+      listener.onFileSizeBytesAvailable(getCurrentOutputSizeBytes());
     }
   }
 

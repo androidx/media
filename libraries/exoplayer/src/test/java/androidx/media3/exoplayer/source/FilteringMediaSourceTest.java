@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -25,6 +26,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.source.FilteringMediaSource.FilteringMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
@@ -80,5 +82,10 @@ public class FilteringMediaSourceTest {
     assertThat(videoRenderer.enabledCount).isEqualTo(1);
     assertThat(textRenderer.enabledCount).isEqualTo(1);
     assertThat(audioRenderer.enabledCount).isEqualTo(0);
+  }
+
+  @Test
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(MediaPeriod.class, FilteringMediaPeriod.class);
   }
 }

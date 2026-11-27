@@ -42,6 +42,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Tests for {@link SizeLimitedBitmapLoader}. */
 @RunWith(AndroidJUnit4.class)
@@ -170,6 +171,7 @@ public class SizeLimitedBitmapLoaderTest {
   }
 
   @Test
+  @Config(minSdk = 31) // Bitmap.asShared() is only present on API 31+.
   public void decodeBitmap_sizeUnderLimitAndMakeShared_returnsImmutableInstance() throws Exception {
     int limit = 10000;
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
@@ -185,6 +187,7 @@ public class SizeLimitedBitmapLoaderTest {
   }
 
   @Test
+  @Config(minSdk = 31) // Bitmap.asShared() is only present on API 31+.
   public void decodeBitmap_sizeOverLimitAndMakeShared_returnsImmutableInstance() throws Exception {
     int limit = 20;
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
@@ -200,6 +203,7 @@ public class SizeLimitedBitmapLoaderTest {
   }
 
   @Test
+  @Config(minSdk = 31) // Bitmap.asShared() is only present on API 31+.
   public void loadBitmap_sizeUnderLimitAndMakeShared_returnsImmutableInstance() throws Exception {
     int limit = 10000;
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
@@ -219,6 +223,7 @@ public class SizeLimitedBitmapLoaderTest {
   }
 
   @Test
+  @Config(minSdk = 31) // Bitmap.asShared() is only present on API 31+.
   public void loadBitmap_sizeOverLimitAndMakeShared_returnsImmutableInstance() throws Exception {
     int limit = 20;
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =

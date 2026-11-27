@@ -16,9 +16,11 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MOV_WITH_PCM_AUDIO;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -29,6 +31,7 @@ import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.effect.GlEffect;
@@ -37,6 +40,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
@@ -49,8 +53,6 @@ import org.junit.runner.RunWith;
 /** Instrumentation tests for {@link CompositionPlayer} with Speed Adjustments. */
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerSpeedAdjustmentsTest {
-  // Emulators take considerably longer to run each test.
-  private static final long TEST_TIMEOUT_MS = 30_000;
 
   @Rule public final TestName testName = new TestName();
 
@@ -62,14 +64,12 @@ public class CompositionPlayerSpeedAdjustmentsTest {
   private final Context applicationContext = instrumentation.getContext().getApplicationContext();
 
   private CompositionPlayer compositionPlayer;
-  private PlayerTestListener playerListener;
   private SurfaceView surfaceView;
   private String testId;
 
   @Before
   public void setup() {
     testId = testName.getMethodName();
-    playerListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
@@ -88,7 +88,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             TestSpeedProvider.createWithStartTimes(
                 new long[] {0, 300_000L, 600_000L}, new float[] {2f, 1f, 0.5f}));
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setDurationUs(1_000_000)
             .setEffects(
                 new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
@@ -98,7 +98,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
 
     assertThat(timestampsFromCompositionPlayer)
         .containsExactly(
-            0L, 16683L, 33366L, 50050L, 66733L, 83416L, 100100L, 116783L, 133466L, 150300L, 183666L,
+            0L, 16683L, 33367L, 50050L, 66733L, 83417L, 100100L, 116783L, 133467L, 150300L, 183666L,
             217033L, 250400L, 283766L, 317133L, 350500L, 383866L, 417233L, 451200L, 517932L,
             584666L, 651400L, 718132L, 784866L, 851600L, 918332L, 985066L, 1051800L, 1118532L,
             1185266L);
@@ -157,10 +157,12 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             .setSpeed(provider)
             .build();
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          compositionPlayer.addListener(playerListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
                   .build());
@@ -168,7 +170,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.play();
         });
 
-    playerListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // 1250 ms @ mono 44.1 KHz = 55125 samples
     // Allow a tolerance equal to number of speed regions.
@@ -195,10 +197,12 @@ public class CompositionPlayerSpeedAdjustmentsTest {
     EditedMediaItemSequence secondarySequence =
         EditedMediaItemSequence.withAudioFrom(ImmutableList.of(secondaryItem));
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          compositionPlayer.addListener(playerListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(primarySequence, secondarySequence)
                   .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
@@ -206,7 +210,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
-    playerListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     // 1250 ms @ mono 44.1 KHz = 55125 samples
     // Allow a tolerance equal to number of speed regions.
@@ -216,7 +220,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
   @Test
   public void setSpeed_withVideoOnly_modifiesOutputCorrectly() throws Exception {
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setDurationUs(1_000_000)
             .setRemoveAudio(true)
             .setSpeed(
@@ -228,10 +232,178 @@ public class CompositionPlayerSpeedAdjustmentsTest {
 
     assertThat(timestampsFromCompositionPlayer)
         .containsExactly(
-            0L, 16683L, 33366L, 50050L, 66733L, 83416L, 100100L, 116783L, 133466L, 150300L, 183666L,
+            0L, 16683L, 33367L, 50050L, 66733L, 83417L, 100100L, 116783L, 133467L, 150300L, 183666L,
             217033L, 250400L, 283766L, 317133L, 350500L, 383866L, 417233L, 451200L, 517932L,
             584666L, 651400L, 718132L, 784866L, 851600L, 918332L, 985066L, 1051800L, 1118532L,
             1185266L);
+  }
+
+  @Test
+  public void setSpeed_withTargetFrameRate_outputFrameTimestampsAreCorrect() throws Exception {
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {5f}))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .build();
+
+    ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
+
+    // 5 sec video with 5X speed = 1 sec = ~30 frames
+    assertThat(timestampsFromCompositionPlayer)
+        .containsExactly(
+            0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 266_667L,
+            300_000L, 333_333L, 366_667L, 400_000L, 433_333L, 466_667L, 500_000L, 533_333L,
+            566_667L, 600_000L, 633_333L, 666_667L, 700_000L, 733_333L, 766_667L, 800_000L,
+            833_333L, 866_667L, 900_000L, 933_333L, 966_667L, 996_667L)
+        .inOrder();
+  }
+
+  @Test
+  public void setSpeed_withHighSpeedAndTargetFrameRate_outputFrameTimestampsAreCorrect()
+      throws Exception {
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {20f}))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .build();
+
+    ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
+
+    // 5 sec video with 20X speed = 0.25 sec = ~8 frames
+    assertThat(timestampsFromCompositionPlayer)
+        .containsExactly(
+            0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 249_167L)
+        .inOrder();
+  }
+
+  @Test
+  public void setSpeed_withVariableSpeedAndTargetFrameRate_outputFrameTimestampsAreCorrect()
+      throws Exception {
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(
+                TestSpeedProvider.createWithStartTimes(
+                    new long[] {0, 2_500_000L, 4_500_000L}, new float[] {5f, 1f, 0.5f}))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .build();
+
+    ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
+
+    // (2.5 sec at 5X = 0.5 sec) + (2 sec at 1X = 2 sec) + (0.5 sec at 0.5X = 1 sec) = 3.5 sec =
+    // ~105 frames
+    assertThat(timestampsFromCompositionPlayer)
+        .containsExactly(
+            0L,
+            33_333L,
+            66_667L,
+            100_000L,
+            133_333L,
+            166_667L,
+            200_000L,
+            233_333L,
+            266_667L,
+            300_000L,
+            333_333L,
+            366_667L,
+            400_000L,
+            433_333L,
+            466_667L,
+            500_000L,
+            533_333L,
+            566_666L,
+            600_000L,
+            633_333L,
+            666_666L,
+            700_000L,
+            733_333L,
+            766_666L,
+            800_000L,
+            833_333L,
+            866_666L,
+            900_000L,
+            933_333L,
+            966_666L,
+            1_000_000L,
+            1_033_333L,
+            1_066_666L,
+            1_100_000L,
+            1_133_333L,
+            1_166_666L,
+            1_200_000L,
+            1_233_333L,
+            1_266_666L,
+            1_300_000L,
+            1_333_333L,
+            1_366_666L,
+            1_400_000L,
+            1_433_333L,
+            1_466_666L,
+            1_500_000L,
+            1_533_333L,
+            1_566_666L,
+            1_600_000L,
+            1_633_333L,
+            1_666_666L,
+            1_700_000L,
+            1_733_333L,
+            1_766_666L,
+            1_800_000L,
+            1_833_333L,
+            1_866_666L,
+            1_900_000L,
+            1_933_333L,
+            1_966_666L,
+            2_000_000L,
+            2_033_333L,
+            2_066_666L,
+            2_100_000L,
+            2_133_333L,
+            2_166_666L,
+            2_200_000L,
+            2_233_333L,
+            2_266_666L,
+            2_300_000L,
+            2_333_333L,
+            2_366_666L,
+            2_400_000L,
+            2_433_333L,
+            2_466_666L,
+            2_500_000L,
+            2_533_332L,
+            2_566_666L,
+            2_600_000L,
+            2_633_332L,
+            2_666_666L,
+            2_700_000L,
+            2_733_332L,
+            2_766_666L,
+            2_800_000L,
+            2_833_332L,
+            2_866_666L,
+            2_900_000L,
+            2_933_332L,
+            2_966_666L,
+            3_000_000L,
+            3_033_332L,
+            3_066_666L,
+            3_100_000L,
+            3_133_332L,
+            3_166_666L,
+            3_200_000L,
+            3_233_332L,
+            3_266_666L,
+            3_300_000L,
+            3_333_332L,
+            3_366_666L,
+            3_400_000L,
+            3_433_332L,
+            3_466_666L);
   }
 
   private ImmutableList<Long> getTimestampsFromCompositionPlayer(EditedMediaItem item)
@@ -244,6 +416,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             /* effects= */ ImmutableList.of(
                 (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
 
+    SettableFuture<Void> endedFuture = SettableFuture.create();
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
@@ -253,7 +426,8 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerListener);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(
               new Composition.Builder(
                       EditedMediaItemSequence.withAudioAndVideoFrom(
@@ -263,7 +437,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.play();
         });
 
-    playerListener.waitUntilPlayerEnded();
+    endedFuture.get();
 
     return timestampRecordingShaderProgram.getInputTimestampsUs();
   }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MAX_PLAYBACK_SPEED;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.AudioFormat;
@@ -74,7 +75,7 @@ public final class AudioTrackAudioOutputTest {
 
   private void initializeAudioTrackAudioOutput() {
     initializeAudioTrackAudioOutput(
-        /* receiver= */ null,
+        /* listener= */ null,
         /* audioFormatEncoding= */ AudioFormat.ENCODING_PCM_16BIT,
         /* encoding= */ C.ENCODING_PCM_16BIT,
         /* channelMask= */ AudioFormat.CHANNEL_OUT_STEREO,
@@ -117,6 +118,7 @@ public final class AudioTrackAudioOutputTest {
                         .build())
                 .build(),
             listener,
+            MAX_PLAYBACK_SPEED,
             /* clock= */ clock);
   }
 

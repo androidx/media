@@ -66,7 +66,8 @@ public final class InitializationChunk extends Chunk {
         trackSelectionReason,
         trackSelectionData,
         C.TIME_UNSET,
-        C.TIME_UNSET);
+        C.TIME_UNSET,
+        /* steeredPathwayId= */ null);
     this.chunkExtractor = chunkExtractor;
   }
 

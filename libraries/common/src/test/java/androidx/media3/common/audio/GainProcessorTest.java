@@ -306,7 +306,7 @@ public class GainProcessorTest {
 
     input.rewind();
     // Flush to frame position 5 (1 sample = 20us).
-    processor.flush(new StreamMetadata(/* positionOffsetUs= */ 100L));
+    processor.flush(new StreamMetadata.Builder().setPositionOffsetUs(100L).build());
     processor.queueInput(input);
 
     // Check that we skip first 5 frames.

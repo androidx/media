@@ -77,7 +77,8 @@ public abstract class BaseMediaChunk extends MediaChunk {
         trackSelectionData,
         startTimeUs,
         endTimeUs,
-        chunkIndex);
+        chunkIndex,
+        /* steeredPathwayId= */ null);
     this.clippedStartTimeUs = clippedStartTimeUs;
     this.clippedEndTimeUs = clippedEndTimeUs;
   }

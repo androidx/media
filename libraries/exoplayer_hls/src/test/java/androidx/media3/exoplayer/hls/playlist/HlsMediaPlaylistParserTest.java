@@ -525,9 +525,159 @@ public class HlsMediaPlaylistParserTest {
             new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, previousPlaylist)
                 .parse(playlistUri, inputStream);
 
-    assertThat(playlist.startTimeUs).isEqualTo(1_577_995_200_000_000L);
+    // The new playlist starts at media sequence 265, one 4.00008s segment after the segment that
+    // carried the EXT-X-PROGRAM-DATE-TIME in the previous playlist.
+    assertThat(playlist.startTimeUs).isEqualTo(1_577_995_200_000_000L + 4_000_080L);
     assertThat(previousPlaylist.startTimeUs).isEqualTo(1_577_995_200_000_000L);
     assertThat(playlist.segments).hasSize(2);
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withSkippedSegmentsAndProgramDateTimeRemoved_keepsAbsoluteSegmentTimes()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String previousPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:9\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:100\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T20:00:00.000Z\n"
+            + "#EXTINF:4.0,\n"
+            + "segment100.mp4\n"
+            + "#EXTINF:3.5,\n"
+            + "segment101.mp4\n"
+            + "#EXTINF:4.0,\n"
+            + "segment102.mp4\n"
+            + "#EXTINF:4.0,\n"
+            + "segment103.mp4\n";
+    // Two segments, including the one with the EXT-X-PROGRAM-DATE-TIME, were removed from the
+    // start of the playlist and one segment was appended.
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:9\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:102\n"
+            + "#EXT-X-SKIP:SKIPPED-SEGMENTS=2\n"
+            + "#EXTINF:4.0,\n"
+            + "segment104.mp4\n";
+    HlsMediaPlaylist previousPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(
+                    playlistUri,
+                    new ByteArrayInputStream(Util.getUtf8Bytes(previousPlaylistString)));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, previousPlaylist)
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.hasProgramDateTime).isTrue();
+    assertThat(playlist.startTimeUs).isEqualTo(1_577_995_200_000_000L + 7_500_000L);
+    assertThat(playlist.segments).hasSize(3);
+    // segment102 and segment103 are in both playlists and must keep their absolute start times.
+    assertThat(playlist.startTimeUs + playlist.segments.get(0).relativeStartTimeUs)
+        .isEqualTo(
+            previousPlaylist.startTimeUs + previousPlaylist.segments.get(2).relativeStartTimeUs);
+    assertThat(playlist.startTimeUs + playlist.segments.get(1).relativeStartTimeUs)
+        .isEqualTo(
+            previousPlaylist.startTimeUs + previousPlaylist.segments.get(3).relativeStartTimeUs);
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withConsecutiveDeltaUpdatesWithoutProgramDateTime_doesNotAccumulateError()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(
+                    playlistUri,
+                    new ByteArrayInputStream(
+                        Util.getUtf8Bytes(
+                            "#EXTM3U\n"
+                                + "#EXT-X-TARGETDURATION:4\n"
+                                + "#EXT-X-VERSION:9\n"
+                                + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+                                + "#EXT-X-MEDIA-SEQUENCE:100\n"
+                                + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T20:00:00.000Z\n"
+                                + "#EXTINF:4.0,\n"
+                                + "segment100.mp4\n"
+                                + "#EXTINF:4.0,\n"
+                                + "segment101.mp4\n"
+                                + "#EXTINF:4.0,\n"
+                                + "segment102.mp4\n")));
+
+    // Each delta update removes the first segment and appends a new one.
+    for (int newSegment = 103; newSegment <= 106; newSegment++) {
+      String deltaPlaylistString =
+          "#EXTM3U\n"
+              + "#EXT-X-TARGETDURATION:4\n"
+              + "#EXT-X-VERSION:9\n"
+              + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+              + "#EXT-X-MEDIA-SEQUENCE:"
+              + (newSegment - 2)
+              + "\n"
+              + "#EXT-X-SKIP:SKIPPED-SEGMENTS=1\n"
+              + "#EXTINF:4.0,\n"
+              + "segment"
+              + (newSegment - 1)
+              + ".mp4\n"
+              + "#EXTINF:4.0,\n"
+              + "segment"
+              + newSegment
+              + ".mp4\n";
+      playlist =
+          (HlsMediaPlaylist)
+              new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, playlist)
+                  .parse(
+                      playlistUri,
+                      new ByteArrayInputStream(Util.getUtf8Bytes(deltaPlaylistString)));
+    }
+
+    // The playlist now starts at segment104, four 4s segments after the EXT-X-PROGRAM-DATE-TIME.
+    assertThat(playlist.mediaSequence).isEqualTo(104);
+    assertThat(playlist.startTimeUs).isEqualTo(1_577_995_200_000_000L + 16_000_000L);
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_notOverlappingPreviousPlaylistWithoutProgramDateTime_startTimeUnset()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String previousPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-MEDIA-SEQUENCE:100\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T20:00:00.000Z\n"
+            + "#EXTINF:4.0,\n"
+            + "segment100.mp4\n";
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-MEDIA-SEQUENCE:105\n"
+            + "#EXTINF:4.0,\n"
+            + "segment105.mp4\n";
+    HlsMediaPlaylist previousPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(
+                    playlistUri,
+                    new ByteArrayInputStream(Util.getUtf8Bytes(previousPlaylistString)));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, previousPlaylist)
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    // The start time can't be derived from the previous playlist, so it's left to the playlist
+    // tracker.
+    assertThat(playlist.hasProgramDateTime).isFalse();
+    assertThat(playlist.startTimeUs).isEqualTo(0L);
   }
 
   @Test
@@ -2472,7 +2622,8 @@ public class HlsMediaPlaylistParserTest {
             /* muxedCaptionFormats= */ null,
             /* hasIndependentSegments= */ true,
             /* variableDefinitions= */ Collections.emptyMap(),
-            /* sessionKeyDrmInitData= */ Collections.emptyList());
+            /* sessionKeyDrmInitData= */ Collections.emptyList(),
+            /* contentSteeringInfo= */ null);
     HlsMediaPlaylist playlistWithInheritance =
         (HlsMediaPlaylist)
             new HlsPlaylistParser(multivariantPlaylist, /* previousMediaPlaylist= */ null)
@@ -2536,7 +2687,8 @@ public class HlsMediaPlaylistParserTest {
             /* muxedCaptionFormats= */ Collections.emptyList(),
             /* hasIndependentSegments= */ false,
             variableDefinitions,
-            /* sessionKeyDrmInitData= */ Collections.emptyList());
+            /* sessionKeyDrmInitData= */ Collections.emptyList(),
+            /* contentSteeringInfo= */ null);
     HlsMediaPlaylist playlist =
         (HlsMediaPlaylist)
             new HlsPlaylistParser(multivariantPlaylist, /* previousMediaPlaylist= */ null)
@@ -2544,5 +2696,174 @@ public class HlsMediaPlaylistParserTest {
     for (int i = 1; i <= 4; i++) {
       assertThat(playlist.segments.get(i - 1).url).isEqualTo("long_path" + i + ".ts");
     }
+  }
+
+  @Test
+  public void queryParamSubstitution() throws IOException {
+    Uri playlistUri =
+        Uri.parse(
+            "https://example.com/substitution.m3u8?queryparam_1=replaced_value.ts&param-2=22");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"param-2\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment{$param-2}$name_1}\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    Segment segment = playlist.segments.get(1);
+    assertThat(segment.initializationSegment.url).isEqualTo("replaced_value.ts");
+    assertThat(segment.url).isEqualTo("segment22$name_1}");
+  }
+
+  @Test
+  public void queryParamSubstitution_queryParam_isCaseSensitiveOrThrows() {
+    Uri playlistUri =
+        Uri.parse("https://example.com/substitution.m3u8?queryparam_1=replaced_value.ts");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"Queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment2.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"Queryparam_1\" not found in playlist URI");
+  }
+
+  @Test
+  public void queryParamSubstitution_missingQueryParam_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"param-2\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment{$param-2}$name_1}\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"queryparam_1\" not found in playlist URI");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?queryparam_1=foo");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"name_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:NAME=\"name_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{name_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"name_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableAndQueryParamName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?queryparam_1=foo");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"queryparam_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("duplicate variable name \"queryparam_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableAndImportName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"import_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:IMPORT=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$import_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"import_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateQueryParamAndImportName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?import_1=value_1");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:IMPORT=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$import_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"import_1\"");
   }
 }

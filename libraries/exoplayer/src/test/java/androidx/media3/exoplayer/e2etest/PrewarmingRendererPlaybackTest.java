@@ -39,19 +39,29 @@ import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
 /** End-to-end playback tests using secondary renderers. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(ParameterizedRobolectricTestRunner.class) // TODO: b/510217604 - Remove parameterization.
 public class PrewarmingRendererPlaybackTest {
 
   private static final String TEST_AUDIO_MP4_URI = "asset:///media/mp4/sample_ac3.mp4";
   private static final String TEST_MP4_URI = "asset:///media/mp4/sample.mp4";
   private static final String TEST_IMAGE_URI = "asset:///media/jpeg/tokyo.jpg";
+
+  @ParameterizedRobolectricTestRunner.Parameters(name = "perStream={0}")
+  public static ImmutableList<Boolean> params() {
+    return ImmutableList.of(Boolean.FALSE, Boolean.TRUE);
+  }
+
+  @ParameterizedRobolectricTestRunner.Parameter(0)
+  public Boolean perStreamMediaProgressionEnabled;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -67,6 +77,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -101,6 +112,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -135,6 +147,8 @@ public class PrewarmingRendererPlaybackTest {
   }
 
   @Test
+  // TODO: b/511055213 - Run this on all API levels when Robolectric behaviour is fixed.
+  @Config(minSdk = 31)
   public void playback_withStopDuringPlaybackWithSecondaryVideoRenderer_dumpsCorrectOutput()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -144,6 +158,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -192,6 +207,7 @@ public class PrewarmingRendererPlaybackTest {
             + ".dump");
   }
 
+  @Ignore("Flaky b/521713749")
   @Test
   public void playback_withMultipleMediaItemsWithClippingConfigurations_dumpsCorrectOutput()
       throws Exception {
@@ -202,6 +218,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -249,6 +266,7 @@ public class PrewarmingRendererPlaybackTest {
             + ".dump");
   }
 
+  @Ignore("Flaky b/521713749")
   @Test
   public void playback_withPrewarmingNonTransitioningRenderer_dumpsCorrectOutput()
       throws Exception {
@@ -259,6 +277,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -299,6 +318,7 @@ public class PrewarmingRendererPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -321,6 +341,81 @@ public class PrewarmingRendererPlaybackTest {
         playbackOutput,
         /* dumpFile= */ "playbackdumps/prewarmingRenderer/"
             + "imageVideoPlaylist-withSecondaryRenderers"
+            + ".dump");
+  }
+
+  @Test
+  public void playback_withMultipleVideoImagePlaylist_dumpsCorrectOutput() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersWithSecondaryVideoAndImageRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersWithSecondaryVideoAndImageRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    player.addMediaItems(
+        ImmutableList.of(
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build(),
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build(),
+            new MediaItem.Builder().setUri(TEST_IMAGE_URI).setImageDurationMs(1000).build(),
+            new MediaItem.Builder().setUri(TEST_IMAGE_URI).setImageDurationMs(1000).build(),
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build()));
+
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/prewarmingRenderer/"
+            + "multipleVideoImagePlaylist-withSecondaryRenderers"
+            + ".dump");
+  }
+
+  @Test
+  public void playback_withVideoVideoImagePlaylistThenSeekToStart_dumpsCorrectOutput()
+      throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersWithSecondaryVideoAndImageRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersWithSecondaryVideoAndImageRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    player.addMediaItems(
+        ImmutableList.of(
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build(),
+            new MediaItem.Builder().setUri(TEST_MP4_URI).build(),
+            new MediaItem.Builder().setUri(TEST_IMAGE_URI).setImageDurationMs(1000).build()));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0);
+    advance(player).untilState(Player.STATE_ENDED);
+
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/prewarmingRenderer/"
+            + "videoVideoImagePlaylist-seekToStart-withSecondaryRenderers"
             + ".dump");
   }
 

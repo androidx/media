@@ -579,18 +579,11 @@ public final class FakeTimeline extends Timeline {
       adPlaybackStates.add(periodAdPlaybackState);
     }
     return new FakeTimeline(
-        new FakeTimeline.TimelineWindowDefinition(
-            isAdPeriodFlags.length,
-            windowId,
-            /* isSeekable= */ true,
-            /* isDynamic= */ false,
-            /* isLive= */ false,
-            /* isPlaceholder= */ false,
-            /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-            /* defaultPositionUs= */ 0,
-            /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-            /* adPlaybackStates= */ adPlaybackStates,
-            MediaItem.EMPTY));
+        new FakeTimeline.TimelineWindowDefinition.Builder()
+            .setPeriodCount(isAdPeriodFlags.length)
+            .setUid(windowId)
+            .setAdPlaybackStates(adPlaybackStates)
+            .build());
   }
 
   /**

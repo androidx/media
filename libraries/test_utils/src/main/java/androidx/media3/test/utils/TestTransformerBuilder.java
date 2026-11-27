@@ -17,11 +17,13 @@ package androidx.media3.test.utils;
 
 import android.content.Context;
 import android.os.Looper;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.muxer.BufferInfo;
@@ -55,8 +57,8 @@ public final class TestTransformerBuilder {
 
   private final Context context;
   private final List<Transformer.Listener> listeners;
-  private final Clock clock;
 
+  private Clock clock;
   private @MonotonicNonNull String audioMimeType;
   private boolean trimOptimizationEnabled;
   private boolean mp4EditListTrimEnabled;
@@ -98,6 +100,7 @@ public final class TestTransformerBuilder {
    * @see Transformer.Builder#experimentalSetTrimOptimizationEnabled(boolean)
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   public TestTransformerBuilder experimentalSetTrimOptimizationEnabled(
       boolean trimOptimizationEnabled) {
     this.trimOptimizationEnabled = trimOptimizationEnabled;
@@ -112,6 +115,7 @@ public final class TestTransformerBuilder {
    * @see Transformer.Builder#experimentalSetMp4EditListTrimEnabled(boolean)
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470388636 - Experiment with MP4 Edit list trimming.
   public TestTransformerBuilder experimentalSetMp4EditListTrimEnabled(boolean enabled) {
     this.mp4EditListTrimEnabled = enabled;
     return this;
@@ -215,6 +219,21 @@ public final class TestTransformerBuilder {
   @CanIgnoreReturnValue
   public TestTransformerBuilder setForceTransformerToFail(boolean forceTransformerToFail) {
     this.forceTransformerToFail = forceTransformerToFail;
+    return this;
+  }
+
+  /**
+   * Sets the {@link Clock} that will be used by the transformer.
+   *
+   * <p>The default value is a {@link FakeClock} instance.
+   *
+   * @param clock The {@link Clock} instance.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  @VisibleForTesting
+  public TestTransformerBuilder setClock(Clock clock) {
+    this.clock = clock;
     return this;
   }
 

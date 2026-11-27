@@ -21,17 +21,45 @@ import android.net.Uri
 import android.util.JsonReader
 import androidx.core.net.toUri
 import androidx.core.util.Preconditions.checkState
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.util.Log
+import androidx.media3.inspector.MetadataRetriever
 import java.io.IOException
 import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.withContext
 
-internal fun Context.loadPlaylistHolderGroups(): List<PlaylistGroup> {
-  val jsonReader = JsonReader(InputStreamReader(assets.open("media.exolist.json")))
-  val playlistGroups = mutableListOf<PlaylistGroup>()
-  readPlaylistGroups(jsonReader, playlistGroups)
-  return playlistGroups
-}
+internal suspend fun loadDurationsForMediaItems(
+  context: Context,
+  mediaItems: List<MediaItem>,
+): List<MediaItem> =
+  withContext(Dispatchers.IO) {
+    // load in parallel with async + awaitAll, not sequentially
+    mediaItems
+      .map { mediaItem -> async { loadDurationForMediaItem(context, mediaItem) } }
+      .awaitAll()
+  }
+
+internal suspend fun Context.loadPlaylistHolderGroups(): List<PlaylistGroup> =
+  withContext(Dispatchers.IO) {
+    try {
+      assets.open("media.exolist.json").use { inputStream ->
+        val jsonReader = JsonReader(InputStreamReader(inputStream, StandardCharsets.UTF_8))
+        val playlistGroups = mutableListOf<PlaylistGroup>()
+        readPlaylistGroups(jsonReader, playlistGroups)
+        playlistGroups
+      }
+    } catch (e: IOException) {
+      Log.e("parser", "Error loading playlist groups", e)
+      emptyList()
+    }
+  }
 
 private fun readPlaylistGroups(reader: JsonReader, groups: MutableList<PlaylistGroup>) {
   reader.beginArray()
@@ -68,7 +96,13 @@ private fun readPlaylistGroup(reader: JsonReader, groups: MutableList<PlaylistGr
 private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHolder {
   lateinit var uri: Uri
   var title = ""
+  var album: String? = null
+  var artist: String? = null
   var children: MutableList<PlaylistHolder>? = null
+  var artworkUri: Uri? = null
+  var subtitleUri: Uri? = null
+  var subtitleMimeType: String? = null
+  var subtitleLanguage: String? = null
 
   val mediaItem = MediaItem.Builder()
   reader.beginObject()
@@ -76,6 +110,12 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
     when (val name = reader.nextName()) {
       "name" -> title = reader.nextString()
       "uri" -> uri = reader.nextString().toUri()
+      "album" -> album = reader.nextString()
+      "artist" -> artist = reader.nextString()
+      "artwork_uri" -> artworkUri = reader.nextString().toUri()
+      "subtitle_uri" -> subtitleUri = reader.nextString().toUri()
+      "subtitle_mime_type" -> subtitleMimeType = reader.nextString()
+      "subtitle_language" -> subtitleLanguage = reader.nextString()
       "playlist" -> {
         checkState(!insidePlaylist, "Invalid nesting of playlists")
         children = mutableListOf()
@@ -97,15 +137,31 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
     }
     return PlaylistHolder(title, mediaItems.toList())
   } else {
-    return PlaylistHolder(
-      title,
-      mutableListOf(
-        mediaItem
-          .setUri(uri)
-          .setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
+    val metadata = MediaMetadata.Builder().setTitle(title).setAlbumTitle(album).setArtist(artist)
+    artworkUri?.let { metadata.setArtworkUri(it) }
+
+    mediaItem.setUri(uri).setMediaMetadata(metadata.build())
+
+    if (subtitleUri != null && subtitleMimeType == null) {
+      Log.w("parser", "Subtitle URI provided but MIME type is missing for item: $title")
+    } else if (subtitleUri == null && subtitleMimeType != null) {
+      Log.w("parser", "Subtitle MIME type provided but URI is missing for item: $title")
+    } else if (subtitleUri != null && subtitleMimeType != null) {
+      if (subtitleLanguage == null) {
+        Log.w(
+          "parser",
+          "Subtitle URI and MIME type provided but language is missing for item: $title",
+        )
+      }
+      val subtitleConfig =
+        MediaItem.SubtitleConfiguration.Builder(subtitleUri)
+          .setMimeType(subtitleMimeType)
+          .setLanguage(subtitleLanguage)
           .build()
-      ),
-    )
+      mediaItem.setSubtitleConfigurations(listOf(subtitleConfig))
+    }
+
+    return PlaylistHolder(title, mutableListOf(mediaItem.build()))
   }
 }
 
@@ -117,6 +173,20 @@ private fun getGroup(groupName: String, groups: MutableList<PlaylistGroup>): Pla
       group
     }
 }
+
+private suspend fun loadDurationForMediaItem(context: Context, mediaItem: MediaItem): MediaItem =
+  try {
+    MetadataRetriever.Builder(context, mediaItem).build().use { metadataRetriever ->
+      val durationUs = metadataRetriever.retrieveDurationUs().await()
+      val durationMs = if (durationUs == C.TIME_UNSET) C.TIME_UNSET else durationUs / 1000
+      val updatedMediaMetadata =
+        mediaItem.mediaMetadata.buildUpon().setDurationMs(durationMs).build()
+      mediaItem.buildUpon().setMediaMetadata(updatedMediaMetadata).build()
+    }
+  } catch (e: IOException) {
+    Log.e("MetadataRetriever", "Failed to retrieve duration for ${mediaItem.mediaId}", e)
+    mediaItem
+  }
 
 data class PlaylistGroup(val title: String, var playlists: MutableList<PlaylistHolder>)
 

@@ -16,6 +16,7 @@
 package androidx.media3.common.util;
 
 import static androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel;
+import static androidx.media3.common.util.CodecSpecificDataUtil.getMediaCodecProfileAndLevel;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.MediaCodecInfo;
@@ -25,28 +26,16 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test for {@link CodecSpecificDataUtil}. */
 @RunWith(AndroidJUnit4.class)
 public class CodecSpecificDataUtilTest {
-
-  // TODO: b/426125651 - Replace these hard-coded constants with references to the framework
-  //  CodecProfileLevel constants once the compileSdk is at least 36.
-  private static final int APV_PROFILE_422_10 = 1;
-  private static final int APV_LEVEL_1_BAND_1 = 258;
-  private static final int APV_LEVEL_2_BAND_2 = 1028;
-  private static final int APV_PROFILE_422_10_HDR_10_PLUS = 8192;
-  private static final int IAMF_PROFILE_SIMPLE_OPUS = 16842753;
-  private static final int IAMF_PROFILE_SIMPLE_AAC = 16842754;
-  private static final int IAMF_PROFILE_SIMPLE_FLAC = 16842756;
-  private static final int IAMF_PROFILE_SIMPLE_PCM = 16842760;
-  private static final int IAMF_PROFILE_BASE_OPUS = 16908289;
-  private static final int IAMF_PROFILE_BASE_AAC = 16908290;
-  private static final int IAMF_PROFILE_BASE_FLAC = 16908292;
-  private static final int IAMF_PROFILE_BASE_PCM = 16908296;
 
   @Test
   public void parseAlacAudioSpecificConfig() {
@@ -72,7 +61,7 @@ public class CodecSpecificDataUtilTest {
   public void getCodecProfileAndLevel_handlesH263CodecString() {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.VIDEO_H263,
-        "s263.1.1",
+        "s263.0.10",
         MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
         MediaCodecInfo.CodecProfileLevel.H263Level10);
   }
@@ -183,6 +172,17 @@ public class CodecSpecificDataUtilTest {
   }
 
   @Test
+  public void getMediaCodecProfileAndLevel_handlesAv1ProfileHigh() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setCodecs("av01.1.10M.8")
+            .build();
+
+    assertThat(getMediaCodecProfileAndLevel(format).isSupportableByMediaCodec()).isFalse();
+  }
+
+  @Test
   public void getCodecProfileAndLevel_handlesFullAv1CodecString() {
     // Example from https://aomediacodec.github.io/av1-isobmff/#codecsparam.
     assertCodecProfileAndLevelForCodecsString(
@@ -207,38 +207,41 @@ public class CodecSpecificDataUtilTest {
   @Test
   public void buildApvCodecString_withValidApvSpecificConfig_returnsCorrectCodecString() {
     byte[] apvSpecificConfig =
-        new byte[] {
-          1, // configurationVersion
-          1, // number_of_configuration_entry
-          1, // pbu_type
-          1, // number_of_frame_info
-          0, // reserved_zero_6bits, color_description_present_flag(1 bit),
-          // capture_time_distance_ignored(1 bit)
-          33, // profile_idc
-          60, // level_idc
-          0, // band_idc
-          0, // frame_width (4 bytes)
-          0,
-          2,
-          -128,
-          0, // frame_height (4 bytes)
-          0,
-          1,
-          -32,
-          34, // chroma_format_idc (4 bit) + bit_depth_minus8(4 bit)
-          0 // capture_time_distance
-        };
+        TestUtil.createByteArray(
+            1, // configurationVersion
+            1, // number_of_configuration_entry
+            1, // pbu_type
+            1, // number_of_frame_info
+            0, // reserved_zero_6bits, color_description_present_flag(1 bit),
+            // capture_time_distance_ignored(1 bit)
+            33, // profile_idc
+            150, // level_idc
+            0, // band_idc
+            0, // frame_width (4 bytes)
+            0,
+            2,
+            255,
+            0, // frame_height (4 bytes)
+            0,
+            1,
+            224,
+            34, // chroma_format_idc (4 bit) + bit_depth_minus8(4 bit)
+            0 // capture_time_distance
+            );
 
     String codecString = CodecSpecificDataUtil.buildApvCodecString(apvSpecificConfig);
 
-    assertThat(codecString).isEqualTo("apv1.apvf33.apvl60.apvb0");
+    assertThat(codecString).isEqualTo("apv1.apvf33.apvl150.apvb0");
   }
 
   @Test
   public void
       getCodecProfileAndLevel_withApvProfile422_10CodecString_returnsCorrectProfileAndLevel() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.VIDEO_APV, "apv1.apvf33.apvl30.apvb1", APV_PROFILE_422_10, APV_LEVEL_1_BAND_1);
+        MimeTypes.VIDEO_APV,
+        "apv1.apvf33.apvl30.apvb1",
+        MediaCodecInfo.CodecProfileLevel.APVProfile422_10,
+        MediaCodecInfo.CodecProfileLevel.APVLevel1Band1);
   }
 
   @Test
@@ -247,65 +250,177 @@ public class CodecSpecificDataUtilTest {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.VIDEO_APV,
         "apv1.apvf44.apvl60.apvb2",
-        APV_PROFILE_422_10_HDR_10_PLUS,
-        APV_LEVEL_2_BAND_2);
-  }
-
-  @Test
-  public void getCodecProfileAndLevel_handlesMvHevcCodecString() {
-    assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.VIDEO_MV_HEVC,
-        "hvc1.6.40.L120.BF.80",
-        /* profile= */ 6,
-        MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel4);
+        MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus,
+        MediaCodecInfo.CodecProfileLevel.APVLevel2Band2);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfileOpus() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.Opus", IAMF_PROFILE_SIMPLE_OPUS, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.Opus",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleOpus,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfileAac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.mp4a.40.2", IAMF_PROFILE_SIMPLE_AAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.mp4a.40.2",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleAac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfileFlac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.fLaC", IAMF_PROFILE_SIMPLE_FLAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.fLaC",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleFlac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfilePcm() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.ipcm", IAMF_PROFILE_SIMPLE_PCM, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.ipcm",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimplePcm,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfileOpus() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.Opus", IAMF_PROFILE_BASE_OPUS, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.Opus",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBaseOpus,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfileAac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.mp4a.40.2", IAMF_PROFILE_BASE_AAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.mp4a.40.2",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBaseAac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfileFlac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.fLaC", IAMF_PROFILE_BASE_FLAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.fLaC",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBaseFlac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfilePcm() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.ipcm", IAMF_PROFILE_BASE_PCM, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.ipcm",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBasePcm,
+        0);
+  }
+
+  @Test
+  public void getMediaCodecProfileAndLevel_mvHevcWithNoMatchingMediaCodecConstant_unsupportable() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_MV_HEVC)
+            .setCodecs("hvc1.6.40.L120.BF.80")
+            .build();
+    assertThat(getMediaCodecProfileAndLevel(format).isSupportableByMediaCodec()).isFalse();
+  }
+
+  @Test
+  public void
+      getDolbyVisionBaseLayerMimeType_withNonFallbackCompatibleFormat_returnsBaseEncoding() {
+    // Profile 10.0 (Full Range PQ) which does NOT allow fallback.
+    Format formatDav1NoFallbackPossible =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
+    // Profile 10.1 (Limited Range PQ) which allows fallback to AV1.
+    Format formatDav1FallbackToAv1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .build())
+            .build();
+
+    assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDav1NoFallbackPossible))
+        .isEqualTo(MimeTypes.VIDEO_AV1);
+    assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDav1FallbackToAv1))
+        .isEqualTo(MimeTypes.VIDEO_AV1);
+  }
+
+  @Test
+  public void isHagcMetadata_withHagcPrefix_returnsTrue() {
+    byte[] hagcBytes =
+        TestUtil.createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01, 0x00, 0x00, 0x01, 0x02, 0x03);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(hagcBytes, hagcBytes.length)).isTrue();
+
+    ByteBuffer buffer = ByteBuffer.wrap(hagcBytes);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(buffer)).isTrue();
+  }
+
+  @Test
+  public void isHagcMetadata_withShortBuffer_returnsFalse() {
+    byte[] shortBytes = TestUtil.createByteArray(0xB5, 0x00, 0x90);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(shortBytes, shortBytes.length)).isFalse();
+
+    ByteBuffer buffer = ByteBuffer.wrap(shortBytes);
+    assertThat(CodecSpecificDataUtil.isHagcMetadata(buffer)).isFalse();
+  }
+
+  @Test
+  public void isHagcTrack_withValidHagc_returnsTrue() {
+    byte[] hagcBytes =
+        TestUtil.createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01, 0x00, 0x00, 0x01, 0x02, 0x03);
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+            .setInitializationData(ImmutableList.of(hagcBytes))
+            .build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(format)).isTrue();
+  }
+
+  @Test
+  public void isHagcTrack_withoutHagc_returnsFalse() {
+    byte[] badBytes = TestUtil.createByteArray(0x00, 0x01, 0x02);
+    Format formatWithBadBytes =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+            .setInitializationData(ImmutableList.of(badBytes))
+            .build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(formatWithBadBytes)).isFalse();
+
+    Format formatWithoutInitData =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35).build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(formatWithoutInitData)).isFalse();
+
+    Format formatWithWrongMimeType =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setInitializationData(ImmutableList.of(badBytes))
+            .build();
+    assertThat(CodecSpecificDataUtil.isHagcTrack(formatWithWrongMimeType)).isFalse();
   }
 
   private static void assertCodecProfileAndLevelForCodecsString(

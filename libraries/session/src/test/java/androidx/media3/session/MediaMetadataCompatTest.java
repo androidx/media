@@ -23,10 +23,13 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadata;
+import android.os.Bundle;
+import android.os.Parcel;
 import android.text.Html;
 import android.text.Spanned;
 import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.session.legacy.RatingCompat;
+import androidx.media3.test.utils.MalformedParcelable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
@@ -166,6 +169,26 @@ public final class MediaMetadataCompatTest {
     byte[] data2 = metadata2.getMostRelevantArtworkBitmapData();
 
     assertThat(data2).isNotSameInstanceAs(data1);
+  }
+
+  @Test
+  public void getMediaMetadata_withMalformedBundle_doesNotCrash() {
+    Bundle bundle = new Bundle();
+    bundle.putString(MediaMetadataCompat.METADATA_KEY_TITLE, "valid_title");
+    bundle.putParcelable(MediaMetadataCompat.METADATA_KEY_ART, new MalformedParcelable());
+
+    Parcel parcel = Parcel.obtain();
+    try {
+      parcel.writeBundle(bundle);
+      parcel.setDataPosition(0);
+
+      MediaMetadataCompat metadataCompat = MediaMetadataCompat.CREATOR.createFromParcel(parcel);
+      MediaMetadata mediaMetadata = metadataCompat.getMediaMetadata();
+
+      assertThat(mediaMetadata).isNotNull();
+    } finally {
+      parcel.recycle();
+    }
   }
 
   private Bitmap loadBitmap(String path) {

@@ -49,7 +49,9 @@ fun rememberPresentationState(
   player: Player?,
   keepContentOnReset: Boolean = false,
 ): PresentationState {
-  val presentationState = remember { PresentationState(keepContentOnReset) }
+  val presentationState = remember {
+    PresentationState(keepContentOnReset).apply { this.player = player }
+  }
   LaunchedEffect(player) { presentationState.observe(player) }
   LaunchedEffect(keepContentOnReset) { presentationState.keepContentOnReset = keepContentOnReset }
   return presentationState
@@ -62,7 +64,7 @@ fun rememberPresentationState(
  * @param[keepContentOnReset] whether the currently displayed video frame or media artwork is kept
  *   visible when tracks change or player changes. Defaults to false.
  * @property[videoSizeDp] wraps [Player.getVideoSize] in Compose's [Size], becomes `null` when
- *   either height or width of the video is zero. Takes into account
+ *   either height or width of the video is zero, or [player] is null. Takes into account
  *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp][androidx.compose.ui.unit.Dp], i.e.
  *   device-independent pixel. To use this measurement in Compose's Drawing and Layout stages,
  *   convert it into pixels using [Density.toPx][androidx.compose.ui.unit.Density.toPx]. Note that
@@ -88,7 +90,16 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       }
     }
 
-  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE) var player: Player? = null
+  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+  var player: Player? = null
+    set(value) {
+      field = value
+      // Only update the size if we are attaching a player OR if we don't need to keep the content
+      if (value != null || !keepContentOnReset) {
+        videoSizeDp = getVideoSizeDp(value)
+      }
+      maybeHideSurface(value)
+    }
 
   private var lastPeriodUidWithTracks: Any? = null
 
@@ -101,8 +112,6 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   suspend fun observe(player: Player?) {
     try {
       this@PresentationState.player = player
-      videoSizeDp = getVideoSizeDp(player)
-      maybeHideSurface(player)
       player?.listen { events ->
         if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
           if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
@@ -145,8 +154,15 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       if (!keepContentOnReset && !hasTracks) {
         coverSurface = true
       }
-      if (hasTracks && !hasSelectedVideoTrack(player)) {
-        coverSurface = true
+      if (hasTracks) {
+        if (hasSelectedVideoTrack(player)) {
+          // We don't lift the shutter here; we wait for EVENT_RENDERED_FIRST_FRAME instead.
+        } else if (hasSelectedTextTrack(player)) {
+          // No video track, but text (subtitles) is selected, lift the shutter to show them
+          coverSurface = false
+        } else {
+          coverSurface = true
+        }
       }
     } else {
       coverSurface = coverSurface || !keepContentOnReset
@@ -189,6 +205,10 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   private fun hasSelectedVideoTrack(player: Player): Boolean =
     player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
       player.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
+
+  private fun hasSelectedTextTrack(player: Player): Boolean =
+    player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
+      player.currentTracks.isTypeSelected(C.TRACK_TYPE_TEXT)
 
   companion object {
     init {

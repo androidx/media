@@ -15,10 +15,12 @@
  */
 package androidx.media3.test.utils;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.math.IntMath.checkedAdd;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.io.BaseEncoding;
@@ -250,5 +252,47 @@ public final class ImmutableByteArray {
     return startIndex == endIndex
         ? EMPTY
         : new ImmutableByteArray(array, start + startIndex, start + endIndex);
+  }
+
+  @Override
+  public boolean equals(@Nullable Object obj) {
+    if (!(obj instanceof ImmutableByteArray)) {
+      return false;
+    }
+    ImmutableByteArray that = (ImmutableByteArray) obj;
+    if (SDK_INT >= 33) {
+      return Arrays.equals(array, start, end, that.array, that.start, that.end);
+    }
+    if (length() != that.length()) {
+      return false;
+    }
+    if (start == 0 && end == array.length && that.start == 0 && that.end == that.array.length) {
+      return Arrays.equals(array, that.array);
+    }
+    for (int i = 0; i < length(); i++) {
+      if (array[start + i] != that.array[that.start + i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    if (start == 0 && end == array.length) {
+      return Arrays.hashCode(array);
+    }
+    // Consistent with List.hashCode (and therefore Arrays.hashCode)
+    int result = 1;
+    for (int i = start; i < end; i++) {
+      result = 31 * result + Byte.hashCode(array[i]);
+    }
+    return result;
+  }
+
+  @Override
+  public String toString() {
+    return Arrays.toString(
+        start == 0 && end == array.length ? array : Arrays.copyOfRange(array, start, end));
   }
 }

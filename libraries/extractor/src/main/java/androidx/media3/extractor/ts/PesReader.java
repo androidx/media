@@ -108,11 +108,13 @@ public final class PesReader implements TsPayloadReader {
             Log.w(TAG, "Unexpected start indicator: expected " + payloadSize + " more bytes");
           }
           // Either way, notify the reader that it has now finished.
-          boolean isEndOfInput = (data.limit() == 0);
-          reader.packetFinished(isEndOfInput);
+          reader.packetFinished();
           break;
         default:
           throw new IllegalStateException();
+      }
+      if (data.limit() == 0) {
+        reader.endOfInputReached();
       }
       setState(STATE_READING_HEADER);
     }
@@ -149,8 +151,7 @@ public final class PesReader implements TsPayloadReader {
           if (payloadSize != C.LENGTH_UNSET) {
             payloadSize -= readLength;
             if (payloadSize == 0) {
-              // There are bytes left in data, see above, so this is not the end of input
-              reader.packetFinished(/* isEndOfInput= */ false);
+              reader.packetFinished();
               setState(STATE_READING_HEADER);
             }
           }
@@ -168,16 +169,18 @@ public final class PesReader implements TsPayloadReader {
    *     otherwise.
    */
   public boolean canConsumeSynthesizedEmptyPusi(boolean isModeHls) {
-    // Pusi only payload to trigger end of sample data is only applicable if
-    // pes does not have a length field and body is being read, another exclusion
-    // is due to H262 streams possibly having, in HLS mode, a pes across more than one segment
-    // which would trigger committing an unfinished sample in the middle of the access unit
-
     // Only call parseHeader if isModeHls is true and can parse header as some HLS streams may
     // contain packages.
     boolean headerParsed = !isModeHls || parseHeader();
-    return state == STATE_READING_BODY
-        && payloadSize == C.LENGTH_UNSET
+    // Either the PES packet does not have a length field and the body is being read (where the end
+    // of the stream also signals the end of the body), or we are waiting for the next PES packet to
+    // start and the end of the stream means there won't be any more data.
+    return ((state == STATE_READING_BODY && payloadSize == C.LENGTH_UNSET)
+            || (state == STATE_READING_HEADER))
+        // An empty PES packet with only the PUSI (Payload Unit Start Indicator) flag set, used to
+        // trigger the end of the sample data, is not applicable for H262 streams. These streams
+        // may, in HLS mode, have a PES packet spanning across more than one segment, which would
+        // incorrectly trigger committing an unfinished sample in the middle of the access unit.
         && !(isModeHls && reader instanceof H262Reader)
         && headerParsed;
   }

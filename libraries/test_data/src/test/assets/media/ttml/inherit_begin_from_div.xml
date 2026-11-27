@@ -1,0 +1,44 @@
+<tt xmlns="http://www.w3.org/ns/ttml"
+    xmlns:ttm="http://www.w3.org/ns/ttml#metadata"
+    xmlns:ttp="http://www.w3.org/ns/ttml#parameter"
+    xmlns:tts="http://www.w3.org/ns/ttml#styling"
+    ttp:contentProfiles="http://www.w3.org/ns/ttml/profile/imsc1.1/text"
+    xml:lang="en">
+  <head>
+    <styling>
+      <style xml:id="style.center" tts:color="white" tts:textAlign="center"/>
+    </styling>
+    <layout>
+      <region xml:id="region.bottomCenter" tts:origin="10% 80%" tts:extent="80% 15%"/>
+    </layout>
+  </head>
+  <body>
+    <div>
+      <!-- <p> with no timing of its own inside a timed <div>: it uses the div's begin/end -->
+      <div xml:id="d0" style="style.center" begin="00:01:09.583" end="00:01:11.125">
+        <p region="region.bottomCenter">Lara.</p>
+      </div>
+      <div xml:id="d1" style="style.center" begin="00:01:12.000" end="00:01:14.500">
+        <p region="region.bottomCenter">Stil.</p>
+      </div>
+      <!-- <p> with its own begin/end inside a timed <div>: its times are relative to the div -->
+      <div begin="00:02:00.000" end="00:02:30.000">
+        <p begin="00:00:02.000" end="00:00:05.000">offset</p>
+      </div>
+      <!-- <p> with only dur inside a timed <div>: end = the div's start + dur -->
+      <div begin="00:03:00.000" end="00:03:30.000">
+        <p dur="00:00:04.000">dur</p>
+      </div>
+    </div>
+    <!-- nested timed <div>s: the begin offsets add up -->
+    <div begin="00:04:00.000">
+      <div begin="00:00:02.000" end="00:00:05.000">
+        <p>nested</p>
+      </div>
+    </div>
+    <!-- <p> with its own begin/end under an untimed <div>: timed directly, nothing to inherit -->
+    <div>
+      <p begin="00:05:00.000" end="00:05:02.000">bare</p>
+    </div>
+  </body>
+</tt>

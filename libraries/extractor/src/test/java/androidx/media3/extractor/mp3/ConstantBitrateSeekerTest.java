@@ -22,14 +22,15 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.SeekPoint;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,6 +65,23 @@ public class ConstantBitrateSeekerTest {
     assertThat(seekMap.getClass()).isEqualTo(ConstantBitrateSeeker.class);
     assertThat(seekMap.getDurationUs()).isEqualTo(2_784_000);
     assertThat(seekMap.isSeekable()).isTrue();
+  }
+
+  @Test
+  public void getSeekPoints_atExplicitDuration_returnsFinalFrameSeekPoint() {
+    ConstantBitrateSeeker seeker =
+        new ConstantBitrateSeeker(
+            /* inputLength= */ 1_125,
+            /* firstFramePosition= */ 125,
+            /* bitrate= */ 8_000,
+            /* frameSize= */ 1,
+            /* allowSeeksIfLengthUnknown= */ false,
+            /* durationUs= */ 900_000);
+
+    assertThat(seeker.getDurationUs()).isEqualTo(900_000);
+    assertThat(seeker.getTimeUs(1_025)).isEqualTo(900_000);
+    assertThat(seeker.getSeekPoints(800_000).first.position).isEqualTo(925);
+    assertThat(seeker.getSeekPoints(900_000).first).isEqualTo(new SeekPoint(899_000, 1_124));
   }
 
   @Test
@@ -203,7 +221,7 @@ public class ConstantBitrateSeekerTest {
   }
 
   private static int getFrameIndex(FakeTrackOutput trackOutput, long targetSeekTimeUs) {
-    List<Long> frameTimes = trackOutput.getSampleTimesUs();
+    ImmutableList<Long> frameTimes = trackOutput.getSampleTimesUs();
     return Util.binarySearchFloor(
         frameTimes, targetSeekTimeUs, /* inclusive= */ true, /* stayInBounds= */ false);
   }

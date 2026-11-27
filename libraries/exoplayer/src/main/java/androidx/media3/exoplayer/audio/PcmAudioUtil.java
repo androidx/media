@@ -71,7 +71,7 @@ public final class PcmAudioUtil {
   public static int readAs32BitIntPcm(ByteBuffer buffer, @C.Encoding int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
-        return (buffer.get() & 0xFF) << 24;
+        return ((buffer.get() & 0xFF) - 128) << 24;
       case C.ENCODING_PCM_16BIT:
         return ((buffer.get() & 0xFF) << 16) | ((buffer.get() & 0xFF) << 24);
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
@@ -100,6 +100,35 @@ public final class PcmAudioUtil {
           return (int) (-floatValue * Integer.MIN_VALUE);
         } else {
           return (int) (floatValue * Integer.MAX_VALUE);
+        }
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+        float floatBeValue =
+            Util.constrainValue(
+                Float.intBitsToFloat(Integer.reverseBytes(buffer.getInt())),
+                /* min= */ -1f,
+                /* max= */ 1f);
+        if (floatBeValue < 0) {
+          return (int) (-floatBeValue * Integer.MIN_VALUE);
+        } else {
+          return (int) (floatBeValue * Integer.MAX_VALUE);
+        }
+      case C.ENCODING_PCM_DOUBLE:
+        double doubleValue = Util.constrainValue(buffer.getDouble(), /* min= */ -1f, /* max= */ 1f);
+        if (doubleValue < 0) {
+          return (int) (-doubleValue * Integer.MIN_VALUE);
+        } else {
+          return (int) (doubleValue * Integer.MAX_VALUE);
+        }
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+        double doubleBeValue =
+            Util.constrainValue(
+                Double.longBitsToDouble(Long.reverseBytes(buffer.getLong())),
+                /* min= */ -1f,
+                /* max= */ 1f);
+        if (doubleBeValue < 0) {
+          return (int) (-doubleBeValue * Integer.MIN_VALUE);
+        } else {
+          return (int) (doubleBeValue * Integer.MAX_VALUE);
         }
       default:
         throw new IllegalStateException();
@@ -132,7 +161,7 @@ public final class PcmAudioUtil {
         buffer.put((byte) (pcm32bit >> 24));
         return;
       case C.ENCODING_PCM_8BIT:
-        buffer.put((byte) (pcm32bit >> 24));
+        buffer.put((byte) ((pcm32bit >> 24) + 128));
         return;
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
         buffer.put((byte) (pcm32bit >> 24));
@@ -155,6 +184,31 @@ public final class PcmAudioUtil {
         } else {
           buffer.putFloat((float) pcm32bit / Integer.MAX_VALUE);
         }
+        return;
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+        float floatValue;
+        if (pcm32bit < 0) {
+          floatValue = -((float) pcm32bit) / Integer.MIN_VALUE;
+        } else {
+          floatValue = (float) pcm32bit / Integer.MAX_VALUE;
+        }
+        buffer.putInt(Integer.reverseBytes(Float.floatToIntBits(floatValue)));
+        return;
+      case C.ENCODING_PCM_DOUBLE:
+        if (pcm32bit < 0) {
+          buffer.putDouble(-((double) pcm32bit) / Integer.MIN_VALUE);
+        } else {
+          buffer.putDouble((double) pcm32bit / Integer.MAX_VALUE);
+        }
+        return;
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+        double doubleValue;
+        if (pcm32bit < 0) {
+          doubleValue = -((double) pcm32bit) / Integer.MIN_VALUE;
+        } else {
+          doubleValue = (double) pcm32bit / Integer.MAX_VALUE;
+        }
+        buffer.putLong(Long.reverseBytes(Double.doubleToLongBits(doubleValue)));
         return;
       default:
         throw new IllegalStateException();

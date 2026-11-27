@@ -36,8 +36,9 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.mp4.PsshAtomUtil;
 import androidx.media3.test.utils.AssetContentProvider;
+import androidx.media3.test.utils.ImmutableByteArray;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
@@ -75,6 +76,13 @@ import org.junit.runners.Parameterized.Parameters;
 public class MediaExtractorContractTest {
 
   private static final String AUTHORITY = "androidx.media3.inspector.test.AssetContentProvider";
+
+  /** The PSSH data payload for the "media/drm/sample_fragmented_widevine.mp4" test asset. */
+  private static final ImmutableByteArray WIDEVINE_PSSH_DATA_FOR_SAMPLE_FRAGMENTED_MP4 =
+      ImmutableByteArray.ofUnsigned(
+          0x08, 0x01, 0x12, 0x01, 0x35, 0x1A, 0x0D, 0x77, 0x69, 0x64, 0x65, 0x76, 0x69, 0x6E, 0x65,
+          0x5F, 0x74, 0x65, 0x73, 0x74, 0x22, 0x0A, 0x32, 0x30, 0x31, 0x35, 0x5F, 0x74, 0x65, 0x61,
+          0x72, 0x73, 0x2A, 0x02, 0x53, 0x44);
 
   @Parameters(name = "{0}")
   public static ImmutableList<Function<Context, MediaExtractorProxy>>
@@ -280,20 +288,13 @@ public class MediaExtractorContractTest {
         context.getAssets().openFd("media/drm/sample_fragmented_widevine.mp4");
     mediaExtractorProxy.setDataSource(afd);
 
-    Object drmInitDataObject = mediaExtractorProxy.getDrmInitData();
+    TestDrmInitData testDrmInitData = mediaExtractorProxy.getDrmInitData();
 
-    if (mediaExtractorProxy instanceof FrameworkMediaExtractorProxy) {
-      android.media.DrmInitData frameworkDrmInitData =
-          (android.media.DrmInitData) drmInitDataObject;
-      assertThat(frameworkDrmInitData.getSchemeInitDataCount()).isEqualTo(1);
-      assertThat(frameworkDrmInitData.getSchemeInitDataAt(0).mimeType).isEqualTo(CENC_TYPE_cenc);
-      assertThat(frameworkDrmInitData.getSchemeInitDataAt(0).uuid).isEqualTo(WIDEVINE_UUID);
-    } else {
-      DrmInitData drmInitData = (DrmInitData) drmInitDataObject;
-      assertThat(drmInitData.schemeDataCount).isEqualTo(1);
-      assertThat(drmInitData.schemeType).isEqualTo(CENC_TYPE_cenc);
-      assertThat(drmInitData.get(0).uuid).isEqualTo(WIDEVINE_UUID);
-    }
+    assertThat(testDrmInitData.schemeDataCount).isEqualTo(1);
+    assertThat(testDrmInitData.schemeType).isEqualTo(CENC_TYPE_cenc);
+    assertThat(testDrmInitData.uuid).isEqualTo(WIDEVINE_UUID);
+    assertThat(testDrmInitData.data)
+        .isEqualTo(WIDEVINE_PSSH_DATA_FOR_SAMPLE_FRAGMENTED_MP4.toArray());
   }
 
   @Test
@@ -307,18 +308,8 @@ public class MediaExtractorContractTest {
     Map<UUID, byte[]> psshInfo = mediaExtractorProxy.getPsshInfo();
 
     assertThat(psshInfo).containsKey(WIDEVINE_UUID);
-    byte[] expectedSchemeData =
-        new byte[] {
-          (byte) 0x08, (byte) 0x01, (byte) 0x12, (byte) 0x01, (byte) 0x35,
-          (byte) 0x1A, (byte) 0x0D, (byte) 0x77, (byte) 0x69, (byte) 0x64,
-          (byte) 0x65, (byte) 0x76, (byte) 0x69, (byte) 0x6E, (byte) 0x65,
-          (byte) 0x5F, (byte) 0x74, (byte) 0x65, (byte) 0x73, (byte) 0x74,
-          (byte) 0x22, (byte) 0x0A, (byte) 0x32, (byte) 0x30, (byte) 0x31,
-          (byte) 0x35, (byte) 0x5F, (byte) 0x74, (byte) 0x65, (byte) 0x61,
-          (byte) 0x72, (byte) 0x73, (byte) 0x2A, (byte) 0x02, (byte) 0x53,
-          (byte) 0x44
-        };
-    assertThat(psshInfo.get(WIDEVINE_UUID)).isEqualTo(expectedSchemeData);
+    assertThat(psshInfo.get(WIDEVINE_UUID))
+        .isEqualTo(WIDEVINE_PSSH_DATA_FOR_SAMPLE_FRAGMENTED_MP4.toArray());
   }
 
   @Test
@@ -330,11 +321,8 @@ public class MediaExtractorContractTest {
 
     PersistableBundle bundle = mediaExtractorProxy.getMetrics();
 
-    String expectedFormat =
-        mediaExtractorProxy instanceof FrameworkMediaExtractorProxy
-            ? "MPEG4Extractor"
-            : Mp4Extractor.class.getSimpleName();
-    assertThat(bundle.getString(MediaExtractor.MetricsConstants.FORMAT)).isEqualTo(expectedFormat);
+    // MetricsConstants.FORMAT is the name of the extractor used in metrics, which is expected to be
+    // different for the framework and compat implementations, hence not asserted.
     assertThat(bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE))
         .isEqualTo(MimeTypes.VIDEO_MP4);
     assertThat(bundle.getInt(MediaExtractor.MetricsConstants.TRACKS)).isEqualTo(2);
@@ -360,9 +348,21 @@ public class MediaExtractorContractTest {
 
     @Override
     @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(24)
-    public Object getDrmInitData() {
-      return mediaExtractor.getDrmInitData();
+    @RequiresApi(30)
+    public TestDrmInitData getDrmInitData() {
+      android.media.DrmInitData frameworkDrmInitData = mediaExtractor.getDrmInitData();
+      if (frameworkDrmInitData == null || frameworkDrmInitData.getSchemeInitDataCount() == 0) {
+        return null;
+      }
+      // Fully-qualified name used for clarity, avoids ambiguity with imported Media3 DrmInitData.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      android.media.DrmInitData.SchemeInitData firstSchemeData =
+          frameworkDrmInitData.getSchemeInitDataAt(0);
+      return new TestDrmInitData(
+          frameworkDrmInitData.getSchemeInitDataCount(),
+          firstSchemeData.mimeType,
+          firstSchemeData.uuid,
+          firstSchemeData.data);
     }
 
     @Override
@@ -519,9 +519,18 @@ public class MediaExtractorContractTest {
 
     @Override
     @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(24)
-    public Object getDrmInitData() {
-      return mediaExtractorCompat.getDrmInitData();
+    @RequiresApi(30)
+    public TestDrmInitData getDrmInitData() {
+      DrmInitData drmInitData = mediaExtractorCompat.getDrmInitData();
+      if (drmInitData == null || drmInitData.schemeDataCount == 0) {
+        return null;
+      }
+
+      DrmInitData.SchemeData firstScheme = drmInitData.get(0);
+      PsshAtomUtil.PsshAtom psshAtom = PsshAtomUtil.parsePsshAtom(firstScheme.data);
+      byte[] data = psshAtom != null ? psshAtom.schemeData : firstScheme.data;
+      return new TestDrmInitData(
+          drmInitData.schemeDataCount, drmInitData.schemeType, firstScheme.uuid, data);
     }
 
     @Override
@@ -666,8 +675,8 @@ public class MediaExtractorContractTest {
     long getCachedDuration();
 
     @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(24)
-    Object getDrmInitData();
+    @RequiresApi(30)
+    TestDrmInitData getDrmInitData();
 
     @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
     @RequiresApi(31)
@@ -727,5 +736,30 @@ public class MediaExtractorContractTest {
     void setLogSessionId(LogSessionId logSessionId);
 
     void unselectTrack(int trackIndex);
+  }
+
+  /**
+   * A test-only representation of DRM initialization data.
+   *
+   * <p>This class is necessary because the platform {@link android.media.DrmInitData} and Media3
+   * {@link DrmInitData} are not easily convertible between each other, so this class provides a
+   * common object for comparison in tests.
+   *
+   * <p>The platform {@code DrmInitData} cannot be constructed from the Media3 object due to
+   * visibility restrictions, and the Media3 object is too rich to be synthesized from the limited
+   * information provided by the platform object.
+   */
+  private static final class TestDrmInitData {
+    private final int schemeDataCount;
+    private final String schemeType;
+    private final UUID uuid;
+    private final byte[] data;
+
+    private TestDrmInitData(int schemeDataCount, String schemeType, UUID uuid, byte[] data) {
+      this.schemeDataCount = schemeDataCount;
+      this.schemeType = schemeType;
+      this.uuid = uuid;
+      this.data = data;
+    }
   }
 }

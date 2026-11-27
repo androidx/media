@@ -130,6 +130,10 @@ public class RemoteMediaControllerCompat {
     binder.sendCustomActionWithName(controllerId, customCommand.customAction, params);
   }
 
+  public String getPackageName() throws RemoteException {
+    return binder.getPackageName(controllerId);
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
   // MediaControllerCompat.TransportControls methods
   ////////////////////////////////////////////////////////////////////////////////

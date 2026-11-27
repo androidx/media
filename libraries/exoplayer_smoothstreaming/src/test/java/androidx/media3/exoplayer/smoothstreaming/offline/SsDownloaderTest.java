@@ -31,11 +31,9 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.PlaceholderDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
-import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.DownloadRequest;
@@ -44,14 +42,13 @@ import androidx.media3.exoplayer.offline.DownloaderFactory;
 import androidx.media3.test.utils.CacheAsserts;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.TestUtil;
-import androidx.test.core.app.ApplicationProvider;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -60,17 +57,15 @@ import org.mockito.Mockito;
 @RunWith(AndroidJUnit4.class)
 public final class SsDownloaderTest {
 
-  private SimpleCache cache;
-  private File tempFolder;
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
+
   private ProgressListener progressListener;
   private FakeDataSet fakeDataSet;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
-    tempFolder =
-        Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
+    cache = cacheRule.createSimpleCache();
     progressListener = new ProgressListener();
     fakeDataSet =
         new FakeDataSet()

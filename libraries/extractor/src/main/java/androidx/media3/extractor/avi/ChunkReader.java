@@ -63,6 +63,7 @@ import java.util.Arrays;
   private final int alternativeChunkId;
 
   private final long durationUs;
+  private final boolean allSamplesAreSyncSamples;
 
   private int chunkCount;
   private int currentChunkSize;
@@ -77,8 +78,13 @@ import java.util.Arrays;
   private long[] keyFrameOffsets;
   private int[] keyFrameIndices;
 
-  public ChunkReader(int id, AviStreamHeaderChunk streamHeaderChunk, TrackOutput trackOutput) {
+  public ChunkReader(
+      int id,
+      AviStreamHeaderChunk streamHeaderChunk,
+      TrackOutput trackOutput,
+      boolean allSamplesAreSyncSamples) {
     this.streamHeaderChunk = streamHeaderChunk;
+    this.allSamplesAreSyncSamples = allSamplesAreSyncSamples;
     @C.TrackType int trackType = streamHeaderChunk.getTrackType();
     checkArgument(trackType == TRACK_TYPE_AUDIO || trackType == TRACK_TYPE_VIDEO);
     @ChunkType
@@ -98,7 +104,7 @@ import java.util.Arrays;
     if (firstIndexChunkOffset == C.INDEX_UNSET) {
       firstIndexChunkOffset = offset;
     }
-    if (isKeyFrame) {
+    if (isKeyFrame || allSamplesAreSyncSamples) {
       if (indexSize == keyFrameIndices.length) {
         keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, keyFrameOffsets.length * 3 / 2);
         keyFrameIndices = Arrays.copyOf(keyFrameIndices, keyFrameIndices.length * 3 / 2);
@@ -125,7 +131,7 @@ import java.util.Arrays;
   public void commitIndex() {
     keyFrameOffsets = Arrays.copyOf(keyFrameOffsets, indexSize);
     keyFrameIndices = Arrays.copyOf(keyFrameIndices, indexSize);
-    if (isAudio() && streamHeaderChunk.sampleSize != 0 && indexSize > 0) {
+    if (allSamplesAreSyncSamples && streamHeaderChunk.sampleSize != 0 && indexSize > 0) {
       // In some files the AVI stream header chunk for audio has the number of bytes of audio in
       // dwLength instead of the number of chunks. Overwrite the chunk size to use the size of the
       // index, which should match the number of chunks because we only support formats where every
@@ -139,7 +145,7 @@ import java.util.Arrays;
   }
 
   public boolean isCurrentFrameAKeyFrame() {
-    return Arrays.binarySearch(keyFrameIndices, currentChunkIndex) >= 0;
+    return allSamplesAreSyncSamples || Arrays.binarySearch(keyFrameIndices, currentChunkIndex) >= 0;
   }
 
   public boolean isVideo() {

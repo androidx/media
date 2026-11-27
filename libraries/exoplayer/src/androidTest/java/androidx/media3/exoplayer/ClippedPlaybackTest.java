@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.test.utils.PlayerFence.futureWhen;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
@@ -27,17 +28,16 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.SubtitleConfiguration;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.text.TextRenderer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -87,6 +87,7 @@ public final class ClippedPlaybackTest {
                 new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(1000).build())
             .build();
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
+    SettableFuture<Void> playerEndedFuture = SettableFuture.create();
     TextCapturingPlaybackListener textCapturer = new TextCapturingPlaybackListener();
     getInstrumentation()
         .runOnMainSync(
@@ -97,12 +98,15 @@ public final class ClippedPlaybackTest {
               player.get().setMediaItem(mediaItem);
               player.get().prepare();
               playWhenLoadingIsDone(player.get());
+              playerEndedFuture.setFuture(
+                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
             });
 
-    textCapturer.block();
-
-    getInstrumentation().runOnMainSync(() -> player.get().release());
-    getInstrumentation().waitForIdleSync();
+    try {
+      playerEndedFuture.get();
+    } finally {
+      getInstrumentation().runOnMainSync(() -> player.get().release());
+    }
     assertThat(Iterables.getOnlyElement(Iterables.concat(textCapturer.cues)).text.toString())
         .isEqualTo("This is the first subtitle.");
   }
@@ -136,6 +140,7 @@ public final class ClippedPlaybackTest {
                     new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(4_000).build())
                 .build());
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
+    SettableFuture<Void> playerEndedFuture = SettableFuture.create();
     TextCapturingPlaybackListener textCapturer = new TextCapturingPlaybackListener();
     getInstrumentation()
         .runOnMainSync(
@@ -149,12 +154,15 @@ public final class ClippedPlaybackTest {
               // of the first period for subtitles to be fully loaded beforetransitioning to the
               // second period.
               player.get().play();
+              playerEndedFuture.setFuture(
+                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
             });
 
-    textCapturer.block();
-
-    getInstrumentation().runOnMainSync(() -> player.get().release());
-    getInstrumentation().waitForIdleSync();
+    try {
+      playerEndedFuture.get();
+    } finally {
+      getInstrumentation().runOnMainSync(() -> player.get().release());
+    }
     assertThat(Iterables.getOnlyElement(Iterables.concat(textCapturer.cues)).text.toString())
         .isEqualTo("This is the first subtitle.");
   }
@@ -203,40 +211,15 @@ public final class ClippedPlaybackTest {
 
   private static class TextCapturingPlaybackListener implements Player.Listener {
 
-    private final ConditionVariable playbackEnded;
     private final List<List<Cue>> cues;
-    private final AtomicReference<PlaybackException> playerError;
 
     private TextCapturingPlaybackListener() {
-      playbackEnded = new ConditionVariable();
       cues = Collections.synchronizedList(new ArrayList<>());
-      playerError = new AtomicReference<>();
     }
 
     @Override
     public void onCues(CueGroup cueGroup) {
       this.cues.add(cueGroup.cues);
-    }
-
-    @Override
-    public void onPlaybackStateChanged(@Player.State int playbackState) {
-      if (playbackState == Player.STATE_ENDED) {
-        playbackEnded.open();
-      }
-    }
-
-    @Override
-    public void onPlayerError(PlaybackException error) {
-      playerError.set(error);
-      playbackEnded.open();
-    }
-
-    public void block() throws InterruptedException, PlaybackException {
-      playbackEnded.block();
-      PlaybackException playerError = this.playerError.get();
-      if (playerError != null) {
-        throw playerError;
-      }
     }
   }
 }

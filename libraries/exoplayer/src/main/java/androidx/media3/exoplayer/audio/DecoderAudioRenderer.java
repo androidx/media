@@ -28,6 +28,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioDeviceInfo;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
@@ -56,6 +57,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.MediaClock;
 import androidx.media3.exoplayer.PlayerMessage.Target;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener.EventDispatcher;
 import androidx.media3.exoplayer.audio.AudioSink.SinkFormatSupport;
@@ -63,10 +65,13 @@ import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSession.DrmSessionException;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.ForOverride;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.concurrent.Executor;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * Decodes and renders audio using a {@link Decoder}.
@@ -97,6 +102,7 @@ import java.lang.annotation.RetentionPolicy;
  *       The message payload must be an {@link AudioOutputProvider} instance.
  * </ul>
  */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public abstract class DecoderAudioRenderer<
         T extends
@@ -104,9 +110,11 @@ public abstract class DecoderAudioRenderer<
                     DecoderInputBuffer,
                     ? extends SimpleDecoderOutputBuffer,
                     ? extends DecoderException>>
-    extends BaseRenderer implements MediaClock {
+    extends BaseRenderer implements MediaClock, Decoder.Callback {
 
   private static final String TAG = "DecoderAudioRenderer";
+
+  private static final long READY_GRACE_PERIOD_MS = 100;
 
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -176,6 +184,11 @@ public abstract class DecoderAudioRenderer<
   private long largestQueuedPresentationTimeUs;
   private long lastBufferInStreamPresentationTimeUs;
   private long nextBufferToWritePresentationTimeUs;
+  private long firstNotReadyTimeMs;
+  private boolean hasBeenReady;
+
+  @Nullable private Renderer.WakeupListener wakeupListener;
+  private @MonotonicNonNull Executor playbackThreadExecutor;
 
   public DecoderAudioRenderer() {
     this(/* eventHandler= */ null, /* eventListener= */ null);
@@ -231,7 +244,6 @@ public abstract class DecoderAudioRenderer<
     super(C.TRACK_TYPE_AUDIO);
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     this.audioSink = audioSink;
-    audioSink.setListener(new AudioSinkListener());
     flagsOnlyBuffer = DecoderInputBuffer.newNoDataInstance();
     decoderReinitializationState = REINITIALIZATION_STATE_NONE;
     audioTrackNeedsConfigure = true;
@@ -240,6 +252,8 @@ public abstract class DecoderAudioRenderer<
     largestQueuedPresentationTimeUs = C.TIME_UNSET;
     lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
   }
 
   @Override
@@ -423,7 +437,7 @@ public abstract class DecoderAudioRenderer<
    */
   @ForOverride
   @Nullable
-  protected int[] getChannelMapping(T decoder) {
+  protected ImmutableIntArray getChannelMapping(T decoder) {
     return null;
   }
 
@@ -499,7 +513,12 @@ public abstract class DecoderAudioRenderer<
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)
               .build();
-      audioSink.configure(outputFormat, /* specifiedBufferSize= */ 0, getChannelMapping(decoder));
+      audioSink.configure(
+          new AudioSink.AudioSinkConfig.Builder(outputFormat)
+              .setOutputChannelMapping(getChannelMapping(decoder))
+              .setTimeline(getTimeline())
+              .setMediaPeriodId(getMediaPeriodId())
+              .build());
       audioTrackNeedsConfigure = false;
     }
 
@@ -631,7 +650,25 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   public boolean isReady() {
-    return audioSink.hasPendingData();
+    boolean isReady = audioSink.hasPendingData();
+    if (isReady) {
+      firstNotReadyTimeMs = C.TIME_UNSET;
+      hasBeenReady = true;
+      return true;
+    }
+    if (hasBeenReady && isStarted && isSourceReady() && !hasReadStreamToEnd()) {
+      // Engage a grace period for downstream underruns, but exclude genuine upstream starvation
+      // (isSourceReady() is false) and natural stream transitions (hasReadStreamToEnd() is true).
+      long elapsedRealtimeMs = getClock().elapsedRealtime();
+      if (firstNotReadyTimeMs == C.TIME_UNSET) {
+        firstNotReadyTimeMs = elapsedRealtimeMs;
+        return true;
+      }
+      if (elapsedRealtimeMs - firstNotReadyTimeMs < READY_GRACE_PERIOD_MS) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -671,6 +708,7 @@ public abstract class DecoderAudioRenderer<
     }
     audioSink.setPlayerId(getPlayerId());
     audioSink.setClock(getClock());
+    audioSink.setListener(new AudioSinkListener());
   }
 
   @Override
@@ -681,6 +719,8 @@ public abstract class DecoderAudioRenderer<
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
     hasPendingReportedSkippedSilence = false;
     hasReportedAudioPositionAdvancing = false;
     allowPositionDiscontinuity = true;
@@ -703,6 +743,8 @@ public abstract class DecoderAudioRenderer<
     audioSink.pause();
     isStarted = false;
     hasReportedAudioPositionAdvancing = false;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
   }
 
   @Override
@@ -776,15 +818,31 @@ public abstract class DecoderAudioRenderer<
       case MSG_SET_AUDIO_OUTPUT_PROVIDER:
         audioSink.setAudioOutputProvider((AudioOutputProvider) checkNotNull(message));
         break;
+      case MSG_SET_WAKEUP_LISTENER:
+        wakeupListener = (Renderer.WakeupListener) message;
+        break;
       case MSG_SET_CAMERA_MOTION_LISTENER:
       case MSG_SET_CHANGE_FRAME_RATE_STRATEGY:
       case MSG_SET_SCALING_MODE:
       case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
       case MSG_SET_VIDEO_OUTPUT:
-      case MSG_SET_WAKEUP_LISTENER:
       default:
         super.handleMessage(messageType, message);
         break;
+    }
+  }
+
+  @Override
+  public void onInputBufferAvailable() {
+    if (wakeupListener != null) {
+      wakeupListener.onWakeup();
+    }
+  }
+
+  @Override
+  public void onOutputBufferAvailable() {
+    if (wakeupListener != null) {
+      wakeupListener.onWakeup();
     }
   }
 
@@ -816,10 +874,15 @@ public abstract class DecoderAudioRenderer<
     }
 
     try {
+      if (playbackThreadExecutor == null) {
+        Handler handler = new Handler(Looper.myLooper());
+        playbackThreadExecutor = handler::post;
+      }
       long codecInitializingTimestamp = SystemClock.elapsedRealtime();
       TraceUtil.beginSection("createAudioDecoder");
       decoder = createDecoder(inputFormat, cryptoConfig);
       decoder.setOutputStartTimeUs(getLastResetPositionUs());
+      decoder.setCallback(this, playbackThreadExecutor);
       TraceUtil.endSection();
       long codecInitializedTimestamp = SystemClock.elapsedRealtime();
       eventDispatcher.decoderInitialized(

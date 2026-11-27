@@ -16,9 +16,9 @@
 
 # LINT.IfChange
 cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
-# LINT.ThenChange(../../../build.gradle)
+# LINT.ThenChange(../../../build.gradle.kts)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 project(libdav1dJNI C CXX)
 
@@ -55,6 +55,10 @@ add_library(dav1dJNI
             cpu_info.cc
             cpu_info.h)
 
+set_target_properties(dav1dJNI PROPERTIES
+                      CXX_VISIBILITY_PRESET hidden
+                      VISIBILITY_INLINES_HIDDEN ON)
+
 # Locate NDK log library.
 find_library(android_log_lib log)
 
@@ -65,6 +69,3 @@ target_link_libraries(dav1dJNI
                       PRIVATE ${DAV1D_LIB_PATH}
                       PRIVATE ${android_log_lib})
 
-# Enable 16 KB ELF alignment.
-target_link_options(dav1dJNI
-                    PRIVATE "-Wl,-z,max-page-size=16384")

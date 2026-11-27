@@ -119,8 +119,6 @@ public final class DefaultAllocator implements Allocator {
   public synchronized void release(Allocation allocation) {
     availableAllocations[availableCount++] = allocation;
     allocatedCount--;
-    // Wake up threads waiting for the allocated size to drop.
-    notifyAll();
   }
 
   @Override
@@ -130,8 +128,6 @@ public final class DefaultAllocator implements Allocator {
       allocatedCount--;
       allocationNode = allocationNode.next();
     }
-    // Wake up threads waiting for the allocated size to drop.
-    notifyAll();
   }
 
   @Override
@@ -184,5 +180,10 @@ public final class DefaultAllocator implements Allocator {
   @Override
   public int getIndividualAllocationLength() {
     return individualAllocationSize;
+  }
+
+  /** Returns the total number of bytes currently occupied by unused allocations. */
+  public synchronized int getUnusedBytesAllocated() {
+    return availableCount * individualAllocationSize;
   }
 }

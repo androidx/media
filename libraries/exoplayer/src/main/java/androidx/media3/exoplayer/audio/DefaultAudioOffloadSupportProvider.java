@@ -88,7 +88,7 @@ public final class DefaultAudioOffloadSupportProvider
       return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
 
-    int channelConfig = Util.getAudioTrackChannelConfig(format.channelCount);
+    int channelConfig = Util.getAudioTrackChannelConfig(format);
     if (channelConfig == AudioFormat.CHANNEL_INVALID) {
       return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
@@ -100,13 +100,19 @@ public final class DefaultAudioOffloadSupportProvider
       return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
 
-    if (SDK_INT >= 31) {
-      return Api31.getOffloadedPlaybackSupport(
+    if (SDK_INT >= 33) {
+      return getOffloadedPlaybackSupportV33(
           audioFormat,
           audioAttributes.getPlatformAudioAttributes(),
           isOffloadVariableRateSupported);
     }
-    return Api29.getOffloadedPlaybackSupport(
+    if (SDK_INT >= 31) {
+      return getOffloadedPlaybackSupportV31(
+          audioFormat,
+          audioAttributes.getPlatformAudioAttributes(),
+          isOffloadVariableRateSupported);
+    }
+    return getOffloadedPlaybackSupportV29(
         audioFormat, audioAttributes.getPlatformAudioAttributes(), isOffloadVariableRateSupported);
   }
 
@@ -130,46 +136,57 @@ public final class DefaultAudioOffloadSupportProvider
   }
 
   @RequiresApi(29)
-  private static final class Api29 {
-    private Api29() {}
-
-    public static AudioOffloadSupport getOffloadedPlaybackSupport(
-        AudioFormat audioFormat,
-        android.media.AudioAttributes audioAttributes,
-        boolean isOffloadVariableRateSupported) {
-      if (!AudioManager.isOffloadedPlaybackSupported(audioFormat, audioAttributes)) {
-        return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
-      }
-      return new AudioOffloadSupport.Builder()
-          .setIsFormatSupported(true)
-          .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
-          .build();
+  private static AudioOffloadSupport getOffloadedPlaybackSupportV29(
+      AudioFormat audioFormat,
+      android.media.AudioAttributes audioAttributes,
+      boolean isOffloadVariableRateSupported) {
+    if (!AudioManager.isOffloadedPlaybackSupported(audioFormat, audioAttributes)) {
+      return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
+    return new AudioOffloadSupport.Builder()
+        .setIsFormatSupported(true)
+        .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
+        .build();
   }
 
   @RequiresApi(31)
-  private static final class Api31 {
-    private Api31() {}
-
-    public static AudioOffloadSupport getOffloadedPlaybackSupport(
-        AudioFormat audioFormat,
-        android.media.AudioAttributes audioAttributes,
-        boolean isOffloadVariableRateSupported) {
-      int playbackOffloadSupport =
-          AudioManager.getPlaybackOffloadSupport(audioFormat, audioAttributes);
-      if (playbackOffloadSupport == AudioManager.PLAYBACK_OFFLOAD_NOT_SUPPORTED) {
-        return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
-      }
-      AudioOffloadSupport.Builder audioOffloadSupport = new AudioOffloadSupport.Builder();
-      // (b/191950723) Gapless is not supported pre-API 33 due to playback position
-      // issue upon transition of gapless tracks
-      boolean isGaplessSupported =
-          SDK_INT > 32 && playbackOffloadSupport == AudioManager.PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED;
-      return audioOffloadSupport
-          .setIsFormatSupported(true)
-          .setIsGaplessSupported(isGaplessSupported)
-          .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
-          .build();
+  private static AudioOffloadSupport getOffloadedPlaybackSupportV31(
+      AudioFormat audioFormat,
+      android.media.AudioAttributes audioAttributes,
+      boolean isOffloadVariableRateSupported) {
+    int playbackOffloadSupport =
+        AudioManager.getPlaybackOffloadSupport(audioFormat, audioAttributes);
+    if (playbackOffloadSupport == AudioManager.PLAYBACK_OFFLOAD_NOT_SUPPORTED) {
+      return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
+    AudioOffloadSupport.Builder audioOffloadSupport = new AudioOffloadSupport.Builder();
+    // (b/191950723) Gapless is not supported pre-API 33 due to playback position
+    // issue upon transition of gapless tracks
+    boolean isGaplessSupported =
+        SDK_INT > 32 && playbackOffloadSupport == AudioManager.PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED;
+    return audioOffloadSupport
+        .setIsFormatSupported(true)
+        .setIsGaplessSupported(isGaplessSupported)
+        .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
+        .build();
+  }
+
+  @RequiresApi(33)
+  private static AudioOffloadSupport getOffloadedPlaybackSupportV33(
+      AudioFormat audioFormat,
+      android.media.AudioAttributes audioAttributes,
+      boolean isOffloadVariableRateSupported) {
+    int directSupport = AudioManager.getDirectPlaybackSupport(audioFormat, audioAttributes);
+    if ((directSupport & AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED) == 0) {
+      return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
+    }
+    boolean isGaplessSupported =
+        (directSupport & AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED)
+            == AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED;
+    return new AudioOffloadSupport.Builder()
+        .setIsFormatSupported(true)
+        .setIsGaplessSupported(isGaplessSupported)
+        .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
+        .build();
   }
 }

@@ -37,7 +37,7 @@ track 0:
     data = length 34656, hash D92B66FF
   sample 1:
     time = 325344
-    flags = 0
+    flags = 67108864
     data = length 768, hash D0C3B229
   sample 2:
     time = 358677
@@ -45,7 +45,7 @@ track 0:
     data = length 1184, hash C598EFC0
   sample 3:
     time = 392011
-    flags = 0
+    flags = 67108864
     data = length 576, hash 667AEC2C
   sample 4:
     time = 425344
@@ -53,7 +53,7 @@ track 0:
     data = length 1456, hash 430D1498
   sample 5:
     time = 458677
-    flags = 0
+    flags = 67108864
     data = length 1280, hash 12267E0E
   sample 6:
     time = 492011

@@ -463,35 +463,39 @@ public final class MediaMetadataCompat implements Parcelable {
   public MediaMetadata getMediaMetadata() {
     if (metadataFwk == null) {
       MediaMetadata.Builder builder = new MediaMetadata.Builder();
-      for (String key : bundle.keySet()) {
-        Integer type = METADATA_KEYS_TYPE.get(key);
-        if (type == null) {
-          type = -1;
+      try {
+        for (String key : bundle.keySet()) {
+          Integer type = METADATA_KEYS_TYPE.get(key);
+          if (type == null) {
+            type = -1;
+          }
+          switch (type) {
+            case METADATA_TYPE_TEXT:
+              builder.putText(key, bundle.getCharSequence(key));
+              break;
+            case METADATA_TYPE_LONG:
+              builder.putLong(key, bundle.getLong(key));
+              break;
+            case METADATA_TYPE_BITMAP:
+              builder.putBitmap(key, bundle.getParcelable(key));
+              break;
+            case METADATA_TYPE_RATING:
+              builder.putRating(key, bundle.getParcelable(key));
+              break;
+            default:
+              Object value = bundle.get(key);
+              if (value == null || value instanceof CharSequence) {
+                builder.putText(key, (CharSequence) value);
+              } else if (value instanceof Long) {
+                builder.putLong(key, (Long) value);
+              } else {
+                // values of complex types are not preserved.
+              }
+              break;
+          }
         }
-        switch (type) {
-          case METADATA_TYPE_TEXT:
-            builder.putText(key, bundle.getCharSequence(key));
-            break;
-          case METADATA_TYPE_LONG:
-            builder.putLong(key, bundle.getLong(key));
-            break;
-          case METADATA_TYPE_BITMAP:
-            builder.putBitmap(key, bundle.getParcelable(key));
-            break;
-          case METADATA_TYPE_RATING:
-            builder.putRating(key, bundle.getParcelable(key));
-            break;
-          default:
-            Object value = bundle.get(key);
-            if (value == null || value instanceof CharSequence) {
-              builder.putText(key, (CharSequence) value);
-            } else if (value instanceof Long) {
-              builder.putLong(key, (Long) value);
-            } else {
-              // values of complex types are not preserved.
-            }
-            break;
-        }
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Failed to convert MediaMetadataCompat to MediaMetadata", e);
       }
       metadataFwk = builder.build();
     }

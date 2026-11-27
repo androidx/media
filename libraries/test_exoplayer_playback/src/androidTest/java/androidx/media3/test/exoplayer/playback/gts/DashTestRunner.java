@@ -28,8 +28,10 @@ import androidx.annotation.Size;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -223,6 +225,12 @@ import java.util.List;
 
   /** A {@link HostedTest} for DASH playback tests. */
   private static final class DashHostedTest extends ExoHostedTest {
+
+    static {
+      // Disable all device and codec-specific workarounds, since we are interested in testing
+      // that the underlying platform is behaving correctly.
+      MediaLibraryInfo.setEnableWorkarounds(false);
+    }
 
     private final String streamName;
     private final String manifestUrl;
@@ -433,7 +441,8 @@ import java.util.List;
     }
 
     @Override
-    protected ExoTrackSelection.Definition[] selectAllTracks(
+    protected void selectAllTracks(
+        ExoTrackSelection.@NullableType Definition[] definitions,
         MappedTrackInfo mappedTrackInfo,
         int[][][] rendererFormatSupports,
         int[] rendererMixedMimeTypeAdaptationSupports,
@@ -444,8 +453,6 @@ import java.util.List;
       TrackGroupArray audioTrackGroups = mappedTrackInfo.getTrackGroups(AUDIO_RENDERER_INDEX);
       checkState(videoTrackGroups.length == 1);
       checkState(audioTrackGroups.length == 1);
-      ExoTrackSelection.Definition[] definitions =
-          new ExoTrackSelection.Definition[mappedTrackInfo.getRendererCount()];
       definitions[VIDEO_RENDERER_INDEX] =
           new ExoTrackSelection.Definition(
               videoTrackGroups.get(0),
@@ -459,7 +466,6 @@ import java.util.List;
               audioTrackGroups.get(0), getTrackIndex(audioTrackGroups.get(0), audioFormatId));
       includedAdditionalVideoFormats =
           definitions[VIDEO_RENDERER_INDEX].tracks.length > videoFormatIds.length;
-      return definitions;
     }
 
     private int[] getVideoTrackIndices(

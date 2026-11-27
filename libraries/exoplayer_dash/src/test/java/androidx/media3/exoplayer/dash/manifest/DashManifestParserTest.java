@@ -29,6 +29,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceInputStream;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.dash.DashSegmentIndex;
 import androidx.media3.exoplayer.dash.manifest.Representation.MultiSegmentRepresentation;
 import androidx.media3.exoplayer.dash.manifest.Representation.SingleSegmentRepresentation;
 import androidx.media3.exoplayer.dash.manifest.SegmentBase.SegmentTimelineElement;
@@ -39,6 +40,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -66,6 +68,8 @@ public class DashManifestParserTest {
   private static final String SAMPLE_MPD_LABELS = "media/mpd/sample_mpd_labels";
   private static final String SAMPLE_MPD_ASSET_IDENTIFIER = "media/mpd/sample_mpd_asset_identifier";
   private static final String SAMPLE_MPD_TEXT = "media/mpd/sample_mpd_text";
+  private static final String SAMPLE_MPD_TEXT_PRESENTATION_TIME_OFFSET =
+      "media/mpd/sample_mpd_text_presentation_time_offset";
   private static final String SAMPLE_MPD_TRICK_PLAY = "media/mpd/sample_mpd_trick_play";
   private static final String SAMPLE_MPD_ESSENTIAL_SUPPLEMENTAL_PROPERTIES =
       "media/mpd/sample_mpd_essential_supplemental_properties";
@@ -91,6 +95,13 @@ public class DashManifestParserTest {
       "media/mpd/sample_mpd_clear_key_license_url";
   private static final String SAMPLE_MPD_DASHIF_LICENSE_URL =
       "media/mpd/sample_mpd_dashif_license_url";
+  private static final String SAMPLE_MPD_DOLBY_VISION = "media/mpd/sample_mpd_dolby";
+  private static final String SAMPLE_MPD_SUPPLEMENTAL_CODECS =
+      "media/mpd/sample_mpd_supplemental_codecs";
+  private static final String SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE =
+      "media/mpd/sample_mpd_multiple_locations_relative";
+  private static final String SAMPLE_MPD_MULTIPLE_LOCATIONS_ABSOLUTE =
+      "media/mpd/sample_mpd_multiple_locations_absolute";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -365,6 +376,44 @@ public class DashManifestParserTest {
   }
 
   @Test
+  public void parseMediaPresentationDescription_standaloneTextIgnoresPresentationTimeOffset()
+      throws IOException {
+    // DASH-IF "Standalone Text Timing": @presentationTimeOffset SHALL NOT be present and SHALL be
+    // ignored by clients if present.
+    // https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_TEXT_PRESENTATION_TIME_OFFSET));
+
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    // Standalone TTML - @presentationTimeOffset must be ignored.
+    Representation ttmlRepresentation = adaptationSets.get(0).representations.get(0);
+    assertThat(ttmlRepresentation.format.containerMimeType).isEqualTo(MimeTypes.APPLICATION_TTML);
+    assertThat(ttmlRepresentation.presentationTimeOffsetUs).isEqualTo(0);
+    DashSegmentIndex ttmlIndex = ((MultiSegmentRepresentation) ttmlRepresentation);
+    assertThat(ttmlIndex.getTimeUs(ttmlIndex.getFirstSegmentNum())).isEqualTo(2_000_000);
+
+    // Standalone WebVTT - @presentationTimeOffset must be ignored.
+    Representation vttRepresentation = adaptationSets.get(1).representations.get(0);
+    assertThat(vttRepresentation.format.containerMimeType).isEqualTo(MimeTypes.TEXT_VTT);
+    assertThat(vttRepresentation.presentationTimeOffsetUs).isEqualTo(0);
+    DashSegmentIndex vttIndex = ((MultiSegmentRepresentation) vttRepresentation);
+    assertThat(vttIndex.getTimeUs(vttIndex.getFirstSegmentNum())).isEqualTo(3_000_000);
+
+    // Muxed text in mp4 - @presentationTimeOffset must be honored.
+    Representation mp4Representation = adaptationSets.get(2).representations.get(0);
+    assertThat(mp4Representation.format.containerMimeType).isEqualTo(MimeTypes.APPLICATION_MP4);
+    assertThat(mp4Representation.presentationTimeOffsetUs).isEqualTo(5_000_000);
+    DashSegmentIndex mp4Index = ((MultiSegmentRepresentation) mp4Representation);
+    assertThat(mp4Index.getTimeUs(mp4Index.getFirstSegmentNum())).isEqualTo(0);
+  }
+
+  @Test
   public void parseMediaPresentationDescription_trickPlay() throws IOException {
     DashManifestParser parser = new DashManifestParser();
     DashManifest manifest =
@@ -402,6 +451,31 @@ public class DashManifestParserTest {
     assertThat(adaptationSet.supplementalProperties.get(0).value).isEqualTo("1");
     assertThat(adaptationSet.representations.get(0).format.roleFlags)
         .isEqualTo(C.ROLE_FLAG_TRICK_PLAY);
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_dolbyVisionProfile10() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_DOLBY_VISION));
+
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    AdaptationSet adaptationSet = adaptationSets.get(0);
+    assertThat(adaptationSet.representations).hasSize(2);
+    Representation representation = adaptationSet.representations.get(0);
+    assertThat(representation).isNotNull();
+    assertThat(representation.format.colorInfo).isNotNull();
+    assertThat(representation.format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(representation.format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    assertThat(representation.format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
+    assertThat(adaptationSet.supplementalProperties).hasSize(1);
+    assertThat(adaptationSet.supplementalProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:dolby:dash:dolby-vision:2018");
+    assertThat(adaptationSet.supplementalProperties.get(0).value).isEqualTo("10.1");
   }
 
   @Test
@@ -1023,6 +1097,73 @@ public class DashManifestParserTest {
     assertThat(schemeData1.uuid).isEqualTo(C.WIDEVINE_UUID);
     assertThat(schemeData0.licenseServerUrl).isEqualTo("https://testserver1.test/AcquireLicense");
     assertThat(schemeData1.licenseServerUrl).isEqualTo("https://testserver2.test/AcquireLicense");
+  }
+
+  @Test
+  public void supplementalCodecs() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_SUPPLEMENTAL_CODECS));
+
+    assertThat(manifest.getPeriodCount()).isEqualTo(1);
+    Period period = manifest.getPeriod(0);
+    Representation representation =
+        Iterables.getOnlyElement(Iterables.getOnlyElement(period.adaptationSets).representations);
+    assertThat(representation.format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    assertThat(representation.format.codecs).isEqualTo("dvh1.08.03");
+  }
+
+  @SuppressWarnings("deprecation") // Verify deprecated field is parsed correctly.
+  @Test
+  public void parse_multipleLocationsWithAbsoluteUrls_parsedCorrectly() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_MULTIPLE_LOCATIONS_ABSOLUTE));
+
+    assertThat(manifest.locations).hasSize(2);
+    assertThat(manifest.locations.get(0).url)
+        .isEqualTo(Uri.parse("https://example.com/location1/manifest.mpd"));
+    assertThat(manifest.locations.get(0).serviceLocation)
+        .isEqualTo("https://example.com/location1/manifest.mpd");
+    assertThat(manifest.locations.get(1).url)
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
+    assertThat(manifest.locations.get(1).serviceLocation).isEqualTo("loc2");
+    // Verify backward compatibility location field (points to the last location).
+    assertThat(manifest.location)
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
+  }
+
+  @SuppressWarnings("deprecation") // Verify deprecated field is parsed correctly.
+  @Test
+  public void parse_multipleLocationsWithRelativeUrls_parsedCorrectly() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE));
+
+    assertThat(manifest.locations).hasSize(2);
+    assertThat(manifest.locations.get(0).url)
+        .isEqualTo(Uri.parse("https://example.com/location1/manifest.mpd"));
+    assertThat(manifest.locations.get(0).serviceLocation)
+        .isEqualTo("https://example.com/location1/manifest.mpd");
+    assertThat(manifest.locations.get(1).url)
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
+    assertThat(manifest.locations.get(1).serviceLocation).isEqualTo("loc2");
+    // Verify backward compatibility location field (points to the last location).
+    assertThat(manifest.location)
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
   }
 
   private static List<Descriptor> buildCea608AccessibilityDescriptors(String value) {

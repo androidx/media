@@ -29,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -46,19 +47,23 @@ import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.NalUnitUtil;
+import androidx.media3.container.OpusUtil;
 import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
+import androidx.media3.extractor.Av1Config;
 import androidx.media3.extractor.AvcConfig;
 import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
-import androidx.media3.extractor.OpusUtil;
 import androidx.media3.extractor.VorbisUtil;
+import androidx.media3.extractor.VvcConfig;
+import androidx.media3.extractor.metadata.Chapter;
 import androidx.media3.extractor.text.vobsub.VobsubParser;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableLongArray;
 import com.google.common.primitives.Ints;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -199,9 +204,10 @@ public final class BoxParser {
    * Parses a udta box.
    *
    * @param udtaBox The udta (user data) box to decode.
+   * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return Parsed metadata.
    */
-  public static Metadata parseUdta(LeafBox udtaBox) {
+  public static Metadata parseUdta(LeafBox udtaBox, boolean ignoreArtwork) {
     ParsableByteArray udtaData = udtaBox.data;
     udtaData.setPosition(Mp4Box.HEADER_SIZE);
     Metadata metadata = new Metadata();
@@ -212,7 +218,8 @@ public final class BoxParser {
       if (atomType == Mp4Box.TYPE_meta) {
         udtaData.setPosition(atomPosition);
         metadata =
-            metadata.copyWithAppendedEntriesFrom(parseUdtaMeta(udtaData, atomPosition + atomSize));
+            metadata.copyWithAppendedEntriesFrom(
+                parseUdtaMeta(udtaData, atomPosition + atomSize, ignoreArtwork));
       } else if (atomType == Mp4Box.TYPE_smta) {
         udtaData.setPosition(atomPosition);
         metadata =
@@ -220,6 +227,8 @@ public final class BoxParser {
                 SmtaAtomUtil.parseSmta(udtaData, atomPosition + atomSize));
       } else if (atomType == Mp4Box.TYPE_xyz) {
         metadata = metadata.copyWithAppendedEntriesFrom(parseXyz(udtaData));
+      } else if (atomType == Mp4Box.TYPE_chpl) {
+        metadata = metadata.copyWithAppendedEntriesFrom(parseChpl(udtaData));
       }
       udtaData.setPosition(atomPosition + atomSize);
     }
@@ -384,12 +393,26 @@ public final class BoxParser {
       return null;
     }
     StsdData stsdData = parseStsd(stsd.data, tkhdData, mdhdData.language, drmInitData, isQuickTime);
-    @Nullable long[] editListDurations = null;
-    @Nullable long[] editListMediaTimes = null;
+
+    int chapterTrackId = C.INDEX_UNSET;
+    @Nullable Mp4Box.ContainerBox tref = trak.getContainerBoxOfType(Mp4Box.TYPE_tref);
+    if (tref != null) {
+      @Nullable Mp4Box.LeafBox chap = tref.getLeafBoxOfType(Mp4Box.TYPE_chap);
+      if (chap != null) {
+        ParsableByteArray chapData = chap.data;
+        chapData.setPosition(Mp4Box.HEADER_SIZE);
+        if (chapData.bytesLeft() >= 4) {
+          chapterTrackId = chapData.readInt();
+        }
+      }
+    }
+
+    @Nullable ImmutableLongArray editListDurations = null;
+    @Nullable ImmutableLongArray editListMediaTimes = null;
     if (!ignoreEditLists) {
       @Nullable Mp4Box.ContainerBox edtsAtom = trak.getContainerBoxOfType(Mp4Box.TYPE_edts);
       if (edtsAtom != null) {
-        @Nullable Pair<long[], long[]> edtsData = parseEdts(edtsAtom);
+        @Nullable Pair<ImmutableLongArray, ImmutableLongArray> edtsData = parseEdts(edtsAtom);
         if (edtsData != null) {
           editListDurations = edtsData.first;
           editListMediaTimes = edtsData.second;
@@ -415,19 +438,23 @@ public final class BoxParser {
     } else {
       format = stsdData.format;
     }
-    return new Track(
-        tkhdData.id,
-        trackType,
-        mdhdData.timescale,
-        movieTimescale,
-        durationUs,
-        mdhdData.mediaDurationUs,
-        format,
-        stsdData.requiredSampleTransformation,
-        stsdData.trackEncryptionBoxes,
-        stsdData.nalUnitLengthFieldLength,
-        editListDurations,
-        editListMediaTimes);
+    boolean shouldBeExposed = !Objects.equals(format.sampleMimeType, MimeTypes.TEXT_UNKNOWN);
+    return new Track.Builder()
+        .setId(tkhdData.id)
+        .setType(trackType)
+        .setTimescale(mdhdData.timescale)
+        .setMovieTimescale(movieTimescale)
+        .setDurationUs(durationUs)
+        .setMediaDurationUs(mdhdData.mediaDurationUs)
+        .setFormat(format)
+        .setSampleTransformation(stsdData.requiredSampleTransformation)
+        .setSampleDescriptionEncryptionBoxes(stsdData.trackEncryptionBoxes)
+        .setNalUnitLengthFieldLength(stsdData.nalUnitLengthFieldLength)
+        .setEditListDurations(editListDurations)
+        .setEditListMediaTimes(editListMediaTimes)
+        .setShouldBeExposed(shouldBeExposed)
+        .setChapterTrackId(chapterTrackId)
+        .build();
   }
 
   /**
@@ -478,7 +505,7 @@ public final class BoxParser {
     if (track.type == C.TRACK_TYPE_VIDEO && track.mediaDurationUs > 0) {
       float frameRate = sampleCount / (track.mediaDurationUs / 1000000f);
       Format format = track.format.buildUpon().setFrameRate(frameRate).build();
-      track = track.copyWithFormat(format);
+      track = track.buildUpon().setFormat(format).build();
     }
 
     // Entries are byte offsets of chunks.
@@ -705,7 +732,7 @@ public final class BoxParser {
               RoundingMode.HALF_DOWN);
       if (averageBitrate > 0 && averageBitrate < Integer.MAX_VALUE) {
         Format format = track.format.buildUpon().setAverageBitrate((int) averageBitrate).build();
-        track = track.copyWithFormat(format);
+        track = track.buildUpon().setFormat(format).build();
       }
     }
 
@@ -731,17 +758,17 @@ public final class BoxParser {
 
     if (omitTrackSampleTable) {
       long editedDurationUs;
-      long[] editListMediaTimes = checkNotNull(track.editListMediaTimes);
-      if (track.editListDurations.length == 1 && track.editListDurations[0] == 0) {
-        long editStartTime = editListMediaTimes[0];
+      ImmutableLongArray editListMediaTimes = checkNotNull(track.editListMediaTimes);
+      if (track.editListDurations.length() == 1 && track.editListDurations.get(0) == 0) {
+        long editStartTime = editListMediaTimes.get(0);
         editedDurationUs =
             Util.scaleLargeTimestamp(
                 duration - editStartTime, C.MICROS_PER_SECOND, track.timescale);
       } else {
         long pts = 0;
-        for (int i = 0; i < track.editListDurations.length; i++) {
-          if (editListMediaTimes[i] != -1) {
-            pts += track.editListDurations[i];
+        for (int i = 0; i < track.editListDurations.length(); i++) {
+          if (editListMediaTimes.get(i) != -1) {
+            pts += track.editListDurations.get(i);
           }
         }
         editedDurationUs = Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
@@ -766,14 +793,14 @@ public final class BoxParser {
     // handles simple discarding/delaying of samples. The extractor may place further restrictions
     // on what edited streams are playable.
 
-    if (track.editListDurations.length == 1
+    if (track.editListDurations.length() == 1
         && track.type == C.TRACK_TYPE_AUDIO
         && timestamps.length >= 2) {
-      long editStartTime = checkNotNull(track.editListMediaTimes)[0];
+      long editStartTime = checkNotNull(track.editListMediaTimes).get(0);
       long editEndTime =
           editStartTime
               + Util.scaleLargeTimestamp(
-                  track.editListDurations[0], track.timescale, track.movieTimescale);
+                  track.editListDurations.get(0), track.timescale, track.movieTimescale);
       if (canApplyEditWithGaplessInfo(timestamps, duration, editStartTime, editEndTime)) {
         // Clamp padding to 0 to account for rounding errors where editEndTime is slightly
         // greater than duration.
@@ -791,7 +818,7 @@ public final class BoxParser {
           Util.scaleLargeTimestampsInPlace(timestamps, C.MICROS_PER_SECOND, track.timescale);
           long editedDurationUs =
               Util.scaleLargeTimestamp(
-                  track.editListDurations[0], C.MICROS_PER_SECOND, track.movieTimescale);
+                  track.editListDurations.get(0), C.MICROS_PER_SECOND, track.movieTimescale);
           return new TrackSampleTable(
               track,
               offsets,
@@ -807,11 +834,11 @@ public final class BoxParser {
       }
     }
 
-    if (track.editListDurations.length == 1 && track.editListDurations[0] == 0) {
+    if (track.editListDurations.length() == 1 && track.editListDurations.get(0) == 0) {
       // The current version of the spec leaves handling of an edit with zero segment_duration in
       // unfragmented files open to interpretation. We handle this as a special case and include all
       // samples in the edit.
-      long editStartTime = checkNotNull(track.editListMediaTimes)[0];
+      long editStartTime = checkNotNull(track.editListMediaTimes).get(0);
       for (int i = 0; i < timestamps.length; i++) {
         timestamps[i] =
             Util.scaleLargeTimestamp(
@@ -842,15 +869,15 @@ public final class BoxParser {
     int editedSampleCount = 0;
     int nextSampleIndex = 0;
     boolean copyMetadata = false;
-    int[] startIndices = new int[track.editListDurations.length];
-    int[] endIndices = new int[track.editListDurations.length];
-    long[] editListMediaTimes = checkNotNull(track.editListMediaTimes);
-    for (int i = 0; i < track.editListDurations.length; i++) {
-      long editMediaTime = editListMediaTimes[i];
+    int[] startIndices = new int[track.editListDurations.length()];
+    int[] endIndices = new int[track.editListDurations.length()];
+    ImmutableLongArray editListMediaTimes = checkNotNull(track.editListMediaTimes);
+    for (int i = 0; i < track.editListDurations.length(); i++) {
+      long editMediaTime = editListMediaTimes.get(i);
       if (editMediaTime != -1) {
         long editDuration =
             Util.scaleLargeTimestamp(
-                track.editListDurations[i], track.timescale, track.movieTimescale);
+                track.editListDurations.get(i), track.timescale, track.movieTimescale);
         long editEndTime = editMediaTime + editDuration;
 
         // The timestamps array is in the order read from the media, which might not be strictly
@@ -927,8 +954,8 @@ public final class BoxParser {
     long pts = 0;
     int sampleIndex = 0;
     boolean hasPrerollSamples = false;
-    for (int i = 0; i < track.editListDurations.length; i++) {
-      long editMediaTime = track.editListMediaTimes[i];
+    for (int i = 0; i < track.editListDurations.length(); i++) {
+      long editMediaTime = track.editListMediaTimes.get(i);
       int startIndex = startIndices[i];
       int endIndex = endIndices[i];
       if (copyMetadata) {
@@ -956,13 +983,13 @@ public final class BoxParser {
         }
         sampleIndex++;
       }
-      pts += track.editListDurations[i];
+      pts += track.editListDurations.get(i);
     }
     long editedDurationUs =
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
     if (hasPrerollSamples) {
       Format format = track.format.buildUpon().setHasPrerollSamples(true).build();
-      track = track.copyWithFormat(format);
+      track = track.buildUpon().setFormat(format).build();
     }
     return new TrackSampleTable(
         track,
@@ -978,7 +1005,7 @@ public final class BoxParser {
   }
 
   @Nullable
-  private static Metadata parseUdtaMeta(ParsableByteArray meta, int limit) {
+  private static Metadata parseUdtaMeta(ParsableByteArray meta, int limit, boolean ignoreArtwork) {
     meta.skipBytes(Mp4Box.HEADER_SIZE);
     maybeSkipRemainingMetaBoxHeaderBytes(meta);
     while (meta.getPosition() < limit) {
@@ -987,7 +1014,7 @@ public final class BoxParser {
       int atomType = meta.readInt();
       if (atomType == Mp4Box.TYPE_ilst) {
         meta.setPosition(atomPosition);
-        return parseIlst(meta, atomPosition + atomSize);
+        return parseIlst(meta, atomPosition + atomSize, ignoreArtwork);
       }
       meta.setPosition(atomPosition + atomSize);
     }
@@ -995,11 +1022,11 @@ public final class BoxParser {
   }
 
   @Nullable
-  private static Metadata parseIlst(ParsableByteArray ilst, int limit) {
+  private static Metadata parseIlst(ParsableByteArray ilst, int limit, boolean ignoreArtwork) {
     ilst.skipBytes(Mp4Box.HEADER_SIZE);
     ArrayList<Metadata.Entry> entries = new ArrayList<>();
     while (ilst.getPosition() < limit) {
-      @Nullable Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+      @Nullable Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, ignoreArtwork);
       if (entry != null) {
         entries.add(entry);
       }
@@ -1023,6 +1050,33 @@ public final class BoxParser {
           Float.parseFloat(location.substring(latitudeEndIndex, location.length() - 1));
       return new Metadata(new Mp4LocationData(latitude, longitude));
     } catch (IndexOutOfBoundsException | NumberFormatException exception) {
+      // Invalid input.
+      return null;
+    }
+  }
+
+  /** Parses the Nero chapters from the chpl atom. */
+  @Nullable
+  /* package */ static Metadata parseChpl(ParsableByteArray chplData) {
+    try {
+      chplData.skipBytes(5); // 1 byte version + 3 bytes flags + 1 byte reserved.
+      int chapterCount = chplData.readInt();
+      List<Metadata.Entry> chapters = new ArrayList<>();
+      for (int i = 0; i < chapterCount; i++) {
+        long startTimeMs = chplData.readLong() / 10000; // Start time in 100-nanoseconds resolution
+        if (startTimeMs < 0) {
+          startTimeMs = C.TIME_UNSET;
+        }
+        int titleLength = chplData.readUnsignedByte();
+        String title = chplData.readString(titleLength);
+        chapters.add(
+            new Chapter.Builder()
+                .setStartTimeMs(startTimeMs)
+                .setTitle(new Label(null, title))
+                .build());
+      }
+      return chapters.isEmpty() ? null : new Metadata(chapters);
+    } catch (IndexOutOfBoundsException e) {
       // Invalid input.
       return null;
     }
@@ -1074,10 +1128,7 @@ public final class BoxParser {
     int a10 = tkhd.readInt();
     int a11 = tkhd.readInt();
 
-    // Matrices which imply reflection are resolved to a correct rotation, without handling the
-    // reflection (because reflection is not currently supported by MediaCodec). This means
-    // the video ends the right way up, but incorrectly reflected in the Y axis.
-    // TODO: b/390422593 - Add richer transformation matrix support.
+    // Matrices which imply reflection are resolved to a correct rotation and a horizontal mirror.
     int rotationDegrees;
     int fixedOne = 65536;
     if (a00 == 0 && a01 == fixedOne && (a10 == -fixedOne || a10 == fixedOne) && a11 == 0) {
@@ -1097,7 +1148,11 @@ public final class BoxParser {
     tkhd.skipBytes(2);
     int height = tkhd.readShort();
 
-    return new TkhdData(trackId, duration, alternateGroup, rotationDegrees, width, height);
+    long determinant = (long) a00 * a11 - (long) a01 * a10;
+    boolean mirrorHorizontal = determinant < 0;
+
+    return new TkhdData(
+        trackId, duration, alternateGroup, rotationDegrees, mirrorHorizontal, width, height);
   }
 
   /**
@@ -1218,6 +1273,8 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_mp4v
           || childAtomType == Mp4Box.TYPE_hvc1
           || childAtomType == Mp4Box.TYPE_hev1
+          || childAtomType == Mp4Box.TYPE_vvc1
+          || childAtomType == Mp4Box.TYPE_vvi1
           || childAtomType == Mp4Box.TYPE_s263
           || childAtomType == Mp4Box.TYPE_H263
           || childAtomType == Mp4Box.TYPE_h263
@@ -1228,15 +1285,15 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_dva1
           || childAtomType == Mp4Box.TYPE_dvhe
           || childAtomType == Mp4Box.TYPE_dvh1
-          || childAtomType == Mp4Box.TYPE_apv1) {
+          || childAtomType == Mp4Box.TYPE_apv1
+          || childAtomType == Mp4Box.TYPE_dav1) {
         parseVideoSampleEntry(
             stsd,
             childAtomType,
             childStartPosition,
             childAtomSize,
-            tkhdData.id,
+            tkhdData,
             language,
-            tkhdData.rotationDegrees,
             drmInitData,
             out,
             i);
@@ -1284,10 +1341,11 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_wvtt
           || childAtomType == Mp4Box.TYPE_stpp
           || childAtomType == Mp4Box.TYPE_c608
-          || childAtomType == Mp4Box.TYPE_mp4s) {
+          || childAtomType == Mp4Box.TYPE_mp4s
+          || childAtomType == TYPE_text) {
         parseTextSampleEntry(
             stsd, childAtomType, childStartPosition, childAtomSize, tkhdData, language, out);
-      } else if (childAtomType == Mp4Box.TYPE_mett) {
+      } else if (childAtomType == Mp4Box.TYPE_mett || childAtomType == Mp4Box.TYPE_it35) {
         parseMetaDataSampleEntry(stsd, childAtomType, childStartPosition, tkhdData.id, out);
       } else if (childAtomType == Mp4Box.TYPE_camm) {
         out.format =
@@ -1346,6 +1404,11 @@ public final class BoxParser {
         String idx = formatVobsubIdx(esds.initializationData, tkhdData.width, tkhdData.height);
         initializationData = ImmutableList.of(Util.getUtf8Bytes(idx));
       }
+    } else if (atomType == TYPE_text) {
+      // The TYPE_text track is a generic fallback text format. We assign a placeholder MIME type so
+      // the track is not discarded. This preserves the track's sample table for downstream
+      // extractors to use (e.g., for QuickTime chapters).
+      mimeType = MimeTypes.TEXT_UNKNOWN;
     } else {
       // Never happens.
       throw new IllegalStateException();
@@ -1404,9 +1467,8 @@ public final class BoxParser {
       int atomType,
       int position,
       int size,
-      int trackId,
+      TkhdData tkhdData,
       @Nullable String language,
-      int rotationDegrees,
       @Nullable DrmInitData drmInitData,
       StsdData out,
       int entryIndex)
@@ -1569,6 +1631,20 @@ public final class BoxParser {
               false, "initializationData must be already set from hvcC atom");
         }
         codecs = lhevcConfig.codecs;
+      } else if (childAtomType == Mp4Box.TYPE_vvcC) {
+        ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
+        mimeType = MimeTypes.VIDEO_H266;
+        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
+        VvcConfig vvcConfig = VvcConfig.parse(parent);
+        initializationData = vvcConfig.initializationData;
+        out.nalUnitLengthFieldLength = vvcConfig.nalUnitLengthFieldLength;
+        codecs = vvcConfig.codecs;
+        bitdepthLuma = vvcConfig.bitdepthLuma;
+        bitdepthChroma = vvcConfig.bitdepthLuma;
+        // The VVC specification (ITU-T H.266, Annex A) allows a maximum of 16 pictures for
+        // reordering in the decoded picture buffer. Using 16 as a safe default avoids the need to
+        // parse the SPS bitstream for the exact value.
+        maxNumReorderSamples = 16;
       } else if (childAtomType == Mp4Box.TYPE_vexu) {
         VexuData vexuData = parseVideoExtendedUsageBox(parent, childStartPosition, childAtomSize);
         if (vexuData != null && vexuData.eyesData != null) {
@@ -1624,16 +1700,17 @@ public final class BoxParser {
         int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
         byte[] initializationDataChunk = new byte[childAtomBodySize];
         parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+
         initializationData = ImmutableList.of(initializationDataChunk);
-
-        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
-        ColorInfo colorInfo = parseAv1c(parent);
-
-        bitdepthLuma = colorInfo.lumaBitdepth;
-        bitdepthChroma = colorInfo.chromaBitdepth;
-        colorSpace = colorInfo.colorSpace;
-        colorRange = colorInfo.colorRange;
-        colorTransfer = colorInfo.colorTransfer;
+        Av1Config av1Config = Av1Config.parse(initializationDataChunk);
+        if (av1Config != null) {
+          bitdepthLuma = av1Config.bitdepth;
+          bitdepthChroma = av1Config.bitdepth;
+          colorSpace = av1Config.colorSpace;
+          colorRange = av1Config.colorRange;
+          colorTransfer = av1Config.colorTransfer;
+          codecs = av1Config.codecs;
+        }
       } else if (childAtomType == Mp4Box.TYPE_clli) {
         if (hdrStaticInfo == null) {
           hdrStaticInfo = allocateHdrStaticInfo();
@@ -1774,7 +1851,7 @@ public final class BoxParser {
 
     Format.Builder formatBuilder =
         new Format.Builder()
-            .setId(trackId)
+            .setId(tkhdData.id)
             .setSampleMimeType(mimeType)
             .setCodecs(codecs)
             .setWidth(width)
@@ -1782,7 +1859,8 @@ public final class BoxParser {
             .setDecodedWidth(decodedWidth)
             .setDecodedHeight(decodedHeight)
             .setPixelWidthHeightRatio(pixelWidthHeightRatio)
-            .setRotationDegrees(rotationDegrees)
+            .setRotationDegrees(tkhdData.rotationDegrees)
+            .setMirrorHorizontal(tkhdData.mirrorHorizontal)
             .setProjectionData(projectionData)
             .setStereoMode(stereoMode)
             .setInitializationData(initializationData)
@@ -1814,138 +1892,6 @@ public final class BoxParser {
     }
 
     out.format = formatBuilder.build();
-  }
-
-  /**
-   * Parses the av1C configuration record and OBU sequence header and returns a {@link ColorInfo}
-   * from their data.
-   *
-   * <p>See av1C configuration record syntax in this <a
-   * href="https://aomediacodec.github.io/av1-isobmff/#av1codecconfigurationbox-syntax">spec</a>.
-   *
-   * <p>See av1C OBU syntax in this <a
-   * href="https://aomediacodec.github.io/av1-spec/av1-spec.pdf">spec</a>.
-   *
-   * <p>The sections referenced in the method are from these specs.
-   *
-   * @param data The av1C atom data.
-   * @return {@link ColorInfo} parsed from the av1C data.
-   */
-  private static ColorInfo parseAv1c(ParsableByteArray data) {
-    ColorInfo.Builder colorInfo = new ColorInfo.Builder();
-    ParsableBitArray bitArray = new ParsableBitArray(data.getData());
-    bitArray.setPosition(data.getPosition() * 8); // Convert byte to bit position.
-
-    // Parse av1C config record for bitdepth info.
-    // See https://aomediacodec.github.io/av1-isobmff/#av1codecconfigurationbox-syntax.
-    bitArray.skipBytes(1); // marker, version
-    int seqProfile = bitArray.readBits(3); // seq_profile
-    bitArray.skipBits(6); // seq_level_idx_0, seq_tier_0
-    boolean highBitdepth = bitArray.readBit(); // high_bitdepth
-    boolean twelveBit = bitArray.readBit(); // twelve_bit
-    if (seqProfile == 2 && highBitdepth) {
-      colorInfo.setLumaBitdepth(twelveBit ? 12 : 10);
-      colorInfo.setChromaBitdepth(twelveBit ? 12 : 10);
-    } else if (seqProfile <= 2) {
-      colorInfo.setLumaBitdepth(highBitdepth ? 10 : 8);
-      colorInfo.setChromaBitdepth(highBitdepth ? 10 : 8);
-    }
-    // Skip monochrome, chroma_subsampling_x, chroma_subsampling_y, chroma_sample_position,
-    // reserved and initial_presentation_delay.
-    bitArray.skipBits(13);
-
-    // 5.3.1. General OBU syntax
-    bitArray.skipBit(); // obu_forbidden_bit
-    int obuType = bitArray.readBits(4); // obu_type
-    if (obuType != 1) { // obu_type != OBU_SEQUENCE_HEADER
-      Log.i(TAG, "Unsupported obu_type: " + obuType);
-      return colorInfo.build();
-    }
-    if (bitArray.readBit()) { // obu_extension_flag
-      Log.i(TAG, "Unsupported obu_extension_flag");
-      return colorInfo.build();
-    }
-    boolean obuHasSizeField = bitArray.readBit(); // obu_has_size_field
-    bitArray.skipBit(); // obu_reserved_1bit
-    // obu_size is unsigned leb128 and if obu_size <= 127 then it can be simplified as readBits(8).
-    if (obuHasSizeField && bitArray.readBits(8) > 127) { // obu_size
-      Log.i(TAG, "Excessive obu_size");
-      return colorInfo.build();
-    }
-    // 5.5.1. General OBU sequence header syntax
-    int obuSeqHeaderSeqProfile = bitArray.readBits(3); // seq_profile
-    bitArray.skipBit(); // still_picture
-    if (bitArray.readBit()) { // reduced_still_picture_header
-      Log.i(TAG, "Unsupported reduced_still_picture_header");
-      return colorInfo.build();
-    }
-    if (bitArray.readBit()) { // timing_info_present_flag
-      Log.i(TAG, "Unsupported timing_info_present_flag");
-      return colorInfo.build();
-    }
-    if (bitArray.readBit()) { // initial_display_delay_present_flag
-      Log.i(TAG, "Unsupported initial_display_delay_present_flag");
-      return colorInfo.build();
-    }
-    int operatingPointsCountMinus1 = bitArray.readBits(5); // operating_points_cnt_minus_1
-    for (int i = 0; i <= operatingPointsCountMinus1; i++) {
-      bitArray.skipBits(12); // operating_point_idc[i]
-      int seqLevelIdx = bitArray.readBits(5); // seq_level_idx[i]
-      if (seqLevelIdx > 7) {
-        bitArray.skipBit(); // seq_tier[i]
-      }
-    }
-    int frameWidthBitsMinus1 = bitArray.readBits(4); // frame_width_bits_minus_1
-    int frameHeightBitsMinus1 = bitArray.readBits(4); // frame_height_bits_minus_1
-    bitArray.skipBits(frameWidthBitsMinus1 + 1); // max_frame_width_minus_1
-    bitArray.skipBits(frameHeightBitsMinus1 + 1); // max_frame_height_minus_1
-    if (bitArray.readBit()) { // frame_id_numbers_present_flag
-      bitArray.skipBits(7); // delta_frame_id_length_minus_2, additional_frame_id_length_minus_1
-    }
-    bitArray.skipBits(7); // use_128x128_superblock...enable_dual_filter: 7 flags
-    boolean enableOrderHint = bitArray.readBit(); // enable_order_hint
-    if (enableOrderHint) {
-      bitArray.skipBits(2); // enable_jnt_comp, enable_ref_frame_mvs
-    }
-    int seqForceScreenContentTools =
-        bitArray.readBit() // seq_choose_screen_content_tools
-            ? 2 // SELECT_SCREEN_CONTENT_TOOLS
-            : bitArray.readBits(1); // seq_force_screen_content_tools
-    if (seqForceScreenContentTools > 0) {
-      if (!bitArray.readBit()) { // seq_choose_integer_mv
-        bitArray.skipBits(1); // seq_force_integer_mv
-      }
-    }
-    if (enableOrderHint) {
-      bitArray.skipBits(3); // order_hint_bits_minus_1
-    }
-    bitArray.skipBits(3); // enable_superres, enable_cdef, enable_restoration
-    // 5.5.2. OBU Color config syntax
-    boolean colorConfigHighBitdepth = bitArray.readBit(); // high_bitdepth
-    if (obuSeqHeaderSeqProfile == 2 && colorConfigHighBitdepth) {
-      bitArray.skipBit(); // twelve_bit
-    }
-
-    boolean monochrome = (obuSeqHeaderSeqProfile != 1) && bitArray.readBit(); // mono_chrome
-
-    if (bitArray.readBit()) { // color_description_present_flag
-      int colorPrimaries = bitArray.readBits(8); // color_primaries
-      int transferCharacteristics = bitArray.readBits(8); // transfer_characteristics
-      int matrixCoefficients = bitArray.readBits(8); // matrix_coefficients
-      int colorRange =
-          (!monochrome
-                  && colorPrimaries == 1 // CP_BT_709
-                  && transferCharacteristics == 13 // TC_SRGB
-                  && matrixCoefficients == 0) // MC_IDENTITY
-              ? 1
-              : bitArray.readBits(1); // color_range;
-      colorInfo
-          .setColorSpace(ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries))
-          .setColorRange((colorRange == 1) ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED)
-          .setColorTransfer(
-              ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics));
-    }
-    return colorInfo.build();
   }
 
   /**
@@ -2014,6 +1960,16 @@ public final class BoxParser {
       if (mimeType != null) {
         out.format = new Format.Builder().setId(trackId).setSampleMimeType(mimeType).build();
       }
+    } else if (atomType == Mp4Box.TYPE_it35) {
+      int identifierLength = parent.readUnsignedByte();
+      byte[] identifier = new byte[identifierLength];
+      parent.readBytes(identifier, 0, identifierLength);
+      out.format =
+          new Format.Builder()
+              .setId(trackId)
+              .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+              .setInitializationData(ImmutableList.of(identifier))
+              .build();
     }
   }
 
@@ -2025,7 +1981,8 @@ public final class BoxParser {
    *     present.
    */
   @Nullable
-  private static Pair<long[], long[]> parseEdts(Mp4Box.ContainerBox edtsAtom) {
+  private static Pair<ImmutableLongArray, ImmutableLongArray> parseEdts(
+      Mp4Box.ContainerBox edtsAtom) {
     @Nullable LeafBox elstAtom = edtsAtom.getLeafBoxOfType(Mp4Box.TYPE_elst);
     if (elstAtom == null) {
       return null;
@@ -2035,12 +1992,12 @@ public final class BoxParser {
     int fullAtom = elstData.readInt();
     int version = parseFullBoxVersion(fullAtom);
     int entryCount = elstData.readUnsignedIntToInt();
-    long[] editListDurations = new long[entryCount];
-    long[] editListMediaTimes = new long[entryCount];
+    ImmutableLongArray.Builder editListDurations = ImmutableLongArray.builder(entryCount);
+    ImmutableLongArray.Builder editListMediaTimes = ImmutableLongArray.builder(entryCount);
     for (int i = 0; i < entryCount; i++) {
-      editListDurations[i] =
-          version == 1 ? elstData.readUnsignedLongToLong() : elstData.readUnsignedInt();
-      editListMediaTimes[i] = version == 1 ? elstData.readLong() : elstData.readInt();
+      editListDurations.add(
+          version == 1 ? elstData.readUnsignedLongToLong() : elstData.readUnsignedInt());
+      editListMediaTimes.add(version == 1 ? elstData.readLong() : elstData.readInt());
       int mediaRateInteger = elstData.readShort();
       if (mediaRateInteger != 1) {
         // The extractor does not handle dwell edits (mediaRateInteger == 0).
@@ -2048,7 +2005,7 @@ public final class BoxParser {
       }
       elstData.skipBytes(2);
     }
-    return Pair.create(editListDurations, editListMediaTimes);
+    return Pair.create(editListDurations.build(), editListMediaTimes.build());
   }
 
   private static float parsePaspFromParent(ParsableByteArray parent, int position) {
@@ -2111,18 +2068,12 @@ public final class BoxParser {
       int formatSpecificFlags = parent.readUnsignedIntToInt();
       boolean isFloat = (formatSpecificFlags & 1) != 0;
       boolean isBigEndian = (formatSpecificFlags & (1 << 1)) != 0;
-      if (!isFloat) {
-        if (bitsPerSample == 8) {
-          pcmEncoding = C.ENCODING_PCM_8BIT;
-        } else if (bitsPerSample == 16) {
-          pcmEncoding = isBigEndian ? C.ENCODING_PCM_16BIT_BIG_ENDIAN : C.ENCODING_PCM_16BIT;
-        } else if (bitsPerSample == 24) {
-          pcmEncoding = isBigEndian ? C.ENCODING_PCM_24BIT_BIG_ENDIAN : C.ENCODING_PCM_24BIT;
-        } else if (bitsPerSample == 32) {
-          pcmEncoding = isBigEndian ? C.ENCODING_PCM_32BIT_BIG_ENDIAN : C.ENCODING_PCM_32BIT;
-        }
-      } else if (bitsPerSample == 32) {
-        pcmEncoding = C.ENCODING_PCM_FLOAT;
+      pcmEncoding =
+          isFloat
+              ? Util.getFloatPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN)
+              : Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
+      if (pcmEncoding == C.ENCODING_INVALID) {
+        pcmEncoding = Format.NO_VALUE;
       }
       parent.skipBytes(8); // constBytesPerAudioPacket, constLPCMFramesPerAudioPacket
     } else {
@@ -2181,7 +2132,7 @@ public final class BoxParser {
     } else if (atomType == Mp4Box.TYPE_dtse) {
       mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
     } else if (atomType == Mp4Box.TYPE_dtsx) {
-      mimeType = MimeTypes.AUDIO_DTS_X;
+      mimeType = MimeTypes.AUDIO_DTS_UHD_P2;
     } else if (atomType == Mp4Box.TYPE_samr) {
       mimeType = MimeTypes.AUDIO_AMR_NB;
     } else if (atomType == Mp4Box.TYPE_sawb) {
@@ -2359,6 +2310,9 @@ public final class BoxParser {
         channelCount = parsedAlacConfig[1];
         int bitDepth = parsedAlacConfig[2];
         pcmEncoding = Util.getPcmEncoding(bitDepth);
+        if (pcmEncoding == C.ENCODING_INVALID) {
+          pcmEncoding = Format.NO_VALUE;
+        }
         initializationData = ImmutableList.of(initializationDataBytes);
       } else if (childAtomType == Mp4Box.TYPE_iacb) {
         parent.setPosition(
@@ -2376,11 +2330,11 @@ public final class BoxParser {
         int sampleSize = parent.readUnsignedByte();
         if (atomType == Mp4Box.TYPE_ipcm) {
           pcmEncoding = Util.getPcmEncoding(sampleSize, byteOrder);
-        } else if (atomType == Mp4Box.TYPE_fpcm
-            && sampleSize == 32
-            && byteOrder.equals(LITTLE_ENDIAN)) {
-          // Only single-width little-endian floating point PCM is supported.
-          pcmEncoding = C.ENCODING_PCM_FLOAT;
+        } else if (atomType == Mp4Box.TYPE_fpcm) {
+          pcmEncoding = Util.getFloatPcmEncoding(sampleSize, byteOrder);
+        }
+        if (pcmEncoding == C.ENCODING_INVALID) {
+          pcmEncoding = Format.NO_VALUE;
         }
         if (pcmEncoding != Format.NO_VALUE) {
           mimeType = MimeTypes.AUDIO_RAW;
@@ -2777,15 +2731,23 @@ public final class BoxParser {
     private final long duration;
     private final int alternateGroup;
     private final int rotationDegrees;
+    private final boolean mirrorHorizontal;
     private final int width;
     private final int height;
 
     public TkhdData(
-        int id, long duration, int alternateGroup, int rotationDegrees, int width, int height) {
+        int id,
+        long duration,
+        int alternateGroup,
+        int rotationDegrees,
+        boolean mirrorHorizontal,
+        int width,
+        int height) {
       this.id = id;
       this.duration = duration;
       this.alternateGroup = alternateGroup;
       this.rotationDegrees = rotationDegrees;
+      this.mirrorHorizontal = mirrorHorizontal;
       this.width = width;
       this.height = height;
     }

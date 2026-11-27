@@ -24,8 +24,11 @@ import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoCompositorSettings;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.video.Frame;
+import androidx.media3.effect.DefaultGlFrameProcessor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -231,6 +234,7 @@ public final class Composition {
      * @return This builder.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470383726 - Remove or enable permanently.
     public Builder experimentalSetRetainHdrFromUltraHdrImage(boolean retainHdrFromUltraHdrImage) {
       this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
       return this;
@@ -360,7 +364,20 @@ public final class Composition {
    *
    * <p>This field is experimental, and will be renamed or removed in a future release.
    */
+  @ExperimentalApi // TODO: b/470381951 - Make constant non-experimental.
   public static final int HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR = 3;
+
+  /** Metadata key for storing a {@code Composition} in {@link Frame#getMetadata()}. */
+  @ExperimentalApi // TODO: b/505721737 - Make constant non-experimental.
+  public static final String KEY_COMPOSITION = "KEY_COMPOSITION";
+
+  /**
+   * Metadata key for storing the media item index in the {@code sequences} (identified by {@link
+   * DefaultGlFrameProcessor#KEY_COMPOSITION_SEQUENCE_INDEX}). This key should be stored in {@link
+   * Frame#getMetadata()}.
+   */
+  @ExperimentalApi // TODO: b/505721737 - Make constant non-experimental.
+  public static final String KEY_COMPOSITION_ITEM_INDEX = "KEY_COMPOSITION_ITEM_INDEX";
 
   /**
    * The {@link EditedMediaItemSequence} instances to compose.

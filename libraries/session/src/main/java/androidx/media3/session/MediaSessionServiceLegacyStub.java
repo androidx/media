@@ -28,6 +28,10 @@ import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.MediaSessionManager;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -51,6 +55,10 @@ import java.util.concurrent.atomic.AtomicReference;
     connectedControllersManager = new ConnectedControllersManager<>(sessionImpl);
   }
 
+  private void postOrRunOnApplicationHandler(Runnable runnable) {
+    postOrRun(sessionImpl.getApplicationHandler(), runnable);
+  }
+
   public void initialize(MediaSessionCompat.Token token) {
     attachToBaseContext(sessionImpl.getContext());
     onCreate();
@@ -67,11 +75,29 @@ import java.util.concurrent.atomic.AtomicReference;
 
     AtomicReference<MediaSession.ConnectionResult> resultReference = new AtomicReference<>();
     ConditionVariable haveResult = new ConditionVariable();
-    postOrRun(
-        sessionImpl.getApplicationHandler(),
+    postOrRunOnApplicationHandler(
         () -> {
-          resultReference.set(sessionImpl.onConnectOnHandler(controller));
-          haveResult.open();
+          ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
+              sessionImpl.onConnectOnHandler(controller);
+          Futures.addCallback(
+              connectionResultFuture,
+              new FutureCallback<MediaSession.ConnectionResult>() {
+                @Override
+                public void onSuccess(MediaSession.ConnectionResult result) {
+                  // Running on arbitrary future callback.
+                  resultReference.set(result);
+                  haveResult.open();
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  // Running on arbitrary future callback.
+                  // Should not happen, onConnect should at least return a rejected result.
+                  resultReference.set(MediaSession.ConnectionResult.reject());
+                  haveResult.open();
+                }
+              },
+              MoreExecutors.directExecutor());
         });
     try {
       haveResult.block();
@@ -80,11 +106,17 @@ import java.util.concurrent.atomic.AtomicReference;
       return null;
     }
     MediaSession.ConnectionResult result = resultReference.get();
-    if (!result.isAccepted) {
+    if (result == null || !result.isAccepted) {
       return null;
     }
-    connectedControllersManager.addController(
-        info, controller, result.availableSessionCommands, result.availablePlayerCommands);
+    postOrRunOnApplicationHandler(
+        () -> {
+          if (sessionImpl.isReleased()) {
+            return;
+          }
+          connectedControllersManager.addController(
+              info, controller, result.availableSessionCommands, result.availablePlayerCommands);
+        });
     // No library root, but keep browser compat connected to allow getting session.
     return MediaUtils.defaultBrowserRoot;
   }

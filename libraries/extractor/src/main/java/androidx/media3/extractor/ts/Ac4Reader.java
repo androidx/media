@@ -169,11 +169,6 @@ public final class Ac4Reader implements ElementaryStreamReader {
     }
   }
 
-  @Override
-  public void packetFinished(boolean isEndOfInput) {
-    // Do nothing.
-  }
-
   /**
    * Continues a read from the provided {@code source} into a given {@code target}. It's assumed
    * that the data should be written into {@code target} starting from an offset of zero.

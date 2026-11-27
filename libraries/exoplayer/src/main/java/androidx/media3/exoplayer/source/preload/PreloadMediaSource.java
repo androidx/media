@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source.preload;
 
 import static androidx.media3.common.util.Util.postOrRun;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -164,6 +165,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
      * @param preloadLooper The {@link Looper} that will be used for preloading. It should be the
      *     same looper with {@link ExoPlayer.Builder#setPlaybackLooper(Looper)} that will play the
      *     created {@link PreloadMediaSource} instances.
+     * @throws IllegalArgumentException If {@code bandwidthMeter} is {@link BandwidthMeter#NO_OP}.
      */
     public Factory(
         MediaSource.Factory mediaSourceFactory,
@@ -176,6 +178,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
       this.mediaSourceFactory = mediaSourceFactory;
       this.preloadControl = preloadControl;
       this.trackSelector = trackSelector;
+      checkArgument(bandwidthMeter != BandwidthMeter.NO_OP);
       this.bandwidthMeter = bandwidthMeter;
       this.rendererCapabilities = Arrays.copyOf(rendererCapabilities, rendererCapabilities.length);
       this.loadControl = loadControl;
@@ -311,6 +314,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
             this.preloadCalled = true;
             this.startPositionUs = startPositionUs;
             setPlayerId(PlayerId.PRELOAD);
+            setBandwidthMeter(bandwidthMeter);
             loadControl.onPrepared(PlayerId.PRELOAD);
             prepareSourceInternal(bandwidthMeter.getTransferListener());
             checkForPreloadError();
@@ -371,7 +375,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
                   /* windowPositionUs= */ startPositionUs);
           MediaPeriodId mediaPeriodId = new MediaPeriodId(periodPosition.first);
           PreloadMediaPeriod mediaPeriod =
-              PreloadMediaSource.this.createPeriod(mediaPeriodId, allocator, periodPosition.second);
+              (PreloadMediaPeriod)
+                  PreloadMediaSource.this.createPeriod(
+                      mediaPeriodId, allocator, periodPosition.second);
           mediaPeriod.preload(
               new PreloadMediaPeriodCallback(periodPosition.second),
               /* positionUs= */ periodPosition.second);
@@ -379,8 +385,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  public PreloadMediaPeriod createPeriod(
-      MediaPeriodId id, Allocator allocator, long startPositionUs) {
+  public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
     MediaPeriodKey key = new MediaPeriodKey(id, startPositionUs);
     if (preloadingMediaPeriodAndKey != null && key.equals(preloadingMediaPeriodAndKey.second)) {
       PreloadMediaPeriod mediaPeriod = checkNotNull(preloadingMediaPeriodAndKey).first;
@@ -519,6 +524,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     private boolean prepared;
     private int continueLoadingRetryCountBeforeCallingPreloadControlAgain;
     @Nullable private Runnable maybeContinueLoadingRunnable;
+    private boolean onLoadToTheEndOfSourceNotified;
 
     public PreloadMediaPeriodCallback(long periodStartPositionUs) {
       this.periodStartPositionUs = periodStartPositionUs;
@@ -530,7 +536,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
       prepared = true;
       preloadHandler.post(
           () -> {
-            if (isUsedByPlayer()) {
+            if (preloadingMediaPeriodAndKey == null || isUsedByPlayer()) {
               return;
             }
             PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
@@ -572,15 +578,14 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     public void onContinueLoadingRequested(MediaPeriod mediaPeriod) {
       preloadHandler.post(
           () -> {
-            if (isUsedByPlayer()) {
+            if (preloadingMediaPeriodAndKey == null || isUsedByPlayer()) {
               return;
             }
             PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
             if (prepared) {
               long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
               if (bufferedPositionUs == C.TIME_END_OF_SOURCE) {
-                preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
-                stopPreloading();
+                onLoadToTheEndOfSource();
                 return;
               }
               if (!preloadControl.onContinueLoadingRequested(
@@ -615,6 +620,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         continueLoadingRetryCountBeforeCallingPreloadControlAgain = C.LENGTH_UNSET;
         mediaPeriod.continueLoading(
             new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
+        if (prepared && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE) {
+          onLoadToTheEndOfSource();
+        }
         return;
       }
 
@@ -658,6 +666,14 @@ public final class PreloadMediaSource extends WrappingMediaSource {
           /* rebuffering= */ false,
           /* targetLiveOffsetUs= */ C.TIME_UNSET,
           /* lastRebufferRealtimeMs= */ C.TIME_UNSET);
+    }
+
+    private void onLoadToTheEndOfSource() {
+      if (!onLoadToTheEndOfSourceNotified) {
+        preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
+        onLoadToTheEndOfSourceNotified = true;
+      }
+      stopPreloading();
     }
   }
 

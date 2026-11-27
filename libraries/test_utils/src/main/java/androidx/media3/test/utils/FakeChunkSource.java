@@ -140,7 +140,7 @@ public class FakeChunkSource implements ChunkSource {
           new DataSpec(Uri.parse(uri), fakeDataChunk.byteOffset, fakeDataChunk.length);
       int trackType = MimeTypes.getTrackType(selectedFormat.sampleMimeType);
       out.chunk =
-          new SingleSampleMediaChunk(
+          createMediaChunk(
               dataSource,
               dataSpec,
               selectedFormat,
@@ -152,6 +152,35 @@ public class FakeChunkSource implements ChunkSource {
               trackType,
               selectedFormat);
     }
+  }
+
+  /**
+   * Creates a {@link MediaChunk} for the given parameters.
+   *
+   * <p>Subclasses can override this method to return custom {@link MediaChunk} implementations.
+   */
+  protected MediaChunk createMediaChunk(
+      DataSource dataSource,
+      DataSpec dataSpec,
+      Format trackFormat,
+      @C.SelectionReason int trackSelectionReason,
+      @Nullable Object trackSelectionData,
+      long startTimeUs,
+      long endTimeUs,
+      long chunkIndex,
+      @C.TrackType int trackType,
+      Format sampleFormat) {
+    return new SingleSampleMediaChunk(
+        dataSource,
+        dataSpec,
+        trackFormat,
+        trackSelectionReason,
+        trackSelectionData,
+        startTimeUs,
+        endTimeUs,
+        chunkIndex,
+        trackType,
+        sampleFormat);
   }
 
   @Override

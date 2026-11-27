@@ -15,10 +15,10 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.ignoreFuture;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -83,10 +83,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaControllerImplLegacy implements MediaController.MediaControllerImpl {
 
   private static final String TAG = "MCImplLegacy";
@@ -114,6 +114,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private ControllerInfo controllerInfo;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
+  private boolean hasInitializedLegacyPlaylist;
 
   public MediaControllerImplLegacy(
       Context context,
@@ -213,6 +214,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
+    hasInitializedLegacyPlaylist = false;
     controllerCompat.getTransportControls().stop();
   }
 
@@ -279,7 +281,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (hasMedia()) {
+    if (canInitializeLegacyPlaylist(controllerInfo)) {
       initializeLegacyPlaylist();
     }
   }
@@ -319,7 +321,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (mediaItemIndex != currentMediaItemIndex) {
       QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
       long queueId = queueTimeline.getQueueId(mediaItemIndex);
-      if (queueId != QueueItem.UNKNOWN_ID) {
+      if (queueId != QueueItem.UNKNOWN_ID && queueId != QueueTimeline.FAKE_QUEUE_ID) {
         controllerCompat.getTransportControls().skipToQueueItem(queueId);
         newMediaItemIndex = mediaItemIndex;
         mediaItemTransitionReason = Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
@@ -699,7 +701,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         maskedControllerInfo,
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
-    if (isPrepared()) {
+    if (canInitializeLegacyPlaylist(controllerInfo)) {
       initializeLegacyPlaylist();
     }
   }
@@ -765,7 +767,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (isPrepared()) {
+    if (hasInitializedLegacyPlaylist) {
       addQueueItems(mediaItems, index);
     }
   }
@@ -819,7 +821,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (isPrepared()) {
+    if (hasInitializedLegacyPlaylist) {
       for (int i = fromIndex; i < toIndex && i < legacyPlayerInfo.queue.size(); i++) {
         controllerCompat.removeQueueItem(legacyPlayerInfo.queue.get(i).getDescription());
       }
@@ -887,7 +889,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (isPrepared()) {
+    if (hasInitializedLegacyPlaylist) {
       ArrayList<QueueItem> moveItems = new ArrayList<>();
       for (int i = 0; i < (toIndex - fromIndex); i++) {
         moveItems.add(legacyPlayerInfo.queue.get(fromIndex));
@@ -1310,12 +1312,14 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* discontinuityReason= */ null,
         /* mediaItemTransitionReason= */ null);
 
-    if (isPrepared() && hasMedia()) {
+    if (hasInitializedLegacyPlaylist) {
       if (playWhenReady) {
         controllerCompat.getTransportControls().play();
       } else {
         controllerCompat.getTransportControls().pause();
       }
+    } else if (canInitializeLegacyPlaylist(controllerInfo)) {
+      initializeLegacyPlaylist();
     }
   }
 
@@ -1453,17 +1457,16 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             });
   }
 
-  private boolean isPrepared() {
-    return controllerInfo.playerInfo.playbackState != Player.STATE_IDLE;
-  }
-
-  private boolean hasMedia() {
-    return !controllerInfo.playerInfo.timeline.isEmpty();
+  private static boolean canInitializeLegacyPlaylist(ControllerInfo controllerInfo) {
+    return controllerInfo.playerInfo.playbackState != Player.STATE_IDLE
+        && !controllerInfo.playerInfo.timeline.isEmpty()
+        && (controllerInfo.availablePlayerCommands.contains(Player.COMMAND_PREPARE)
+            || controllerInfo.playerInfo.playWhenReady);
   }
 
   private void initializeLegacyPlaylist() {
+    hasInitializedLegacyPlaylist = true;
     Window window = new Window();
-    checkState(isPrepared() && hasMedia());
     QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
     // Set the current item first as these calls are expected to replace the current playlist.
     int currentIndex = controllerInfo.playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
@@ -1568,6 +1571,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       List<@NullableType ListenableFuture<Bitmap>> bitmapFutures,
       List<MediaItem> mediaItems,
       int startIndex) {
+    if (released
+        || (controllerCompat.getFlags() & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
+      // Stale command, session released or queue support changed.
+      return;
+    }
     for (int i = 0; i < bitmapFutures.size(); i++) {
       @Nullable ListenableFuture<Bitmap> future = bitmapFutures.get(i);
       @Nullable Bitmap bitmap = null;
@@ -1613,7 +1621,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     updateControllerInfo(
         notifyConnected,
         newLegacyPlayerInfo,
-        /* resetPendingLegacyPlayerInfo= */ true,
+        /* hasNewLegacyPlayerInfo= */ true,
         newControllerInfo,
         /* discontinuityReason= */ reasons.first,
         /* mediaItemTransitionReason= */ reasons.second);
@@ -1637,7 +1645,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     updateControllerInfo(
         /* notifyConnected= */ false,
         legacyPlayerInfo,
-        /* resetPendingLegacyPlayerInfo= */ false,
+        /* hasNewLegacyPlayerInfo= */ false,
         newControllerInfo,
         discontinuityReason,
         mediaItemTransitionReason);
@@ -1648,17 +1656,19 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private void updateControllerInfo(
       boolean notifyConnected,
       LegacyPlayerInfo newLegacyPlayerInfo,
-      boolean resetPendingLegacyPlayerInfo,
+      boolean hasNewLegacyPlayerInfo,
       ControllerInfo newControllerInfo,
       @Nullable @Player.DiscontinuityReason Integer discontinuityReason,
       @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
     LegacyPlayerInfo oldLegacyPlayerInfo = legacyPlayerInfo;
     ControllerInfo oldControllerInfo = controllerInfo;
-    if (legacyPlayerInfo != newLegacyPlayerInfo) {
-      legacyPlayerInfo = new LegacyPlayerInfo(newLegacyPlayerInfo);
-    }
-    if (resetPendingLegacyPlayerInfo) {
+    if (hasNewLegacyPlayerInfo) {
+      legacyPlayerInfo = newLegacyPlayerInfo;
       pendingLegacyPlayerInfo = legacyPlayerInfo;
+      if (canInitializeLegacyPlaylist(newControllerInfo)) {
+        // New platform state already has initialized playlist.
+        hasInitializedLegacyPlaylist = true;
+      }
     }
     controllerInfo = newControllerInfo;
 
@@ -1835,10 +1845,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               listener -> listener.onError(getInstance(), newControllerInfo.sessionError));
     }
     listeners.flushEvents();
-  }
-
-  private static <T> void ignoreFuture(Future<T> unused) {
-    // Ignore return value of the future because legacy session cannot get result back.
   }
 
   private class ConnectionCallback extends MediaBrowserCompat.ConnectionCallback {
@@ -2567,17 +2573,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       this.repeatMode = repeatMode;
       this.shuffleMode = shuffleMode;
       this.sessionExtras = sessionExtras != null ? sessionExtras : Bundle.EMPTY;
-    }
-
-    public LegacyPlayerInfo(LegacyPlayerInfo other) {
-      playbackInfoCompat = other.playbackInfoCompat;
-      playbackStateCompat = other.playbackStateCompat;
-      mediaMetadataCompat = other.mediaMetadataCompat;
-      queue = other.queue;
-      queueTitle = other.queueTitle;
-      repeatMode = other.repeatMode;
-      shuffleMode = other.shuffleMode;
-      sessionExtras = other.sessionExtras;
     }
 
     @CheckResult

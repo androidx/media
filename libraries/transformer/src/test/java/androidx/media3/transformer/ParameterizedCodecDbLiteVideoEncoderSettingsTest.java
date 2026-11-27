@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
+import java.util.Locale;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
@@ -49,7 +50,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(29044193).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -59,7 +60,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(15502805).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -69,7 +70,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(10549473).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -79,7 +80,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(7939243).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -89,7 +90,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(7045659).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -99,7 +100,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(5199819).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -109,7 +110,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(18947248).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -119,7 +120,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(12116617).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -129,7 +130,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(8904992).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -139,7 +140,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(6971975).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -149,7 +150,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(6259729).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -159,7 +160,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(4684288).build()),
         new TestParameters(
             "QTI",
             "SM8650",
@@ -169,7 +170,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(29044193).build()),
         new TestParameters(
             "QTI",
             "SM8650",
@@ -183,6 +184,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(15502805)
                 .build()),
         new TestParameters(
             "QTI",
@@ -197,6 +199,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(10549473)
                 .build()),
         new TestParameters(
             "QTI",
@@ -211,6 +214,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(7939243)
                 .build()),
         new TestParameters(
             "QTI",
@@ -225,6 +229,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(7045659)
                 .build()),
         new TestParameters(
             "QTI",
@@ -239,6 +244,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(5199819)
                 .build()),
         new TestParameters(
             "QTI",
@@ -249,7 +255,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(18947248).build()),
         new TestParameters(
             "QTI",
             "SM8650",
@@ -259,7 +265,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(12116617).build()),
         new TestParameters(
             "QTI",
             "SM8650",
@@ -273,6 +279,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(8904992)
                 .build()),
         new TestParameters(
             "QTI",
@@ -287,6 +294,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(6971975)
                 .build()),
         new TestParameters(
             "QTI",
@@ -301,6 +309,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(6259729)
                 .build()),
         new TestParameters(
             "QTI",
@@ -315,6 +324,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
+                .setBitrate(4684288)
                 .build()),
         new TestParameters(
             "Mediatek",
@@ -325,7 +335,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(29044193).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -335,7 +345,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(15502805).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -345,7 +355,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(10549473).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -355,7 +365,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(7939243).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -365,7 +375,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(7045659).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -375,7 +385,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(5199819).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -385,7 +395,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(18947248).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -395,7 +405,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(12116617).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -405,7 +415,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(8904992).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -415,7 +425,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(6971975).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -425,7 +435,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(6259729).build()),
         new TestParameters(
             "Mediatek",
             "MT6983",
@@ -435,7 +445,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(4684288).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -445,7 +455,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(29044193).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -455,7 +465,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(15502805).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -465,7 +475,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(2).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(2).setBitrate(10549473).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -475,7 +485,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(2).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(2).setBitrate(7939243).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -485,7 +495,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(2).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(2).setBitrate(7045659).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -495,7 +505,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(2).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(2).setBitrate(5199819).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -505,7 +515,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(18947248).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -515,7 +525,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(12116617).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -525,7 +535,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(8904992).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -535,7 +545,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(6971975).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -545,7 +555,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(6259729).build()),
         new TestParameters(
             "Samsung",
             "s5e9925",
@@ -555,7 +565,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).setBitrate(4684288).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -565,7 +575,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(5199819).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -575,7 +585,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(7045659).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -585,7 +595,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(7939243).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -595,7 +605,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(10549473).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -605,7 +615,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(15502805).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -615,7 +625,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(29044193).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -625,7 +635,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(4684288).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -635,7 +645,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(6259729).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -645,7 +655,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(6971975).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -655,7 +665,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(8904992).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -665,7 +675,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(1080)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT),
+            new VideoEncoderSettings.Builder().setBitrate(12116617).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
@@ -675,7 +685,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(2160)
                 .setFrameRate(30.00f)
                 .build(),
-            VideoEncoderSettings.DEFAULT));
+            new VideoEncoderSettings.Builder().setBitrate(18947248).build()));
   }
 
   @Test
@@ -707,6 +717,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
     @Override
     public String toString() {
       return String.format(
+          Locale.US,
           "%s %s(%s): %dx%d@%.02f",
           socManufacturer,
           socModel,

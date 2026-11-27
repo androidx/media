@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
@@ -40,6 +41,8 @@ public class ImagePlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            // TODO: b/467996435 - Remove this when the test doesn't trigger the stuckness detection
+            //  on CI.
             .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
@@ -62,7 +65,10 @@ public class ImagePlaybackTest {
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/image/image_playlist_with_seek.dump");
+    if (SDK_INT >= 26) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/image/image_playlist_with_seek.dump");
+    }
   }
 }

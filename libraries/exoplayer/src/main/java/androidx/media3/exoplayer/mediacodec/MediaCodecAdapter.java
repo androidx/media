@@ -27,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.io.IOException;
@@ -208,14 +209,16 @@ public interface MediaCodecAdapter {
   ByteBuffer getInputBuffer(int index);
 
   /**
-   * Uses an acquired input buffer (e.g. to write data to it).
+   * Uses an acquired input or output buffer (e.g. to read from or write data to it).
    *
    * <p>This can be used for error handling, e.g. to guarantee no operation can invalidate the
-   * buffer while it's being used.
+   * buffer while it's being used by the application or downstream components.
    *
-   * @param runnable The {@link Runnable} using an acquired input buffer.
+   * @param runnable The {@link ThrowingRunnable} utilizing an acquired buffer.
+   * @param <E> The type of exception thrown by {@code runnable}.
+   * @throws E If {@code runnable} throws an exception.
    */
-  default void useInputBuffer(Runnable runnable) {
+  default <E extends Exception> void useBuffer(ThrowingRunnable<E> runnable) throws E {
     runnable.run();
   }
 

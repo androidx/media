@@ -27,6 +27,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -126,6 +127,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   private float liveMaxSpeed;
   private boolean parseSubtitlesDuringExtraction;
   private boolean loadOnlySelectedTracks;
+  private boolean enableClippingInMediaPeriod;
 
   /**
    * Creates a new instance.
@@ -180,8 +182,30 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   @UnstableApi
   public DefaultMediaSourceFactory(
       DataSource.Factory dataSourceFactory, ExtractorsFactory extractorsFactory) {
+    this(dataSourceFactory, extractorsFactory, new DefaultSubtitleParserFactory());
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * <p>Note that this constructor is only useful to try and ensure that ExoPlayer's {@link
+   * DefaultDataSource.Factory}, {@link DefaultExtractorsFactory} and {@link
+   * DefaultSubtitleParserFactory} can be removed by ProGuard or R8.
+   *
+   * @param dataSourceFactory A {@link DataSource.Factory} to create {@link DataSource} instances
+   *     for requesting media data.
+   * @param extractorsFactory An {@link ExtractorsFactory} used to extract progressive media from
+   *     its container.
+   * @param subtitleParserFactory A {@link SubtitleParser.Factory} to create {@link SubtitleParser}
+   *     instances used to parse subtitles.
+   */
+  @UnstableApi
+  public DefaultMediaSourceFactory(
+      DataSource.Factory dataSourceFactory,
+      ExtractorsFactory extractorsFactory,
+      SubtitleParser.Factory subtitleParserFactory) {
     this.dataSourceFactory = dataSourceFactory;
-    this.subtitleParserFactory = new DefaultSubtitleParserFactory();
+    this.subtitleParserFactory = subtitleParserFactory;
     delegateFactoryLoader = new DelegateFactoryLoader(extractorsFactory, subtitleParserFactory);
     delegateFactoryLoader.setDataSourceFactory(dataSourceFactory);
     liveTargetOffsetMs = C.TIME_UNSET;
@@ -472,6 +496,24 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     return this;
   }
 
+  /**
+   * Sets whether an experimental setting to delegate end position clipping to a wrapped {@link
+   * MediaPeriod} is enabled.
+   *
+   * <p>The default value is {@code false}.
+   *
+   * @param enableClippingInMediaPeriod Whether the end clipping should be delegated to the wrapped
+   *     {@link MediaPeriod}.
+   * @return This factory, for convenience.
+   */
+  @ExperimentalApi // TODO: b/474538573 - Remove once clipping in media period is default.
+  @CanIgnoreReturnValue
+  public DefaultMediaSourceFactory setEnableClippingInMediaPeriod(
+      boolean enableClippingInMediaPeriod) {
+    this.enableClippingInMediaPeriod = enableClippingInMediaPeriod;
+    return this;
+  }
+
   @UnstableApi
   @CanIgnoreReturnValue
   @Override
@@ -599,24 +641,22 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
 
       mediaSource = new MergingMediaSource(mediaSources);
     }
-    return maybeWrapWithAdsMediaSource(mediaItem, maybeClipMediaSource(mediaItem, mediaSource));
+    return maybeWrapWithAdsMediaSource(
+        mediaItem, maybeClipMediaSource(mediaItem, mediaSource, enableClippingInMediaPeriod));
   }
 
   // internal methods
 
-  private static MediaSource maybeClipMediaSource(MediaItem mediaItem, MediaSource mediaSource) {
+  private static MediaSource maybeClipMediaSource(
+      MediaItem mediaItem, MediaSource mediaSource, boolean enableClippingInMediaPeriod) {
     if (mediaItem.clippingConfiguration.startPositionUs == 0
         && mediaItem.clippingConfiguration.endPositionUs == C.TIME_END_OF_SOURCE
         && !mediaItem.clippingConfiguration.relativeToDefaultPosition) {
       return mediaSource;
     }
     return new ClippingMediaSource.Builder(mediaSource)
-        .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
-        .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
-        .setEnableInitialDiscontinuity(!mediaItem.clippingConfiguration.startsAtKeyFrame)
-        .setAllowDynamicClippingUpdates(mediaItem.clippingConfiguration.relativeToLiveWindow)
-        .setRelativeToDefaultPosition(mediaItem.clippingConfiguration.relativeToDefaultPosition)
-        .setAllowUnseekableMedia(mediaItem.clippingConfiguration.allowUnseekableMedia)
+        .setClippingConfiguration(mediaItem.clippingConfiguration)
+        .setEnableClippingInMediaPeriod(enableClippingInMediaPeriod)
         .build();
   }
 
@@ -651,7 +691,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         /* adMediaSourceFactory= */ this,
         adsLoader,
         adViewProvider,
-        /* useLazyContentSourcePreparation= */ true);
+        /* useLazyContentSourcePreparation= */ true,
+        /* useAdMediaSourceClipping= */ false);
   }
 
   /** Loads media source factories lazily. */
@@ -677,6 +718,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       mediaSourceFactorySuppliers = new HashMap<>();
       mediaSourceFactories = new HashMap<>();
       parseSubtitlesDuringExtraction = true;
+      codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     }
 
     public @C.ContentType int[] getSupportedTypes() {

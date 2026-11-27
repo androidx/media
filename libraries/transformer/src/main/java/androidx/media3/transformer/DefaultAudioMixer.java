@@ -19,6 +19,10 @@ import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain;
 import static androidx.media3.common.audio.ChannelMixingMatrix.createForConstantPower;
 import static androidx.media3.common.util.Util.contains;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_AUDIO_MIXER;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_RELEASE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -144,6 +148,8 @@ public final class DefaultAudioMixer implements AudioMixer {
    */
   private long maxPositionOfRemovedSources;
 
+  private boolean isEndLogged;
+
   private DefaultAudioMixer(
       boolean outputSilenceWithNoSources,
       boolean clipFloatOutput,
@@ -182,7 +188,7 @@ public final class DefaultAudioMixer implements AudioMixer {
     bufferSizeFrames = bufferSizeMs * outputAudioFormat.sampleRate / 1000;
     mixerStartTimeUs = startTimeUs;
     DebugTraceUtil.logEvent(
-        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        COMPONENT_AUDIO_MIXER,
         DebugTraceUtil.EVENT_OUTPUT_FORMAT,
         mixerStartTimeUs,
         "%s",
@@ -233,7 +239,7 @@ public final class DefaultAudioMixer implements AudioMixer {
             startFrameOffset));
 
     DebugTraceUtil.logEvent(
-        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        COMPONENT_AUDIO_MIXER,
         DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM,
         startTimeUs,
         "source(%s):%s",
@@ -264,6 +270,14 @@ public final class DefaultAudioMixer implements AudioMixer {
     maxPositionOfRemovedSources =
         max(maxPositionOfRemovedSources, getSourceById(sourceId).position);
     sources.delete(sourceId);
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_MIXER,
+        DebugTraceUtil.EVENT_INPUT_ENDED,
+        C.TIME_UNSET,
+        "source(%d): endPosition=%d",
+        sourceId,
+        endPosition);
+    maybeLogMixerEnded();
   }
 
   @Override
@@ -309,9 +323,11 @@ public final class DefaultAudioMixer implements AudioMixer {
       mixingBuffer.buffer.reset();
 
       if (source.position == newSourcePosition) {
-        return;
+        break;
       }
     }
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_MIXER, EVENT_ACCEPTED_INPUT, C.TIME_UNSET, "source(%s)", sourceId);
   }
 
   @Override
@@ -352,11 +368,12 @@ public final class DefaultAudioMixer implements AudioMixer {
     updateInputFrameLimit();
 
     DebugTraceUtil.logEvent(
-        DebugTraceUtil.COMPONENT_AUDIO_MIXER,
+        COMPONENT_AUDIO_MIXER,
         DebugTraceUtil.EVENT_PRODUCED_OUTPUT,
         C.TIME_UNSET,
         "bytesOutput=%s",
         outputBuffer.remaining());
+    maybeLogMixerEnded();
     return outputBuffer;
   }
 
@@ -379,6 +396,15 @@ public final class DefaultAudioMixer implements AudioMixer {
     outputPosition = 0;
     endPosition = Long.MAX_VALUE;
     maxPositionOfRemovedSources = outputSilenceWithNoSources ? Long.MAX_VALUE : 0;
+    isEndLogged = false;
+    DebugTraceUtil.logEvent(COMPONENT_AUDIO_MIXER, EVENT_RELEASE, C.TIME_UNSET);
+  }
+
+  private void maybeLogMixerEnded() {
+    if (!isEndLogged && isEnded()) {
+      DebugTraceUtil.logEvent(COMPONENT_AUDIO_MIXER, EVENT_OUTPUT_ENDED, C.TIME_UNSET);
+      isEndLogged = true;
+    }
   }
 
   private void checkStateIsConfigured() {

@@ -32,6 +32,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  */
 @Deprecated
 @UnstableApi
+@SuppressWarnings("deprecation") // Deprecated implementation of deprecated interface
 public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackProvider {
 
   @Override

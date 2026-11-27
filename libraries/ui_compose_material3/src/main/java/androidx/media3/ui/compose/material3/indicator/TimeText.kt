@@ -16,10 +16,11 @@
 
 package androidx.media3.ui.compose.material3.indicator
 
-import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -34,16 +35,19 @@ import kotlinx.coroutines.CoroutineScope
  *
  * @param player The [Player] to get the position from.
  * @param modifier The [Modifier] to be applied to the text.
+ * @param color The [Color] to be applied to the text. If [Color.Unspecified], the color will be
+ *   inherited from the theme.
  * @param scope The [CoroutineScope] to use for listening to player progress updates.
  */
 @UnstableApi
 @Composable
 fun PositionText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
+  color: Color = Color.Unspecified,
   scope: CoroutineScope = rememberCoroutineScope(),
 ) {
-  TimeText(player, modifier, TimeFormat.position(), scope)
+  TimeText(player, modifier, color, TimeFormat.position(), scope)
 }
 
 /**
@@ -51,16 +55,19 @@ fun PositionText(
  *
  * @param player The [Player] to get the duration from.
  * @param modifier The [Modifier] to be applied to the text.
+ * @param color The [Color] to be applied to the text. If [Color.Unspecified], the color will be
+ *   inherited from the theme.
  * @param scope The [CoroutineScope] to use for listening to player progress updates.
  */
 @UnstableApi
 @Composable
 fun DurationText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
+  color: Color = Color.Unspecified,
   scope: CoroutineScope = rememberCoroutineScope(),
 ) {
-  TimeText(player, modifier, TimeFormat.duration(), scope)
+  TimeText(player, modifier, color, TimeFormat.duration(), scope)
 }
 
 /**
@@ -69,17 +76,20 @@ fun DurationText(
  * @param player The [Player] to get the duration from.
  * @param modifier The [Modifier] to be applied to the text.
  * @param showNegative Whether to display the remaining time with a minus sign.
+ * @param color The [Color] to be applied to the text. If [Color.Unspecified], the color will be
+ *   inherited from the theme.
  * @param scope The [CoroutineScope] to use for listening to player progress updates.
  */
 @UnstableApi
 @Composable
 fun RemainingDurationText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   showNegative: Boolean = false,
+  color: Color = Color.Unspecified,
   scope: CoroutineScope = rememberCoroutineScope(),
 ) {
-  TimeText(player, modifier, TimeFormat.remaining(showNegative), scope)
+  TimeText(player, modifier, color, TimeFormat.remaining(showNegative), scope)
 }
 
 /**
@@ -88,17 +98,20 @@ fun RemainingDurationText(
  * @param player The [Player] to get the duration from.
  * @param modifier The [Modifier] to be applied to the text.
  * @param separator The separator string to be used between the current position and duration.
+ * @param color The [Color] to be applied to the text. If [Color.Unspecified], the color will be
+ *   inherited from the theme.
  * @param scope The [CoroutineScope] to use for listening to player progress updates.
  */
 @UnstableApi
 @Composable
 fun PositionAndDurationText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   separator: String = " / ",
+  color: Color = Color.Unspecified,
   scope: CoroutineScope = rememberCoroutineScope(),
 ) {
-  TimeText(player, modifier, TimeFormat.positionAndDuration(separator), scope)
+  TimeText(player, modifier, color, TimeFormat.positionAndDuration(separator), scope)
 }
 
 /**
@@ -109,18 +122,21 @@ fun PositionAndDurationText(
  *
  * @param player The [Player] to get the progress from.
  * @param modifier The [Modifier] to be applied to the text.
+ * @param color The [Color] to be applied to the text. If [Color.Unspecified], the color will be
+ *   inherited from the theme.
  * @param timeFormat The [TimeFormat] to use for displaying the time.
  * @param scope Coroutine scope to listen to the progress updates from the player.
  */
 @UnstableApi
 @Composable
 fun TimeText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
+  color: Color = Color.Unspecified,
   timeFormat: TimeFormat,
   scope: CoroutineScope = rememberCoroutineScope(),
 ) {
-  TimeText(player, scope = scope) { TimeText(state = this, timeFormat, modifier) }
+  TimeText(player, scope = scope) { TimeText(state = this, timeFormat, modifier, color) }
 }
 
 @Composable
@@ -128,6 +144,7 @@ private fun TimeText(
   state: ProgressStateWithTickInterval,
   timeFormat: TimeFormat,
   modifier: Modifier,
+  color: Color,
 ) {
   val text =
     when (timeFormat.format) {
@@ -151,7 +168,14 @@ private fun TimeText(
 
       else -> throw IllegalStateException("Unrecognized TimeFormat ${timeFormat.format}")
     }
-  BasicText(text, modifier, style = TextStyle(fontFeatureSettings = "tnum"))
+  Text(
+    text,
+    modifier,
+    color = color,
+    maxLines = 1,
+    softWrap = false,
+    style = TextStyle(fontFeatureSettings = "tnum"),
+  )
 }
 
 /**

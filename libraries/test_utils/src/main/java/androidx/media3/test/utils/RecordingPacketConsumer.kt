@@ -16,7 +16,6 @@
 package androidx.media3.test.utils
 
 import androidx.media3.common.util.ExperimentalApi
-import androidx.media3.effect.GlTextureFrame
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 
@@ -24,33 +23,27 @@ import androidx.media3.effect.PacketConsumer.Packet
  * A [PacketConsumer] implementation that holds a reference to all queued packets, and optionally
  * releases the underlying frames.
  */
-@ExperimentalApi
-class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
-  PacketConsumer<MutableList<GlTextureFrame>> {
-  val queuedPackets: List<MutableList<GlTextureFrame>>
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+class RecordingPacketConsumer<T> : PacketConsumer<T> {
+  var onQueue: (T) -> Unit = {}
+  val queuedPackets: List<Packet<T>>
     get() {
       return _queuedPackets.toList()
     }
 
-  private val _queuedPackets: MutableList<MutableList<GlTextureFrame>> = ArrayList()
+  val queuedPayloads: List<T>
+    get() {
+      return _queuedPackets.toList().filterIsInstance<Packet.Payload<T>>().map { it.payload }
+    }
 
-  override fun tryQueuePacket(packet: Packet<MutableList<GlTextureFrame>>): Boolean {
-    queue(packet.payload)
-    return true
-  }
+  private val _queuedPackets: MutableList<Packet<T>> = ArrayList()
 
-  override suspend fun queuePacket(packet: Packet<MutableList<GlTextureFrame>>) {
-    queue(packet.payload)
+  override suspend fun queuePacket(packet: Packet<T>) {
+    _queuedPackets.add(packet)
+    if (packet is Packet.Payload) {
+      onQueue(packet.payload)
+    }
   }
 
   override suspend fun release() {}
-
-  private fun queue(frames: MutableList<GlTextureFrame>) {
-    if (releaseIncomingFrames) {
-      for (frame in frames) {
-        frame.release()
-      }
-    }
-    _queuedPackets.add(frames)
-  }
 }

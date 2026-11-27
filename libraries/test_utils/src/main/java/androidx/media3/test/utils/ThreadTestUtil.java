@@ -51,9 +51,13 @@ public final class ThreadTestUtil {
 
   /** Unblocks any threads that are waiting for progress on the current {@link Looper} thread. */
   public static void unblockThreadsWaitingForProgressOnCurrentLooper() {
-    Looper myLooper = checkNotNull(Looper.myLooper());
+    unblockThreadsWaitingForProgressOnLooper(checkNotNull(Looper.myLooper()));
+  }
+
+  /** Unblocks any threads that are waiting for progress on the specified {@link Looper} thread. */
+  public static void unblockThreadsWaitingForProgressOnLooper(Looper looper) {
     synchronized (blockedThreadConditions) {
-      for (ConditionVariable condition : blockedThreadConditions.removeAll(myLooper)) {
+      for (ConditionVariable condition : blockedThreadConditions.removeAll(looper)) {
         condition.open();
       }
     }

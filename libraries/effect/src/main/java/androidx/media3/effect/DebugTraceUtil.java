@@ -17,23 +17,18 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Util.formatInvariant;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.JsonWriter;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.io.Writer;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -43,8 +38,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
-import org.json.JSONObject;
 
 /** A debugging tracing utility. Debug logging is disabled at compile time by default. */
 @UnstableApi
@@ -65,10 +60,13 @@ public final class DebugTraceUtil {
     EVENT_SEEK_TO,
     EVENT_SET_VIDEO_OUTPUT,
     EVENT_RELEASE,
+    EVENT_RESET,
     EVENT_START,
     EVENT_INPUT_FORMAT,
     EVENT_OUTPUT_FORMAT,
     EVENT_ACCEPTED_INPUT,
+    EVENT_BLOCK_INPUT,
+    EVENT_UNBLOCK_INPUT,
     EVENT_PRODUCED_OUTPUT,
     EVENT_INPUT_ENDED,
     EVENT_OUTPUT_ENDED,
@@ -81,10 +79,11 @@ public final class DebugTraceUtil {
     EVENT_OUTPUT_TEXTURE_RENDERED,
     EVENT_RENDERED_TO_OUTPUT_SURFACE,
     EVENT_RECEIVE_END_OF_ALL_INPUT,
-    EVENT_RECEIVE_EOS,
     EVENT_SIGNAL_EOS,
     EVENT_SIGNAL_ENDED,
-    EVENT_CAN_WRITE_SAMPLE
+    EVENT_CAN_WRITE_SAMPLE,
+    EVENT_FLUSH,
+    EVENT_DISCONTINUITY
   })
   @Target(TYPE_USE)
   public @interface Event {}
@@ -94,10 +93,13 @@ public final class DebugTraceUtil {
   public static final String EVENT_SEEK_TO = "SeekTo";
   public static final String EVENT_SET_VIDEO_OUTPUT = "SetVideoOutput";
   public static final String EVENT_RELEASE = "Release";
+  public static final String EVENT_RESET = "Reset";
   public static final String EVENT_START = "Start";
   public static final String EVENT_INPUT_FORMAT = "InputFormat";
   public static final String EVENT_OUTPUT_FORMAT = "OutputFormat";
   public static final String EVENT_ACCEPTED_INPUT = "AcceptedInput";
+  public static final String EVENT_BLOCK_INPUT = "BlockInput";
+  public static final String EVENT_UNBLOCK_INPUT = "UnblockInput";
   public static final String EVENT_PRODUCED_OUTPUT = "ProducedOutput";
   public static final String EVENT_INPUT_ENDED = "InputEnded";
   public static final String EVENT_OUTPUT_ENDED = "OutputEnded";
@@ -110,10 +112,11 @@ public final class DebugTraceUtil {
   public static final String EVENT_OUTPUT_TEXTURE_RENDERED = "OutputTextureRendered";
   public static final String EVENT_RENDERED_TO_OUTPUT_SURFACE = "RenderedToOutputSurface";
   public static final String EVENT_RECEIVE_END_OF_ALL_INPUT = "ReceiveEndOfAllInput";
-  public static final String EVENT_RECEIVE_EOS = "ReceiveEOS";
   public static final String EVENT_SIGNAL_EOS = "SignalEOS";
   public static final String EVENT_SIGNAL_ENDED = "SignalEnded";
   public static final String EVENT_CAN_WRITE_SAMPLE = "CanWriteSample";
+  public static final String EVENT_FLUSH = "Flush";
+  public static final String EVENT_DISCONTINUITY = "Discontinuity";
 
   /** Components logged by {@link #logEvent}. */
   @Documented
@@ -124,6 +127,8 @@ public final class DebugTraceUtil {
     COMPONENT_ASSET_LOADER,
     COMPONENT_AUDIO_DECODER,
     COMPONENT_AUDIO_GRAPH,
+    COMPONENT_AUDIO_GRAPH_INPUT,
+    COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
     COMPONENT_AUDIO_MIXER,
     COMPONENT_AUDIO_ENCODER,
     COMPONENT_VIDEO_DECODER,
@@ -133,7 +138,7 @@ public final class DebugTraceUtil {
     COMPONENT_TEX_ID_TEXTURE_MANAGER,
     COMPONENT_COMPOSITOR,
     COMPONENT_VIDEO_ENCODER,
-    COMPONENT_MUXER
+    COMPONENT_MUXER,
   })
   @Target(TYPE_USE)
   public @interface Component {}
@@ -143,6 +148,8 @@ public final class DebugTraceUtil {
   public static final String COMPONENT_ASSET_LOADER = "AssetLoader";
   public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
   public static final String COMPONENT_AUDIO_GRAPH = "AudioGraph";
+  public static final String COMPONENT_AUDIO_GRAPH_INPUT = "AudioGraphInput";
+  public static final String COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK = "AGIAudioSink";
   public static final String COMPONENT_AUDIO_MIXER = "AudioMixer";
   public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
   public static final String COMPONENT_VIDEO_DECODER = "VideoDecoder";
@@ -153,86 +160,6 @@ public final class DebugTraceUtil {
   public static final String COMPONENT_COMPOSITOR = "Compositor";
   public static final String COMPONENT_VIDEO_ENCODER = "VideoEncoder";
   public static final String COMPONENT_MUXER = "Muxer";
-
-  // For a given component, events are in the rough expected order that they occur.
-  private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
-      ImmutableMap.<String, List<String>>builder()
-          .put(
-              COMPONENT_COMPOSITION_PLAYER,
-              ImmutableList.of(
-                  EVENT_SET_COMPOSITION, EVENT_SEEK_TO, EVENT_SET_VIDEO_OUTPUT, EVENT_RELEASE))
-          .put(COMPONENT_TRANSFORMER_INTERNAL, ImmutableList.of(EVENT_START))
-          .put(COMPONENT_ASSET_LOADER, ImmutableList.of(EVENT_INPUT_FORMAT, EVENT_OUTPUT_FORMAT))
-          .put(
-              COMPONENT_AUDIO_DECODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_AUDIO_GRAPH,
-              ImmutableList.of(EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_AUDIO_MIXER,
-              ImmutableList.of(
-                  EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_FORMAT, EVENT_PRODUCED_OUTPUT))
-          .put(
-              COMPONENT_AUDIO_ENCODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_VIDEO_DECODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_VFP,
-              ImmutableList.of(
-                  EVENT_REGISTER_NEW_INPUT_STREAM,
-                  EVENT_SURFACE_TEXTURE_INPUT,
-                  EVENT_QUEUE_FRAME,
-                  EVENT_QUEUE_BITMAP,
-                  EVENT_QUEUE_TEXTURE,
-                  EVENT_RENDERED_TO_OUTPUT_SURFACE,
-                  EVENT_OUTPUT_TEXTURE_RENDERED,
-                  EVENT_RECEIVE_END_OF_ALL_INPUT,
-                  EVENT_SIGNAL_ENDED))
-          .put(
-              COMPONENT_EXTERNAL_TEXTURE_MANAGER,
-              ImmutableList.of(EVENT_SIGNAL_EOS, EVENT_SURFACE_TEXTURE_TRANSFORM_FIX))
-          .put(COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
-          .put(COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
-          .put(COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED))
-          .put(
-              COMPONENT_VIDEO_ENCODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_MUXER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_CAN_WRITE_SAMPLE,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .buildOrThrow();
 
   /**
    * Whether to {@linkplain Log#d(String, String) log} tracing events to the logcat as they occur.
@@ -286,17 +213,34 @@ public final class DebugTraceUtil {
             presentationTimeUs, getEventTimeMs(), formatInvariant(extraFormat, extraArgs)));
   }
 
+  /**
+   * Logs a new event, if debug logging is enabled.
+   *
+   * @param component The {@link Component} to log.
+   * @param componentId The identifier of the logging {@link Component}.
+   * @param event The {@link Event} to log.
+   * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
+   *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
+   * @param extraFormat Format string for optional extra information. See {@link
+   *     Util#formatInvariant(String, Object...)}.
+   * @param extraArgs Arguments for optional extra information.
+   */
   @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
   public static synchronized void logEvent(
       @Component String component,
+      String componentId,
       @Event String event,
       long presentationTimeUs,
-      JSONObject jsonObject) {
+      String extraFormat,
+      Object... extraArgs) {
     if (!enableTracing) {
       return;
     }
     logEventInternal(
-        component, event, new JsonEventLog(presentationTimeUs, getEventTimeMs(), jsonObject));
+        component + "[" + componentId + "]",
+        event,
+        new StringEventLog(
+            presentationTimeUs, getEventTimeMs(), formatInvariant(extraFormat, extraArgs)));
   }
 
   /**
@@ -351,59 +295,24 @@ public final class DebugTraceUtil {
     JsonWriter jsonWriter = new JsonWriter(stringWriter);
     try {
       jsonWriter.beginObject();
-      for (Map.Entry<@Component String, List<@Event String>> componentToEvents :
-          COMPONENTS_TO_EVENTS.entrySet()) {
-        @Component String component = componentToEvents.getKey();
-        List<@Event String> componentEvents = componentToEvents.getValue();
-
-        jsonWriter.name(component);
-        @Nullable
-        Map<@Event String, EventLogger> eventsToLogs = componentsToEventsToLogs.get(component);
-        jsonWriter.beginObject();
-        for (@Event String event : componentEvents) {
-          jsonWriter.name(event);
-          if (eventsToLogs != null && eventsToLogs.containsKey(event)) {
-            checkNotNull(eventsToLogs.get(event)).toJson(jsonWriter);
-          } else {
-            jsonWriter.value("No events");
-          }
+      for (Entry<@Component String, Map<@Event String, EventLogger>> entry :
+          componentsToEventsToLogs.entrySet()) {
+        @Component String component = entry.getKey();
+        Map<@Event String, EventLogger> eventsToLogs = entry.getValue();
+        jsonWriter.name(component).beginObject();
+        for (Entry<@Event String, EventLogger> eventEntry : eventsToLogs.entrySet()) {
+          jsonWriter.name(eventEntry.getKey());
+          eventEntry.getValue().toJson(jsonWriter);
         }
         jsonWriter.endObject();
       }
       jsonWriter.endObject();
+      stringWriter.append("--- End of summary---");
       return stringWriter.toString();
     } catch (IOException e) {
       return "\"Error generating trace summary\"";
     } finally {
       Util.closeQuietly(jsonWriter);
-    }
-  }
-
-  /** Dumps all the logged events to the {@link Writer} as tab separated values (tsv). */
-  public static synchronized void dumpTsv(Writer writer) throws IOException {
-    if (!enableTracing) {
-      writer.write("Tracing disabled");
-      return;
-    }
-    writer.write("component\tevent\ttimestamp\tpresentation\textra\n");
-    for (Map.Entry<@Component String, Map<@Event String, EventLogger>> componentToEventsToLogs :
-        componentsToEventsToLogs.entrySet()) {
-      @Component String component = componentToEventsToLogs.getKey();
-      Map<@Event String, EventLogger> eventsToLogs = componentToEventsToLogs.getValue();
-      for (Map.Entry<@Event String, EventLogger> eventToLogs : eventsToLogs.entrySet()) {
-        @Event String componentEvent = eventToLogs.getKey();
-        ImmutableList<EventLog> eventLogs = eventToLogs.getValue().getLogs();
-        for (EventLog eventLog : eventLogs) {
-          writer.write(
-              formatInvariant(
-                  "%s\t%s\t%dms\t%s\t%s\n",
-                  component,
-                  componentEvent,
-                  eventLog.eventTimeMs,
-                  presentationTimeToString(eventLog.presentationTimeUs),
-                  eventLog.toString()));
-        }
-      }
     }
   }
 
@@ -422,7 +331,7 @@ public final class DebugTraceUtil {
     }
     events.get(event).addLog(eventLog);
     if (ENABLE_TRACES_IN_LOGCAT) {
-      Log.d("DebugTrace-" + component, event + ": " + eventLog);
+      Log.d("DT-" + component, event + ": " + eventLog);
     }
   }
 
@@ -480,20 +389,6 @@ public final class DebugTraceUtil {
     }
   }
 
-  private static final class JsonEventLog extends EventLog {
-    public final JSONObject jsonObject;
-
-    public JsonEventLog(long presentationTimeUs, long eventTimeMs, JSONObject jsonObject) {
-      super(presentationTimeUs, eventTimeMs);
-      this.jsonObject = jsonObject;
-    }
-
-    @Override
-    public String toString() {
-      return jsonObject.toString();
-    }
-  }
-
   private static final class EventLogger {
     private final List<EventLog> firstLogs;
     private final Queue<EventLog> lastLogs;
@@ -515,10 +410,6 @@ public final class DebugTraceUtil {
         }
       }
       totalCount++;
-    }
-
-    public ImmutableList<EventLog> getLogs() {
-      return new ImmutableList.Builder<EventLog>().addAll(firstLogs).addAll(lastLogs).build();
     }
 
     public void toJson(JsonWriter jsonWriter) throws IOException {

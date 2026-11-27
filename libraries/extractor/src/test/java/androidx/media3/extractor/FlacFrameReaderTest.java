@@ -32,8 +32,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import java.io.IOException;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -45,16 +43,6 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public class FlacFrameReaderTest {
-
-  @BeforeClass
-  public static void enableParsableByteArrayLimitEnforcement() {
-    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(true);
-  }
-
-  @AfterClass
-  public static void disableParsableByteArrayLimitEnforcement() {
-    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(false);
-  }
 
   @Test
   public void checkAndReadFrameHeader_validData_updatesPosition() throws Exception {
@@ -507,7 +495,9 @@ public class FlacFrameReaderTest {
 
     boolean lastMetadataBlock = false;
     while (!lastMetadataBlock) {
-      lastMetadataBlock = FlacMetadataReader.readMetadataBlock(input, streamMetadataHolder);
+      lastMetadataBlock =
+          FlacMetadataReader.readMetadataBlock(
+              input, streamMetadataHolder, /* ignoreArtwork= */ false);
     }
 
     return input;

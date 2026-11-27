@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
@@ -28,13 +27,10 @@ import androidx.media3.exoplayer.offline.FilterableManifest;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaPeriod.Callback;
 import androidx.media3.exoplayer.source.TrackGroupArray;
-import androidx.media3.exoplayer.source.chunk.MediaChunk;
-import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
-import androidx.media3.exoplayer.trackselection.BaseTrackSelection;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,23 +104,21 @@ public final class MediaPeriodAsserts {
     for (int i = 0; i < trackGroupArray.length; i++) {
       TrackGroup trackGroup = trackGroupArray.get(i);
       for (int j = 0; j < trackGroup.length; j++) {
-        testSelections.add(Collections.singletonList(new TestTrackSelection(trackGroup, j)));
+        testSelections.add(
+            ImmutableList.of(
+                new FakeTrackSelection(trackGroup, new int[] {j}, /* selectedIndex= */ 0)));
       }
       if (trackGroup.length > 1) {
-        testSelections.add(Collections.singletonList(new TestTrackSelection(trackGroup, 0, 1)));
+        testSelections.add(
+            ImmutableList.of(
+                new FakeTrackSelection(trackGroup, new int[] {0, 1}, /* selectedIndex= */ 0)));
         testSelections.add(
             Arrays.asList(
-                new ExoTrackSelection[] {
-                  new TestTrackSelection(trackGroup, 0), new TestTrackSelection(trackGroup, 1)
-                }));
+                new FakeTrackSelection(trackGroup, new int[] {0}, /* selectedIndex= */ 0),
+                new FakeTrackSelection(trackGroup, new int[] {1}, /* selectedIndex= */ 0)));
       }
       if (trackGroup.length > 2) {
-        int[] allTracks = new int[trackGroup.length];
-        for (int j = 0; j < trackGroup.length; j++) {
-          allTracks[j] = j;
-        }
-        testSelections.add(
-            Collections.singletonList(new TestTrackSelection(trackGroup, allTracks)));
+        testSelections.add(ImmutableList.of(new FakeTrackSelection(trackGroup)));
       }
     }
     if (trackGroupArray.length > 1) {
@@ -132,17 +126,18 @@ public final class MediaPeriodAsserts {
         for (int j = i + 1; j < trackGroupArray.length; j++) {
           testSelections.add(
               Arrays.asList(
-                  new ExoTrackSelection[] {
-                    new TestTrackSelection(trackGroupArray.get(i), 0),
-                    new TestTrackSelection(trackGroupArray.get(j), 0)
-                  }));
+                  new FakeTrackSelection(
+                      trackGroupArray.get(i), new int[] {0}, /* selectedIndex= */ 0),
+                  new FakeTrackSelection(
+                      trackGroupArray.get(j), new int[] {0}, /* selectedIndex= */ 0)));
         }
       }
     }
     if (trackGroupArray.length > 2) {
       List<ExoTrackSelection> selectionsFromAllGroups = new ArrayList<>();
       for (int i = 0; i < trackGroupArray.length; i++) {
-        selectionsFromAllGroups.add(new TestTrackSelection(trackGroupArray.get(i), 0));
+        selectionsFromAllGroups.add(
+            new FakeTrackSelection(trackGroupArray.get(i), new int[] {0}, /* selectedIndex= */ 0));
       }
       testSelections.add(selectionsFromAllGroups);
     }
@@ -226,38 +221,5 @@ public final class MediaPeriodAsserts {
     }
     testThread.release();
     return trackGroupArray.get();
-  }
-
-  private static final class TestTrackSelection extends BaseTrackSelection {
-
-    public TestTrackSelection(TrackGroup trackGroup, int... tracks) {
-      super(trackGroup, tracks);
-    }
-
-    @Override
-    public int getSelectedIndex() {
-      return 0;
-    }
-
-    @Override
-    public @C.SelectionReason int getSelectionReason() {
-      return C.SELECTION_REASON_UNKNOWN;
-    }
-
-    @Override
-    @Nullable
-    public Object getSelectionData() {
-      return null;
-    }
-
-    @Override
-    public void updateSelectedTrack(
-        long playbackPositionUs,
-        long bufferedDurationUs,
-        long availableDurationUs,
-        List<? extends MediaChunk> queue,
-        MediaChunkIterator[] mediaChunkIterators) {
-      // Do nothing.
-    }
   }
 }

@@ -22,7 +22,7 @@ import static androidx.media3.test.utils.CacheAsserts.assertCacheEmpty;
 import static androidx.media3.test.utils.CacheAsserts.assertCachedData;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -32,13 +32,11 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.PlaceholderDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
-import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.DownloadException;
@@ -48,42 +46,32 @@ import androidx.media3.exoplayer.offline.DownloaderFactory;
 import androidx.media3.test.utils.CacheAsserts.RequestSet;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link DashDownloader}. */
 @RunWith(AndroidJUnit4.class)
 public class DashDownloaderTest {
 
-  private SimpleCache cache;
-  private File tempFolder;
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
+
   private ProgressListener progressListener;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
-    tempFolder =
-        Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
+    cache = cacheRule.createSimpleCache();
     progressListener = new ProgressListener();
-  }
-
-  @After
-  public void tearDown() {
-    Util.recursiveDelete(tempFolder);
   }
 
   @Test
@@ -389,12 +377,8 @@ public class DashDownloaderTest {
             .setRandomData("audio_segment_3", 6);
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
-    try {
-      dashDownloader.download(progressListener);
-      fail();
-    } catch (IOException e) {
-      // Expected.
-    }
+
+    assertThrows(IOException.class, () -> dashDownloader.download(progressListener));
     dashDownloader.download(progressListener);
     assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
@@ -415,12 +399,8 @@ public class DashDownloaderTest {
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
 
-    try {
-      dashDownloader.download(progressListener);
-      fail();
-    } catch (IOException e) {
-      // Failure expected after downloading init data, segment 1 and 2 bytes in segment 2.
-    }
+    // Failure expected after downloading init data, segment 1 and 2 bytes in segment 2.
+    assertThrows(IOException.class, () -> dashDownloader.download(progressListener));
     progressListener.assertBytesDownloaded(10 + 4 + 2);
 
     dashDownloader.download(progressListener);
@@ -501,12 +481,7 @@ public class DashDownloaderTest {
             .setRandomData("test_segment_1", 4);
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
-    try {
-      dashDownloader.download(progressListener);
-      fail();
-    } catch (DownloadException e) {
-      // Expected.
-    }
+    assertThrows(DownloadException.class, () -> dashDownloader.download(progressListener));
     dashDownloader.remove();
     assertCacheEmpty(cache);
   }

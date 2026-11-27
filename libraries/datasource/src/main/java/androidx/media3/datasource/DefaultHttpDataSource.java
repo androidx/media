@@ -808,7 +808,8 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
 
   @SuppressWarnings("deprecation") // Using deprecated method on API<36
   private static long getCurrentThreadId() {
-    return Thread.currentThread().getId();
+    Thread thread = Thread.currentThread();
+    return SDK_INT < 36 ? thread.getId() : thread.threadId();
   }
 
   private static class NullFilteringHeadersMap extends ForwardingMap<String, List<String>> {

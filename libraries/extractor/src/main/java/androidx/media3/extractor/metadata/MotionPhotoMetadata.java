@@ -16,13 +16,32 @@
 
 package androidx.media3.extractor.metadata;
 
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.primitives.Longs;
 
 /** Metadata of a motion photo file. */
 @UnstableApi
-@SuppressWarnings("deprecation") // Extending a deprecated class for backward compatibility.
-public final class MotionPhotoMetadata
-    extends androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata {
+public final class MotionPhotoMetadata implements Metadata.Entry {
+
+  /** The start offset of the photo data, in bytes. */
+  public final long photoStartPosition;
+
+  /** The size of the photo data, in bytes. */
+  public final long photoSize;
+
+  /**
+   * The presentation timestamp of the photo, in microseconds, or {@link C#TIME_UNSET} if unknown.
+   */
+  public final long photoPresentationTimestampUs;
+
+  /** The start offset of the video data, in bytes. */
+  public final long videoStartPosition;
+
+  /** The size of the video data, in bytes. */
+  public final long videoSize;
 
   /** Creates an instance. */
   public MotionPhotoMetadata(
@@ -31,7 +50,51 @@ public final class MotionPhotoMetadata
       long photoPresentationTimestampUs,
       long videoStartPosition,
       long videoSize) {
-    super(
-        photoStartPosition, photoSize, photoPresentationTimestampUs, videoStartPosition, videoSize);
+    this.photoStartPosition = photoStartPosition;
+    this.photoSize = photoSize;
+    this.photoPresentationTimestampUs = photoPresentationTimestampUs;
+    this.videoStartPosition = videoStartPosition;
+    this.videoSize = videoSize;
+  }
+
+  @Override
+  public boolean equals(@Nullable Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null || getClass() != obj.getClass()) {
+      return false;
+    }
+    MotionPhotoMetadata other = (MotionPhotoMetadata) obj;
+    return photoStartPosition == other.photoStartPosition
+        && photoSize == other.photoSize
+        && photoPresentationTimestampUs == other.photoPresentationTimestampUs
+        && videoStartPosition == other.videoStartPosition
+        && videoSize == other.videoSize;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = 17;
+    result = 31 * result + Longs.hashCode(photoStartPosition);
+    result = 31 * result + Longs.hashCode(photoSize);
+    result = 31 * result + Longs.hashCode(photoPresentationTimestampUs);
+    result = 31 * result + Longs.hashCode(videoStartPosition);
+    result = 31 * result + Longs.hashCode(videoSize);
+    return result;
+  }
+
+  @Override
+  public String toString() {
+    return "Motion photo metadata: photoStartPosition="
+        + photoStartPosition
+        + ", photoSize="
+        + photoSize
+        + ", photoPresentationTimestampUs="
+        + photoPresentationTimestampUs
+        + ", videoStartPosition="
+        + videoStartPosition
+        + ", videoSize="
+        + videoSize;
   }
 }

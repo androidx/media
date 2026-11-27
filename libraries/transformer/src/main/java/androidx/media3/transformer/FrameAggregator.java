@@ -18,78 +18,150 @@ package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
-import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
-import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.HardwareBufferFrame;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 
-// TODO: b/449956936 - This is a placeholder implementation, revisit the aggregation and flushing
-//  logic to make it more robust.
 /**
- * Combines multiple sequences of {@link GlTextureFrame}s into one sequence of {@link
- * ImmutableList<GlTextureFrame>}.
+ * Combines multiple sequences of {@link HardwareBufferFrame}s into one sequence of {@link
+ * ImmutableList<HardwareBufferFrame>}.
  */
-/* package */ class FrameAggregator {
-  private final Consumer<List<GlTextureFrame>> downstreamConsumer;
-  private final SparseArray<Queue<GlTextureFrame>> inputFrames;
+/* package */ class FrameAggregator implements AutoCloseable {
+  private final Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
+  private final Consumer<Integer> onFlush;
+  private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
-  private long lastQueuedPresentationTimeUs;
+  private volatile boolean isEnded;
+  private volatile boolean isClosed;
 
   /**
    * Creates a new {@link FrameAggregator}.
    *
-   * @param downstreamConsumer Receives the aggregated {@linkplain ImmutableList<GlTextureFrame>
-   *     frames}.
+   * @param numSequences The number of sequences.
+   * @param downstreamConsumer Receives the aggregated {@linkplain
+   *     ImmutableList<HardwareBufferFrame> frames}.
+   * @param onFlush Callback triggered when {@link #flush(int)} is called.
+   * @throws IllegalArgumentException If {@code numSequences} is less than 1.
    */
-  public FrameAggregator(int numSequences, Consumer<List<GlTextureFrame>> downstreamConsumer) {
+  public FrameAggregator(
+      int numSequences,
+      Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
+      Consumer<Integer> onFlush) {
+    checkArgument(numSequences > 0, "numSequences must be at least 1.");
     this.numSequences = numSequences;
     this.downstreamConsumer = downstreamConsumer;
-    inputFrames = new SparseArray<>();
+    this.onFlush = onFlush;
+    inputFrameQueues = new ArrayList<>();
     for (int i = 0; i < numSequences; i++) {
-      inputFrames.put(i, new ArrayDeque<>());
+      inputFrameQueues.add(new FrameQueue());
     }
   }
 
   /**
-   * Queues a {@link GlTextureFrame} at the given sequence.
+   * Registers the given {@code sequenceIndex} with the {@link FrameAggregator}, and indicates
+   * whether it should be considered when aggregating frames.
    *
-   * <p>Once called, the caller must not modify the {@link GlTextureFrame}.
+   * <p>All sequences must be registered before frames are queued.
    *
-   * @param frame The {@link GlTextureFrame} to queue.
-   * @param sequenceIndex The index of the sequence the queued {@link GlTextureFrame} is from.
-   * @throws IllegalArgumentException If {@code sequenceIndex} is non-positive or greater than or
-   *     equal to {@link #numSequences}.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
    */
-  public void queueFrame(GlTextureFrame frame, int sequenceIndex) {
+  public void registerSequence(int sequenceIndex, boolean shouldAggregate) {
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
-    if (sequenceIndex == 0) {
-      // If a primary frame arrived out of order it indicates a seek backwards, flush all frames to
-      // ensure aggregation continues to work correctly.
-      if (frame.presentationTimeUs < lastQueuedPresentationTimeUs) {
-        releaseAllFrames();
-      }
-      lastQueuedPresentationTimeUs = frame.presentationTimeUs;
+    checkState(!isClosed);
+    inputFrameQueues.get(sequenceIndex).initialize(shouldAggregate);
+  }
+
+  /**
+   * Queues a {@link HardwareBufferFrame} at the given sequence.
+   *
+   * <p>Once called, the caller must not modify the {@link HardwareBufferFrame}.
+   *
+   * <p>If the aggregator {@link #isEnded}, the frame will be released immediately.
+   *
+   * @param frame The {@link HardwareBufferFrame} to queue.
+   * @param sequenceIndex The index of the sequence the queued {@link HardwareBufferFrame} is from.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
+   */
+  public void queueFrame(HardwareBufferFrame frame, int sequenceIndex) {
+    checkArgument(sequenceIndex >= 0);
+    checkArgument(sequenceIndex < numSequences);
+    checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
+    // Release frames immediately if the primary sequence has already ended, or the aggregator is
+    // closed.
+    if (isEnded || isClosed) {
+      frame.release(/* releaseFence= */ null);
+      return;
     }
-    inputFrames.get(sequenceIndex).add(frame);
+    inputFrameQueues.get(sequenceIndex).frames.add(frame);
     maybeAggregate();
   }
 
   /**
-   * {@linkplain GlTextureFrame#release() Releases } all frames that have not been sent downstream.
+   * Notifies the {@code FrameAggregator} that the given sequence has ended.
+   *
+   * <p>Once called, {@link #flush} the sequenceIndex to reset the ended state.
+   *
+   * @param sequenceIndex The index of the sequence that has ended.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
    */
-  // TODO: b/449956936 - Ensure this does not throw away frames in the case where a new decoded
-  //   frame is not forwarded from the renderer on a discontinuity.
-  public void releaseAllFrames() {
-    for (int i = 0; i < inputFrames.size(); i++) {
-      @Nullable GlTextureFrame nextFrame;
-      while ((nextFrame = inputFrames.get(i).poll()) != null) {
-        nextFrame.release();
+  public void queueEndOfStream(int sequenceIndex) {
+    checkArgument(sequenceIndex >= 0);
+    checkArgument(sequenceIndex < numSequences);
+    checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
+    if (isClosed) {
+      return;
+    }
+    inputFrameQueues.get(sequenceIndex).setIsEnded(/* isEnded= */ true);
+    maybeAggregate();
+  }
+
+  /**
+   * Removes all frames from the given sequence.
+   *
+   * @param sequenceIndex The index of the sequence to flush.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is negative or greater than or equal
+   *     to the number of sequences.
+   */
+  public void flush(int sequenceIndex) {
+    checkArgument(sequenceIndex >= 0);
+    checkArgument(sequenceIndex < numSequences);
+    checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
+    if (isClosed) {
+      return;
+    }
+    @Nullable HardwareBufferFrame nextFrame;
+    while ((nextFrame = inputFrameQueues.get(sequenceIndex).frames.poll()) != null) {
+      nextFrame.release(/* releaseFence= */ null);
+    }
+    if (sequenceIndex == 0) {
+      isEnded = false;
+    }
+    inputFrameQueues.get(sequenceIndex).setIsEnded(/* isEnded= */ false);
+    onFlush.accept(sequenceIndex);
+  }
+
+  /**
+   * {@linkplain HardwareBufferFrame#release Releases } all frames that have not been sent
+   * downstream, and forces this instance to immediately release any newly queued frames.
+   */
+  @Override
+  public void close() {
+    isClosed = true;
+    for (int i = 0; i < inputFrameQueues.size(); i++) {
+      @Nullable HardwareBufferFrame nextFrame;
+      while ((nextFrame = inputFrameQueues.get(i).frames.poll()) != null) {
+        nextFrame.release(/* releaseFence= */ null);
       }
     }
   }
@@ -98,38 +170,147 @@ import java.util.Queue;
    * Selects the next frame greater than or equal to the current frame from the primary input stream
    * from each secondary stream.
    */
-  // TODO: Handle when sequences end at different times.
   private void maybeAggregate() {
-    @Nullable GlTextureFrame nextPrimaryFrame = checkNotNull(inputFrames.get(0)).peek();
-    if (nextPrimaryFrame == null) {
-      return;
+    while (!isEnded) {
+      // TODO: b/496904840 - This assumes the primary sequence can be aggregated against. Update it
+      //  to when this is not the case.
+      @Nullable
+      HardwareBufferFrame nextPrimaryFrame = checkNotNull(inputFrameQueues.get(0).frames).peek();
+      if (nextPrimaryFrame == null) {
+        handlePrimaryEndOfStream();
+        return;
+      }
+
+      ImmutableList<HardwareBufferFrame> matches = findMatchingSecondaryFrames(nextPrimaryFrame);
+      if (matches == null) {
+        return;
+      }
+
+      ImmutableList.Builder<HardwareBufferFrame> outputFramesBuilder =
+          new ImmutableList.Builder<>();
+      outputFramesBuilder.add(nextPrimaryFrame);
+      // Retain the matched secondary frames. We need to reference count them because
+      // the same secondary frame might be reused for multiple future primary frames.
+      for (HardwareBufferFrame match : matches) {
+        outputFramesBuilder.add(match.retain());
+      }
+      // Remove the primary frame because each one is only matched once.
+      checkNotNull(inputFrameQueues.get(0).frames).poll();
+      downstreamConsumer.accept(outputFramesBuilder.build());
     }
-    ImmutableList.Builder<GlTextureFrame> outputFramesBuilder = new ImmutableList.Builder<>();
-    outputFramesBuilder.add(nextPrimaryFrame);
-    for (int i = 1; i < inputFrames.size(); i++) {
-      Queue<GlTextureFrame> nextInputFrameQueue = inputFrames.get(i);
-      @Nullable GlTextureFrame nextFrame = nextInputFrameQueue.peek();
-      while (nextFrame != null) {
-        // Release all frames from the secondary sequence that arrived before the primary sequence
-        // frame.
-        if (nextFrame.presentationTimeUs < nextPrimaryFrame.presentationTimeUs) {
-          nextFrame.release();
-          nextInputFrameQueue.poll();
-          nextFrame = nextInputFrameQueue.peek();
+  }
+
+  private void handlePrimaryEndOfStream() {
+    // When the primary sequence ends, send an EOS frame downstream.
+    if (inputFrameQueues.get(0).isEnded) {
+      downstreamConsumer.accept(ImmutableList.of(HardwareBufferFrame.END_OF_STREAM_FRAME));
+      isEnded = true;
+    }
+  }
+
+  /**
+   * Finds matching frames from secondary queues for the given primary frame. Returns null if any
+   * secondary queue is not yet at or past the primary frame's timestamp and is not yet ended.
+   */
+  @Nullable
+  private ImmutableList<HardwareBufferFrame> findMatchingSecondaryFrames(
+      HardwareBufferFrame nextPrimaryFrame) {
+    ImmutableList.Builder<HardwareBufferFrame> matchesBuilder = ImmutableList.builder();
+    for (int i = 1; i < numSequences; i++) {
+      FrameQueue secondaryQueue = inputFrameQueues.get(i);
+      @Nullable
+      HardwareBufferFrame matchingFrame = secondaryQueue.getMatchingFrame(nextPrimaryFrame);
+      if (matchingFrame == null) {
+        if (!secondaryQueue.getIsEnded()) {
+          // Need to wait for more frames in this secondary queue.
+          return null;
+        }
+        // Secondary queue ended before this primary frame no match is possible, so this sequence is
+        // ignored in the matching frames list.
+      } else {
+        matchesBuilder.add(matchingFrame);
+      }
+    }
+    return matchesBuilder.build();
+  }
+
+  /** A helper class representing a {@link Queue<HardwareBufferFrame>} that can end. */
+  private static class FrameQueue {
+    final Queue<HardwareBufferFrame> frames;
+    private boolean isRegistered;
+    private boolean shouldAggregate;
+    private boolean isEnded;
+
+    FrameQueue() {
+      frames = new ArrayDeque<>();
+      // Force FrameAggregator to wait for frames for this sequence, until initialize is called.
+      shouldAggregate = true;
+    }
+
+    void initialize(boolean shouldAggregate) {
+      checkState(!isRegistered);
+      this.isRegistered = true;
+      this.shouldAggregate = shouldAggregate;
+    }
+
+    void setIsEnded(boolean isEnded) {
+      this.isEnded = isEnded;
+    }
+
+    boolean getIsEnded() {
+      checkState(isRegistered);
+      return isEnded || !shouldAggregate;
+    }
+
+    /**
+     * Finds the best matching frame for the given target frame's sequence presentation timestamp.
+     *
+     * <p>This method iterates through the frame queue, releasing any frames with presentation
+     * timestamps strictly less than the {@code targetFrame}'s sequencePresentationTimeUs. This
+     * ensures that we don't hold onto frames that can no longer be used for matching.
+     *
+     * <p>The first frame remaining in the queue, which will have a presentation timestamp greater
+     * than or equal to the {@code targetFrame}'s sequencePresentationTimeUs, is considered the
+     * match. This frame is not removed from the queue by this method, as it might be needed to
+     * match subsequent primary frames (i.e., upsampling the secondary stream).
+     *
+     * <p>This matching strategy is deterministic: for a given state of the queue and a given {@code
+     * targetFrame}, the result of this method will always be the same. It's designed to be
+     * efficient by only retaining the necessary frames in the secondary queue – effectively keeping
+     * only the secondary frames that are current or in the future relative to the last processed
+     * primary frame timestamp.
+     *
+     * <p>Corner Cases:
+     *
+     * <ul>
+     *   <li>If the queue is empty, returns null.
+     *   <li>If all frames in the queue are older than {@code targetFrame}, all frames are released,
+     *       and it returns null.
+     * </ul>
+     *
+     * @param targetFrame The primary frame for which to find a matching secondary frame.
+     * @return The best matching frame from this queue, or null if no suitable frame is currently
+     *     available.
+     */
+    @Nullable
+    private HardwareBufferFrame getMatchingFrame(HardwareBufferFrame targetFrame) {
+      long targetTime = targetFrame.sequencePresentationTimeUs;
+      if (frames.isEmpty()) {
+        return null;
+      }
+
+      while (!frames.isEmpty()) {
+        HardwareBufferFrame nextFrame = checkNotNull(frames.peek());
+        if (nextFrame.sequencePresentationTimeUs < targetTime) {
+          frames.poll();
+          nextFrame.release(/* releaseFence= */ null);
         } else {
+          // Found the first frame >= targetTime
           break;
         }
       }
-      if (nextFrame == null) {
-        return;
-      }
-      outputFramesBuilder.add(nextFrame);
-    }
-    downstreamConsumer.accept(outputFramesBuilder.build());
-    // TODO: b/449956936 - Allow reusing frames from secondary sequences to handle different frame
-    //  rates.
-    for (int i = 0; i < numSequences; i++) {
-      checkNotNull(inputFrames.get(i)).poll();
+
+      return frames.peek();
     }
   }
 }

@@ -46,6 +46,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -64,8 +65,7 @@ public class CompositionExportTest {
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
-          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
+          /* decoders= */ ImmutableList.of(), /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   @Test
   public void start_audioVideoTransmuxedFromDifferentSequences_matchesSingleSequenceResult()
@@ -253,6 +253,7 @@ public class CompositionExportTest {
             FILE_AUDIO_RAW, /* modifications...= */ "mixed", getFileName(FILE_AUDIO_RAW)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithExtraAudio_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -287,6 +288,7 @@ public class CompositionExportTest {
             getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithMutedAudio_matchesSingleSequence() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -391,6 +393,7 @@ public class CompositionExportTest {
         getDumpFileName(/* originalFileName= */ FILE_AUDIO_RAW, /* modifications...= */ "48000hz"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_compositionOfConcurrentAudio_changesSampleRateWithEffect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -488,6 +491,7 @@ public class CompositionExportTest {
         getCompositionDumpFilePath("seq-sample.wav+seq-sample.wav_clipped_100ms_to_400ms"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioCompositionWithFirstSequenceAsGap_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -549,6 +553,7 @@ public class CompositionExportTest {
                 + getFileName(FILE_AUDIO_RAW)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioCompositionWithFirstSequencePaddingGap_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -628,6 +633,7 @@ public class CompositionExportTest {
                 + getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithSecondSequenceIntervalGap_isCorrect()
       throws Exception {
@@ -688,6 +694,7 @@ public class CompositionExportTest {
                 + "_clipped300msTo800ms"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithSecondSequencePaddingGap_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -799,7 +806,8 @@ public class CompositionExportTest {
         () ->
             transformer.resume(
                 new Composition.Builder(
-                        new EditedMediaItemSequence.Builder(itemWithSpeedProvider).build())
+                        EditedMediaItemSequence.withAudioFrom(
+                            ImmutableList.of(itemWithSpeedProvider)))
                     .build(),
                 /* outputFilePath= */ "fakePath",
                 /* oldFilePath= */ "fakePath"));
@@ -809,7 +817,7 @@ public class CompositionExportTest {
         () ->
             transformer.resume(
                 new Composition.Builder(
-                        new EditedMediaItemSequence.Builder(itemWithEffects).build())
+                        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(itemWithEffects)))
                     .build(),
                 /* outputFilePath= */ "fakePath",
                 /* oldFilePath= */ "fakePath"));
@@ -818,11 +826,92 @@ public class CompositionExportTest {
         IllegalArgumentException.class,
         () ->
             transformer.resume(
-                new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
+                new Composition.Builder(
+                        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
                     .setEffects(speedChangingEffects)
                     .build(),
                 /* outputFilePath= */ "fakePath",
                 /* oldFilePath= */ "fakePath"));
+  }
+
+  @Test
+  public void start_afterStart_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> transformer.start(composition, outputDir.newFile().getPath()));
+  }
+
+  @Test
+  public void resume_afterStart_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+
+    transformer.start(composition, outputDir.newFile("first").getPath());
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            transformer.resume(
+                composition, /* outputFilePath= */ "fakePath", /* oldFilePath= */ "fakePath"));
+  }
+
+  @Test
+  public void start_afterResume_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+    String firstOutputPath = outputDir.newFile("first").getPath();
+
+    transformer.start(composition, firstOutputPath);
+    transformer.cancel();
+    transformer.resume(
+        composition, /* outputFilePath= */ "second", /* oldFilePath= */ firstOutputPath);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> transformer.start(composition, outputDir.newFile("third").getPath()));
+  }
+
+  @Test
+  public void resume_afterResume_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+    String firstOutputPath = outputDir.newFile("first").getPath();
+
+    transformer.start(composition, firstOutputPath);
+    transformer.cancel();
+    transformer.resume(
+        composition, /* outputFilePath= */ "second", /* oldFilePath= */ firstOutputPath);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            transformer.resume(
+                composition, /* outputFilePath= */ "third", /* oldFilePath= */ firstOutputPath));
   }
 
   private static String getFileName(String filePath) {

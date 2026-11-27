@@ -32,7 +32,6 @@ import android.os.Parcelable;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.util.UnstableApi;
@@ -70,7 +69,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 // TODO: Consider replacing this with a Robolectric ShadowMediaDrm so we can use a real
 //  FrameworkMediaDrm.
-@RequiresApi(29)
 @UnstableApi
 public final class FakeExoMediaDrm implements ExoMediaDrm {
 
@@ -604,14 +602,10 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       if (Arrays.equals(request.getData(), FAKE_PROVISION_REQUEST.getData())) {
         return new Response.Builder(Bytes.toArray(VALID_PROVISION_RESPONSE))
             .setLoadEventInfo(
-                new LoadEventInfo(
-                    /* loadTaskId= */ -1,
-                    new DataSpec(uri),
-                    uri,
-                    /* responseHeaders= */ ImmutableMap.of(),
-                    SystemClock.elapsedRealtime(),
-                    /* loadDurationMs= */ 0,
-                    /* bytesLoaded= */ VALID_PROVISION_RESPONSE.size()))
+                new LoadEventInfo.Builder(
+                        /* loadTaskId= */ -1, new DataSpec(uri), SystemClock.elapsedRealtime())
+                    .setBytesLoaded(VALID_PROVISION_RESPONSE.size())
+                    .build())
             .build();
       } else {
         return new Response(Util.EMPTY_BYTE_ARRAY);
@@ -638,14 +632,10 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       Uri uri = Uri.parse(request.getLicenseServerUrl());
       return new Response.Builder(Bytes.toArray(response))
           .setLoadEventInfo(
-              new LoadEventInfo(
-                  /* loadTaskId= */ -1,
-                  new DataSpec(uri),
-                  uri,
-                  /* responseHeaders= */ ImmutableMap.of(),
-                  SystemClock.elapsedRealtime(),
-                  /* loadDurationMs= */ 0,
-                  /* bytesLoaded= */ response.size()))
+              new LoadEventInfo.Builder(
+                      /* loadTaskId= */ -1, new DataSpec(uri), SystemClock.elapsedRealtime())
+                  .setBytesLoaded(response.size())
+                  .build())
           .build();
     }
 
@@ -683,10 +673,27 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     }
 
     public KeyRequestData(Parcel in) {
-      this.schemeDatas =
-          ImmutableList.copyOf(
-              in.readParcelableList(
-                  new ArrayList<>(), DrmInitData.SchemeData.class.getClassLoader()));
+      if (SDK_INT >= 33) {
+        this.schemeDatas =
+            ImmutableList.copyOf(
+                in.readParcelableList(
+                    new ArrayList<>(),
+                    DrmInitData.SchemeData.class.getClassLoader(),
+                    DrmInitData.SchemeData.class));
+      } else if (SDK_INT >= 29) {
+        this.schemeDatas =
+            ImmutableList.copyOf(
+                in.readParcelableList(
+                    new ArrayList<>(), DrmInitData.SchemeData.class.getClassLoader()));
+      } else {
+        int schemeDatasSize = in.readInt();
+        ImmutableList.Builder<DrmInitData.SchemeData> schemeDatasBuilder = ImmutableList.builder();
+        for (int i = 0; i < schemeDatasSize; i++) {
+          schemeDatasBuilder.add(
+              checkNotNull(in.readParcelable(DrmInitData.SchemeData.class.getClassLoader())));
+        }
+        this.schemeDatas = schemeDatasBuilder.build();
+      }
       this.type = in.readInt();
 
       ImmutableMap.Builder<String, String> optionalParameters = new ImmutableMap.Builder<>();
@@ -747,7 +754,14 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-      dest.writeParcelableList(schemeDatas, flags);
+      if (SDK_INT >= 29) {
+        dest.writeParcelableList(schemeDatas, flags);
+      } else {
+        dest.writeInt(schemeDatas.size());
+        for (DrmInitData.SchemeData schemeData : schemeDatas) {
+          dest.writeParcelable(schemeData, flags);
+        }
+      }
       dest.writeInt(type);
       dest.writeStringList(optionalParameters.keySet().asList());
       dest.writeStringList(optionalParameters.values().asList());

@@ -23,6 +23,7 @@ import static androidx.media3.muxer.MuxerUtil.isAuxiliaryTrack;
 import static androidx.media3.muxer.MuxerUtil.isMetadataSupported;
 import static androidx.media3.muxer.MuxerUtil.populateAuxiliaryTracksMetadata;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -33,6 +34,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
@@ -176,6 +178,18 @@ public final class Mp4Muxer implements Muxer {
    * <p>See the file format at https://developer.android.com/media/platform/mp4-at-file-format.
    */
   public static final int FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION = 1;
+
+  /** A track reference type. */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    TRACK_REFERENCE_TYPE_CDSC,
+  })
+  public @interface TrackReferenceType {}
+
+  /** Links a descriptive or metadata track to the content which it describes. */
+  public static final int TRACK_REFERENCE_TYPE_CDSC = 0x63647363;
 
   /** A builder for {@link Mp4Muxer} instances. */
   public static final class Builder {
@@ -339,17 +353,14 @@ public final class Mp4Muxer implements Muxer {
      * Sets the amount of free space (in bytes) to be reserved immediately after the {@code ftyp}
      * box (File Type box) in the MP4 file.
      *
-     * <p>The {@code moov} box (Movie Box) is written in the reserved space if {@link
-     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}, and the size of the
-     * {@code moov} box is not greater than {@code bytes}. Otherwise, a {@code free} box of the
-     * requested size is written.
-     *
-     * <p>By default 400_000 bytes are reserved if {@link
-     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}.
+     * <p>A {@code free} box of the requested size is always written. If {@link
+     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}, an additional space is
+     * reserved for the {@code moov} box (Movie Box) which is written if it fits.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470374355 - Remove or make non-experimental.
     public Mp4Muxer.Builder experimentalSetFreeSpaceAfterFileTypeBox(int bytes) {
       checkArgument(bytes >= 0);
       this.freeSpaceAfterFtypInBytes = bytes;
@@ -402,7 +413,8 @@ public final class Mp4Muxer implements Muxer {
           MimeTypes.AUDIO_AMR_WB,
           MimeTypes.AUDIO_OPUS,
           MimeTypes.AUDIO_VORBIS,
-          MimeTypes.AUDIO_RAW);
+          MimeTypes.AUDIO_RAW,
+          MimeTypes.AUDIO_IAMF);
 
   // LINT.ThenChange(Boxes.java:codec_specific_boxes)
 
@@ -473,6 +485,13 @@ public final class Mp4Muxer implements Muxer {
    * other tracks.
    *
    * <p>The order of tracks remains same in which they are added.
+   *
+   * <p>A metadata track ({@link C#TRACK_TYPE_METADATA}) or a track with an unknown type ({@link
+   * C#TRACK_TYPE_UNKNOWN}) is written as a text metadata track, unless the sample MIME type is
+   * {@link MimeTypes#APPLICATION_ITUT_T35}, in which case it is written as a T35 metadata track.
+   *
+   * <p>For a metadata track, it is recommended to {@linkplain #addTrackReference(int, int, List)
+   * add track reference}.
    *
    * @param format The {@link Format} for the track.
    * @return A unique track id. The track id is non-negative. It should be used in {@link
@@ -599,6 +618,29 @@ public final class Mp4Muxer implements Muxer {
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
     checkArgument(isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
+  }
+
+  /**
+   * Adds a track reference to establish a relationship between tracks in the MP4 file.
+   *
+   * <p>Track references are used to link one track to another. For example, a metadata track might
+   * reference a video track to indicate that the metadata describes the content of that video.
+   *
+   * @param trackId The track id of the track to which the reference is being added. This must be a
+   *     valid track id returned by {@link #addTrack(Format)}.
+   * @param referenceType The type of the reference, as defined by {@link TrackReferenceType}.
+   * @param referencedTrackIds The track ids of the tracks that are being referenced. These must
+   *     also be valid track ids returned by {@link #addTrack(Format)}.
+   */
+  public void addTrackReference(
+      int trackId, @TrackReferenceType int referenceType, List<Integer> referencedTrackIds) {
+    checkElementIndex(trackId, trackIdToTrack.size());
+    checkArgument(referenceType == TRACK_REFERENCE_TYPE_CDSC);
+    for (int i = 0; i < referencedTrackIds.size(); i++) {
+      checkElementIndex(referencedTrackIds.get(i), trackIdToTrack.size());
+    }
+    Track track = trackIdToTrack.get(trackId);
+    track.addTrackReference(referenceType, ImmutableList.copyOf(referencedTrackIds));
   }
 
   @Override

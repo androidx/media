@@ -15,7 +15,9 @@
  */
 package androidx.media3.cast;
 
+import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.core.util.Preconditions;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Format;
@@ -28,6 +30,15 @@ import com.google.android.gms.cast.MediaTrack;
 
 /** Utility methods for Cast integration. */
 /* package */ final class CastUtils {
+
+  /**
+   * Verifies that the current thread is the main thread.
+   *
+   * @throws IllegalStateException if the current thread is not the main thread.
+   */
+  public static void verifyMainThread() {
+    Preconditions.checkState(Looper.myLooper() == Looper.getMainLooper());
+  }
 
   /**
    * Returns the duration in microseconds advertised by a media info, or {@link C#TIME_UNSET} if
@@ -98,8 +109,15 @@ import com.google.android.gms.cast.MediaTrack;
     }
   }
 
-  /** Returns a {@link TrackGroup} that represents the given {@link MediaTrack}. */
-  public static TrackGroup mediaTrackToTrackGroup(String trackGroupId, MediaTrack mediaTrack) {
+  /**
+   * Returns a {@link TrackGroup} that represents the given Cast media track.
+   *
+   * @param mediaItemId The ID of the media item to which the given track belongs.
+   * @param mediaTrack The Cast media track to convert.
+   * @return A {@link TrackGroup} representing the Cast media track.
+   */
+  public static TrackGroup mediaTrackToTrackGroup(int mediaItemId, MediaTrack mediaTrack) {
+    String trackGroupId = Util.formatInvariant("item=%d,track=%d", mediaItemId, mediaTrack.getId());
     String mimeType = mediaTrack.getContentType();
     @TrackType int media3TrackType = toMedia3TrackType(mediaTrack.getType());
     if (media3TrackType != MimeTypes.getTrackType(mimeType)) {
@@ -137,7 +155,7 @@ import com.google.android.gms.cast.MediaTrack;
   }
 
   /**
-   * Returns a MIME type with a type that matches the given track type and unknown sub-type, or null
+   * Returns a MIME type with a type that matches the given track type and unknown subtype, or null
    * if the track type is not one of {@link C#TRACK_TYPE_AUDIO}, {@link C#TRACK_TYPE_TEXT}, or
    * {@link C#TRACK_TYPE_VIDEO}, which are the types supported by the Cast SDK.
    */

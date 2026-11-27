@@ -84,7 +84,9 @@ public final class ForwardingSimpleBasePlayerTest {
   public void getterMethods_noOtherMethodCalls_returnCurrentStateFromWrappedPlayer() {
     Player.Commands commands =
         new Player.Commands.Builder()
-            .addAll(Player.COMMAND_GET_DEVICE_VOLUME, Player.COMMAND_GET_TIMELINE)
+            .addAllCommands()
+            // Remove a command to check the commands are propagated through the wrapping player.
+            .remove(Player.COMMAND_SET_MEDIA_ITEM)
             .build();
     PlaybackException error =
         new PlaybackException(
@@ -169,6 +171,7 @@ public final class ForwardingSimpleBasePlayerTest {
             .setPlaybackParameters(playbackParameters)
             .setTrackSelectionParameters(trackSelectionParameters)
             .setAudioAttributes(audioAttributes)
+            .setAudioSessionId(1234)
             .setVolume(0.5f)
             .setVideoSize(videoSize)
             .setCurrentCues(cueGroup)
@@ -191,7 +194,7 @@ public final class ForwardingSimpleBasePlayerTest {
           }
         };
 
-    Player forwardingPlayer = new ForwardingPlayer(wrappedPlayer);
+    Player forwardingPlayer = new ForwardingSimpleBasePlayer(wrappedPlayer);
 
     assertThat(forwardingPlayer.getApplicationLooper()).isEqualTo(Looper.myLooper());
     assertThat(forwardingPlayer.getAvailableCommands()).isEqualTo(commands);
@@ -223,6 +226,7 @@ public final class ForwardingSimpleBasePlayerTest {
     assertThat(forwardingPlayer.getContentPosition()).isEqualTo(456);
     assertThat(forwardingPlayer.getContentBufferedPosition()).isEqualTo(499);
     assertThat(forwardingPlayer.getAudioAttributes()).isEqualTo(audioAttributes);
+    assertThat(forwardingPlayer.getAudioSessionId()).isEqualTo(1234);
     assertThat(forwardingPlayer.getVolume()).isEqualTo(0.5f);
     assertThat(forwardingPlayer.getVideoSize()).isEqualTo(videoSize);
     assertThat(forwardingPlayer.getCurrentCues()).isEqualTo(cueGroup);
@@ -1982,8 +1986,6 @@ public final class ForwardingSimpleBasePlayerTest {
             .setAvailableCommands(
                 new Player.Commands.Builder().add(Player.COMMAND_SET_REPEAT_MODE).build())
             .build();
-    // We need the ForwardingPlayer to allow the mockito spy because setRepeatMode is final in
-    // SimpleBasePlayer, but not in ForwardingPlayer.
     Player player1 =
         mock(
             Player.class,

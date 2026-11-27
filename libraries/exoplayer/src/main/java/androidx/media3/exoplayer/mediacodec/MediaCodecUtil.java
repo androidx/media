@@ -32,9 +32,11 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -46,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -354,7 +357,7 @@ public final class MediaCodecUtil {
    *     format} is well-formed and recognized, or null otherwise.
    */
   @Nullable
-  public static Pair<Integer, Integer> getHevcBaseLayerCodecProfileAndLevel(Format format) {
+  public static MediaCodecProfileAndLevel getHevcBaseLayerCodecProfileAndLevel(Format format) {
     String codecs = NalUnitUtil.getH265BaseLayerCodecsString(format.initializationData);
     if (codecs == null) {
       return null;
@@ -376,7 +379,14 @@ public final class MediaCodecUtil {
   public static String getAlternativeCodecMimeType(Format format) {
     if (MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType)) {
       // E-AC3 decoders can decode JOC streams, but in 2-D rather than 3-D.
-      return MimeTypes.AUDIO_E_AC3;
+      // Some devices (e.g. Pixel) integrate an EAC3 decoder that does not support EAC3-JOC
+      // stream decoding.
+      return supportsEac3JocFallbackDecoding() ? MimeTypes.AUDIO_E_AC3 : null;
+    }
+    if (MimeTypes.AUDIO_DTS_HD.equals(format.sampleMimeType)
+        || MimeTypes.AUDIO_DTS_UHD_P2.equals(format.sampleMimeType)) {
+      // DTS decoders support DTS-HD streams (but decode only the core layer).
+      return MimeTypes.AUDIO_DTS;
     }
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
       // H.264/AVC, H.265/HEVC or AV1 decoders can decode the base layer of some DV profiles.
@@ -384,16 +394,21 @@ public final class MediaCodecUtil {
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
       @Nullable
-      Pair<Integer, Integer> codecProfileAndLevel =
-          CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-      if (codecProfileAndLevel != null) {
-        int profile = codecProfileAndLevel.first;
+      MediaCodecProfileAndLevel codecProfileAndLevel =
+          CodecSpecificDataUtil.getMediaCodecProfileAndLevel(format);
+      if (codecProfileAndLevel != null && codecProfileAndLevel.isSupportableByMediaCodec()) {
+        int profile = codecProfileAndLevel.getProfile();
         if (profile == CodecProfileLevel.DolbyVisionProfileDvheDtr
             || profile == CodecProfileLevel.DolbyVisionProfileDvheSt) {
           return MimeTypes.VIDEO_H265;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {
           return MimeTypes.VIDEO_H264;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+          if (format.colorInfo != null
+              && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084
+              && format.colorInfo.colorRange == C.COLOR_RANGE_FULL) {
+            return null;
+          }
           return MimeTypes.VIDEO_AV1;
         }
       }
@@ -406,6 +421,17 @@ public final class MediaCodecUtil {
   }
 
   // Internal methods.
+
+  /**
+   * Returns whether the device supports decoding E-AC3 JOC streams using a standard E-AC3 decoder
+   * (in 2-D rather than 3-D).
+   *
+   * <p>Some devices (e.g. Pixel) have an E-AC3 decoder that cannot handle E-AC3 JOC streams at all,
+   * even in degraded 2-D. See <a href="https://github.com/androidx/media/pull/3257">Issue 3257</a>.
+   */
+  private static boolean supportsEac3JocFallbackDecoding() {
+    return !Objects.equals(Build.MANUFACTURER, "Google");
+  }
 
   /**
    * Returns {@link MediaCodecInfo}s for the given codec {@link CodecKey} in the order given by

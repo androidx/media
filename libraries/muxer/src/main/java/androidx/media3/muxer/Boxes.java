@@ -25,7 +25,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import android.media.MediaCodecInfo;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -34,7 +33,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -52,8 +50,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
@@ -94,6 +94,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    * 1 (bit index 16)
    */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
+
+  private static final Pair<Integer, Integer> DEFAULT_H263_PROFILE_AND_LEVEL = new Pair<>(0, 10);
 
   private static final String TAG = "Boxes";
 
@@ -140,10 +142,22 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       return ByteBuffer.allocate(0);
     }
 
+    // The final track id depends on the order of tracks in List<Track>.
+    Map<Integer, Integer> trackIdToFinalTrackIdMap = new HashMap<>();
+    int nextTrackId = 1;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      // For a non fragmented MP4 file, empty track is skipped.
+      if (!isFragmentedMp4 && track.writtenSamples.isEmpty()) {
+        continue;
+      }
+      trackIdToFinalTrackIdMap.put(track.id, nextTrackId++);
+    }
+
     List<ByteBuffer> trakBoxes = new ArrayList<>();
     List<ByteBuffer> trexBoxes = new ArrayList<>();
 
-    int nextTrackId = 1;
+    nextTrackId = 1;
     long videoDurationUs = 0L;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
@@ -152,7 +166,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         continue;
       }
       Format format = track.format;
-      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+      if ((Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+              || Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_VP9))
           && format.initializationData.isEmpty()) {
         format =
             format
@@ -223,13 +238,29 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           handlerType = "meta";
           handlerName = "MetaHandle";
           mhdBox = nmhd();
-          sampleEntryBox = textMetaDataSampleEntry(format);
+          sampleEntryBox = getMetadataSampleEntry(format);
           stsdBox = stsd(sampleEntryBox);
           stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         default:
           throw new IllegalArgumentException("Unsupported track type");
       }
+
+      Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+      for (Map.Entry<Integer, List<Integer>> entry : track.trackReferences.entrySet()) {
+        List<Integer> newIds = new ArrayList<>();
+        for (Integer oldId : entry.getValue()) {
+          if (trackIdToFinalTrackIdMap.containsKey(oldId)) {
+            newIds.add(trackIdToFinalTrackIdMap.get(oldId));
+          }
+        }
+        if (!newIds.isEmpty()) {
+          trackReferences.put(entry.getKey(), newIds);
+        }
+      }
+
+      ByteBuffer trefBox =
+          trackReferences.isEmpty() ? ByteBuffer.allocate(0) : tref(trackReferences);
 
       ByteBuffer trakBox =
           trak(
@@ -240,6 +271,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
                   format),
+              trefBox,
               edts(
                   firstInputPtsUs,
                   minInputPtsUs,
@@ -458,16 +490,47 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("nmhd", contents);
   }
 
+  /** Returns the metadata sample entry box. */
+  public static ByteBuffer getMetadataSampleEntry(Format format) {
+    return MimeTypes.APPLICATION_ITUT_T35.equals(format.sampleMimeType)
+        ? t35MetadataSampleEntry(format)
+        : textMetadataSampleEntry(format);
+  }
+
+  private static ByteBuffer t35MetadataSampleEntry(Format format) {
+    checkArgument(format.initializationData.size() == 1);
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    // SampleEntry fields
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
+    // it35 specific fields
+    if (format.initializationData.get(0).length > 255) {
+      throw new IllegalArgumentException("t35_identifier cannot be longer than 255 bytes.");
+    }
+    contents.put((byte) format.initializationData.get(0).length); // t35_identifier_length
+    contents.put(format.initializationData.get(0)); // t35_identifier
+    contents.flip();
+    return BoxUtils.wrapIntoBox("it35", contents);
+  }
+
   /**
    * Returns a text metadata sample entry box as per ISO/IEC 14496-12: 8.5.2.2.
    *
    * <p>This contains the sample entry (to be placed within the sample description box) for the text
    * metadata tracks.
    */
-  public static ByteBuffer textMetaDataSampleEntry(Format format) {
+  private static ByteBuffer textMetadataSampleEntry(Format format) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     String mimeType = checkNotNull(format.sampleMimeType);
     byte[] mimeBytes = Util.getUtf8Bytes(mimeType);
+
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
     contents.put(mimeBytes); // content_encoding
     contents.put((byte) 0x0);
     contents.put(mimeBytes); // mime_format
@@ -685,13 +748,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.putInt(0x0); // reserved
     contents.putInt(0x0); // reserved
 
-    int channelCount = format.channelCount;
+    final boolean isIamf = Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF);
+    final int channelCount = isIamf ? 0 : format.channelCount;
     contents.putShort((short) channelCount);
     contents.putShort((short) 16); // sample size
     contents.putShort((short) 0x0); // predefined
     contents.putShort((short) 0x0); // reserved
 
-    int sampleRate = format.sampleRate;
+    final int sampleRate = isIamf ? 0 : format.sampleRate;
     contents.putInt(sampleRate << 16);
 
     contents.put(codecSpecificBox);
@@ -715,6 +779,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.AUDIO_IAMF:
+        return iacbBox(format);
       case MimeTypes.AUDIO_RAW:
         return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
@@ -904,8 +970,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     long currentSampleTimeUs = presentationTimestampsUs.get(0);
     for (int nextSampleId = 1; nextSampleId < presentationTimestampsUs.size(); nextSampleId++) {
       long nextSampleTimeUs = presentationTimestampsUs.get(nextSampleId);
+      // Convert timestamps in microseconds to VU first and then calculate the duration in VU to
+      // avoid error accumulation.
       long currentSampleDurationVu =
-          vuFromUs(nextSampleTimeUs - currentSampleTimeUs, videoUnitTimescale);
+          vuFromUs(nextSampleTimeUs, videoUnitTimescale)
+              - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
       checkState(
           currentSampleDurationVu <= Integer.MAX_VALUE, "Only 32-bit sample duration is allowed");
       durationsVu.add((int) currentSampleDurationVu);
@@ -1322,6 +1391,26 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return axteBoxHeader;
   }
 
+  /** Returns the tref (track reference) box. */
+  public static ByteBuffer tref(Map<Integer, List<Integer>> trackReferences) {
+    List<ByteBuffer> refBoxes = new ArrayList<>();
+    for (Map.Entry<Integer, List<Integer>> entry : trackReferences.entrySet()) {
+      refBoxes.add(trefTypeBox(entry.getKey(), entry.getValue()));
+    }
+    return BoxUtils.wrapBoxesIntoBox("tref", refBoxes);
+  }
+
+  /** Returns the track reference type box. */
+  private static ByteBuffer trefTypeBox(int referenceType, List<Integer> trackIds) {
+    ByteBuffer contents = ByteBuffer.allocate(trackIds.size() * BYTES_PER_INTEGER);
+    for (int i = 0; i < trackIds.size(); i++) {
+      contents.putInt(trackIds.get(i));
+    }
+    contents.flip();
+    byte[] typeBytes = Ints.toByteArray(referenceType);
+    return BoxUtils.wrapIntoBox(typeBytes, contents);
+  }
+
   /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */
   private static @PolyNull String bcp47LanguageTagToIso3(@PolyNull String languageTag) {
     if (languageTag == null) {
@@ -1369,13 +1458,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer d263Box = ByteBuffer.allocate(7);
     d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
     d263Box.put((byte) 0x00); // decoder version
-    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-    if (profileAndLevel == null) {
-      profileAndLevel =
-          new Pair<>(
-              MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
-              MediaCodecInfo.CodecProfileLevel.H263Level10);
-    }
+    Pair<Integer, Integer> profileAndLevel = getH263ProfileAndLevel(format);
     d263Box.put(profileAndLevel.second.byteValue()); // level
     d263Box.put(profileAndLevel.first.byteValue()); // profile
 
@@ -1762,6 +1845,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "s263";
       case MimeTypes.AUDIO_OPUS:
         return "Opus";
+      case MimeTypes.AUDIO_IAMF:
+        return "iamf";
       case MimeTypes.AUDIO_RAW:
         if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
           return "sowt";
@@ -1886,20 +1971,58 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("damr", contents);
   }
 
+  /**
+   * Returns the audio iacb box for IAMF codec.
+   *
+   * <p>Per the spec, the iacb box is a Box with the payload of:
+   *
+   * <ul>
+   *   <li>uint8 configurationVersion = 1;
+   *   <li>uleb128 configOBUs_size;
+   *   <li>(uint8 x configOBUs_size) configOBUs;
+   * </ul>
+   */
+  private static ByteBuffer iacbBox(Format format) {
+    checkArgument(
+        format.initializationData.size() == 1,
+        "Expected only 1 byte array of initialization data for IAMF codec, but found %s.",
+        format.initializationData.size());
+    ByteBuffer csd0 = ByteBuffer.wrap(format.initializationData.get(0));
+
+    int configObusSize = csd0.remaining();
+    byte[] leb128Bytes = BoxUtils.getUleb128Bytes(configObusSize);
+    ByteBuffer contents = ByteBuffer.allocate(1 + leb128Bytes.length + configObusSize);
+    contents.put((byte) 1); // configurationVersion = 1
+    contents.put(leb128Bytes);
+    contents.put(csd0);
+    contents.flip();
+    return BoxUtils.wrapIntoBox("iacb", contents);
+  }
+
   /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
   private static ByteBuffer dOpsBox(Format format) {
     checkArgument(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for dOps box.");
 
-    int opusHeaderLength = 8;
-    byte[] csd0 = format.initializationData.get(0);
-    checkArgument(
-        csd0.length >= opusHeaderLength,
-        "As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8");
+    int opusHeadSignatureLength = 8;
+    byte[] csd0 = CodecSpecificDataUtil.getOpusInitializationData(format);
+    // As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8.
+    checkArgument(csd0.length >= opusHeadSignatureLength);
     ByteBuffer contents = ByteBuffer.allocate(csd0.length);
     // Skip 8 bytes containing "OpusHead".
     contents.put(
-        /* src */ csd0, /* offset */ opusHeaderLength, /* length */ csd0.length - opusHeaderLength);
+        /* src */ csd0,
+        /* offset */ opusHeadSignatureLength,
+        /* length */ csd0.length - opusHeadSignatureLength);
+
+    // For encapsulation of OPUS in MP4, the version byte (byte 0) in dOps box should be 0.
+    // (See https://opus-codec.org/docs/opus_in_isobmff.html, Section 4.3.2 Opus Specific Box).
+    // And for Ogg containers, the version byte is
+    // expected to be 1 (See https://www.rfc-editor.org/rfc/rfc7845#section-5.1, Section 5.1.2).
+    // The contents are otherwise identical.
+    checkState(contents.get(0) == 0 || contents.get(0) == 1);
+    contents.put(0, (byte) 0);
+
     contents.flip();
 
     return BoxUtils.wrapIntoBox("dOps", contents);
@@ -1989,5 +2112,25 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int profile = Integer.parseInt(parts.get(1));
     int level = Integer.parseInt(parts.get(2));
     return Pair.create(profile, level);
+  }
+
+  /** Returns H263 profile and level from codec string. */
+  private static Pair<Integer, Integer> getH263ProfileAndLevel(Format format) {
+    if (format.codecs == null) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    List<String> parts = Splitter.on('.').splitToList(format.codecs);
+    if (parts.size() < 3) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    int profile;
+    int level;
+    try {
+      profile = Integer.parseInt(parts.get(1));
+      level = Integer.parseInt(parts.get(2));
+      return new Pair<>(profile, level);
+    } catch (NumberFormatException e) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
   }
 }

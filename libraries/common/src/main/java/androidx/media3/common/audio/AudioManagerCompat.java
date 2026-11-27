@@ -148,8 +148,9 @@ public final class AudioManagerCompat {
    * @param audioManager The {@link AudioManager}.
    * @param focusRequest An {@link AudioFocusRequestCompat} instance used to configure how focus is
    *     requested.
-   * @return {@link AudioManager#AUDIOFOCUS_REQUEST_FAILED} or {@link
-   *     AudioManager#AUDIOFOCUS_REQUEST_GRANTED}.
+   * @return {@link AudioManager#AUDIOFOCUS_REQUEST_FAILED}, {@link
+   *     AudioManager#AUDIOFOCUS_REQUEST_GRANTED} or {@link
+   *     AudioManager#AUDIOFOCUS_REQUEST_DELAYED}.
    */
   @SuppressWarnings("deprecation")
   public static int requestAudioFocus(
@@ -159,7 +160,7 @@ public final class AudioManagerCompat {
     } else {
       return audioManager.requestAudioFocus(
           focusRequest.getOnAudioFocusChangeListener(),
-          focusRequest.getAudioAttributes().getStreamType(),
+          focusRequest.getAudioAttributes().getVolumeControlStream(),
           focusRequest.getFocusGain());
     }
   }

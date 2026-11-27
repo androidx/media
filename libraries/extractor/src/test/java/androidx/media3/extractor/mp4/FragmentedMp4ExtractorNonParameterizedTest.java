@@ -17,9 +17,13 @@ package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
+import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -78,6 +82,48 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
 
     assertThat(extractor.sniff(input)).isFalse();
     assertThat(input.getMaxPeekLimit()).isLessThan(500);
+  }
+
+  @Test
+  public void extract_h264WithoutGopParsingFlags() throws Exception {
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED, FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP);
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_fragmented.mp4");
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        output,
+        "extractordumps/mp4/sample_fragmented.mp4_without_gop_parsing_flags");
+  }
+
+  @Test
+  public void extract_h265WithoutGopParsingFlags() throws Exception {
+    ImmutableList<Format> closedCaptions =
+        ImmutableList.of(
+            new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_CEA608).build());
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED,
+            FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP,
+            /* timestampAdjuster= */ null,
+            /* sideloadedTrack= */ null,
+            closedCaptions,
+            /* additionalEmsgTrackOutput= */ null);
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/fragmented_captions_h265.mp4");
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        output,
+        "extractordumps/mp4/fragmented_captions_h265.mp4_without_gop_parsing_flags");
   }
 
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {

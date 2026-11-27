@@ -41,7 +41,8 @@
         android:paddingLeft="@dimen/exo_styled_bottom_bar_time_padding"
         android:paddingRight="@dimen/exo_styled_bottom_bar_time_padding"
         android:layout_gravity="center_vertical|start"
-        android:layoutDirection="ltr">
+        android:layoutDirection="ltr"
+        android:importantForAccessibility="noHideDescendants">
 
       <TextView android:id="@id/exo_position"
           style="@style/ExoStyledControls.TimeText.Position"/>

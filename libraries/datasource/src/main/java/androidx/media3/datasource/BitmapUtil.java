@@ -101,8 +101,8 @@ public final class BitmapUtil {
   }
 
   /**
-   * Returns a immutable, sharable version of {@link Bitmap}. If the same instance of a shared
-   * bitmap is send over binder calls, no additional copy is needed.
+   * Returns an immutable, sharable version of {@link Bitmap}. If the same instance of a shared
+   * bitmap is sent over binder calls, no additional copy is needed.
    *
    * <p>This method is a no-op if for API levels below 31 or if the Bitmap is already shared.
    *

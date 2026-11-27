@@ -46,6 +46,7 @@ import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
@@ -67,6 +68,8 @@ import org.junit.runner.RunWith;
 
 /** Tests for {@link MediaProjectionAssetLoader}. */
 @RunWith(AndroidJUnit4.class)
+// TODO: b/513542166 - Add support for new target SDK 34+ dialogue and remove suppression.
+@SdkSuppress(maxSdkVersion = 33)
 public final class MediaProjectionAssetLoaderTest {
 
   private static final long TIMEOUT_MS = 25_000;
@@ -86,6 +89,8 @@ public final class MediaProjectionAssetLoaderTest {
     // - Newer (eg., API 31) devices with non-standard media projection UIs.
     // - Wearables, where we'd otherwise have to scroll the UI to enable media projection.
     // The test does pass on some earlier builds (back to API 23) but not on all devices.
+    // TODO: b/513542166 - Add support for new target SDK 34+ dialogue and remove suppression.
+    assumeTrue(getInstrumentation().getContext().getApplicationInfo().targetSdkVersion <= 33);
     assumeTrue(
         Util.isRunningOnEmulator()
             || (SDK_INT >= 29

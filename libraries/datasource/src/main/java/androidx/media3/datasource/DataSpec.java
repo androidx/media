@@ -428,7 +428,6 @@ public final class DataSpec {
    * @param position {@link #position}.
    * @param length {@link #length}.
    */
-  @SuppressWarnings("deprecation")
   public DataSpec(Uri uri, long position, long length) {
     this(uri, position, length, /* key= */ null);
   }
@@ -457,7 +456,6 @@ public final class DataSpec {
         /* customData= */ null);
   }
 
-  @SuppressWarnings("deprecation") // Setting deprecated absoluteStreamPosition field.
   private DataSpec(
       Uri uri,
       long uriPositionOffset,

@@ -31,17 +31,22 @@ import org.robolectric.RobolectricTestParameterInjector;
 public final class HeifExtractorTest {
 
   @Test
-  public void sampleStillPhoto_extractImage(
+  public void sampleStillPhoto_noFlags_extractImage(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        HeifExtractor::new, "media/heif/sample_still_photo.heic", simulationConfig);
+  }
+
+  @Test
+  public void sampleStillPhoto_readImageFlag_extractImage(
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
         () -> new HeifExtractor(HeifExtractor.FLAG_READ_IMAGE),
         "media/heif/sample_still_photo.heic",
-        new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix(
-                "extractordumps/heif/sample_still_photo.heic_HeifExtractor.FLAG_READ_IMAGE")
-            .build(),
         simulationConfig);
   }
 
@@ -54,7 +59,7 @@ public final class HeifExtractorTest {
         () -> new HeifExtractor(HeifExtractor.FLAG_READ_IMAGE),
         "media/heif/sample_MP.heic",
         new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix("extractordumps/heif/sample_MP.heic_HeifExtractor.FLAG_READ_IMAGE")
+            .setDumpFilesPrefix("extractordumps/heif/sample_MP.heic_image")
             .build(),
         simulationConfig);
   }
@@ -95,7 +100,7 @@ public final class HeifExtractorTest {
   }
 
   @Test
-  public void sniff_onStillPhotoWithDefaultFlags_returnsFalse() throws Exception {
+  public void sniff_onStillPhotoWithDefaultFlags_returnsTrue() throws Exception {
     HeifExtractor extractor = new HeifExtractor();
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
@@ -105,7 +110,7 @@ public final class HeifExtractorTest {
                     "media/heif/sample_still_photo.heic"))
             .build();
 
-    assertThat(extractor.sniff(input)).isFalse();
+    assertThat(extractor.sniff(input)).isTrue();
   }
 
   @Test

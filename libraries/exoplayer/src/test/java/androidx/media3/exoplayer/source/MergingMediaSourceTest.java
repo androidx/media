@@ -29,6 +29,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MergingMediaSource.IllegalMergeException;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
@@ -250,8 +251,8 @@ public class MergingMediaSourceTest {
     AtomicReference<Timeline> timelineReference = new AtomicReference<>();
     mergingMediaSource.prepareSource(
         (source, timeline) -> timelineReference.set(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> timelineReference.get() != null);
     Object periodUid = timelineReference.get().getUidOfPeriod(/* periodIndex= */ 0);
 

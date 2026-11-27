@@ -15,9 +15,13 @@
  */
 package androidx.media3.extractor.jpeg;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.util.Pair;
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
@@ -30,6 +34,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Extracts data from the JPEG container format. */
 @UnstableApi
@@ -55,7 +61,14 @@ public final class JpegExtractor implements Extractor {
   private static final int JPEG_FILE_SIGNATURE = 0xFFD8; // Start of image marker
   private static final int JPEG_FILE_SIGNATURE_LENGTH = 2;
 
-  private final Extractor extractor;
+  private final Extractor imageExtractor;
+  @Nullable private final Extractor videoExtractor;
+
+  private @MonotonicNonNull ExtractorOutput extractorOutput;
+  private @MonotonicNonNull Extractor activeExtractor;
+
+  /** Holds a seek that arrives before {@link #activeExtractor} is assigned. */
+  @Nullable private Pair<Long, Long> pendingSeek;
 
   /** Creates an instance reading the video and metadata track. */
   public JpegExtractor() {
@@ -68,38 +81,67 @@ public final class JpegExtractor implements Extractor {
    * @param flags The {@link JpegExtractor.Flags} to control extractor behavior.
    */
   public JpegExtractor(@JpegExtractor.Flags int flags) {
-    if ((flags & FLAG_READ_IMAGE) != 0) {
-      extractor =
-          new SingleSampleExtractor(
-              JPEG_FILE_SIGNATURE, JPEG_FILE_SIGNATURE_LENGTH, MimeTypes.IMAGE_JPEG);
-    } else {
-      extractor = new JpegMotionPhotoExtractor();
-    }
+    imageExtractor =
+        new SingleSampleExtractor(
+            JPEG_FILE_SIGNATURE, JPEG_FILE_SIGNATURE_LENGTH, MimeTypes.IMAGE_JPEG);
+    videoExtractor = (flags & FLAG_READ_IMAGE) == 0 ? new JpegMotionPhotoExtractor() : null;
   }
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    return extractor.sniff(input);
+    if (videoExtractor != null && videoExtractor.sniff(input)) {
+      return true;
+    }
+    input.resetPeekPosition();
+    return imageExtractor.sniff(input);
   }
 
   @Override
   public void init(ExtractorOutput output) {
-    extractor.init(output);
+    this.extractorOutput = output;
+    if (videoExtractor == null) {
+      activeExtractor = imageExtractor;
+      activeExtractor.init(output);
+    }
   }
 
   @Override
   public @ReadResult int read(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
-    return extractor.read(input, seekPosition);
+    if (activeExtractor == null) {
+      assignActiveExtractor(input);
+    }
+    return activeExtractor.read(input, seekPosition);
   }
 
   @Override
   public void seek(long position, long timeUs) {
-    extractor.seek(position, timeUs);
+    if (activeExtractor != null) {
+      activeExtractor.seek(position, timeUs);
+    } else {
+      pendingSeek = Pair.create(position, timeUs);
+    }
   }
 
   @Override
   public void release() {
-    extractor.release();
+    if (videoExtractor != null) {
+      videoExtractor.release();
+    }
+    imageExtractor.release();
+  }
+
+  @EnsuresNonNull("this.activeExtractor")
+  private void assignActiveExtractor(ExtractorInput input) throws IOException {
+    checkState(activeExtractor == null);
+    // If activeExtractor is null it means it wasn't assigned in init(), which only happens if
+    // videoExtractor is non-null (which means FLAG_READ_IMAGE wasn't set).
+    activeExtractor = checkNotNull(videoExtractor).sniff(input) ? videoExtractor : imageExtractor;
+    input.resetPeekPosition();
+    if (pendingSeek != null) {
+      activeExtractor.seek(pendingSeek.first, pendingSeek.second);
+      pendingSeek = null;
+    }
+    activeExtractor.init(checkNotNull(extractorOutput));
   }
 }

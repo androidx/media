@@ -15,7 +15,7 @@
     limitations under the License.
   -->
 <resources>
-    <style name="AppThemeDialog" parent="Theme.AppCompat.Light.Dialog.Alert">
+    <style name="AppThemeDialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
         <item name="colorPrimary">@color/dialog_color_primary</item>
         <item name="colorPrimaryDark">@color/dialog_color_primary_dark</item>
     </style>

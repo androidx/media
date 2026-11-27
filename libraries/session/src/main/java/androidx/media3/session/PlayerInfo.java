@@ -939,7 +939,7 @@ import java.util.Objects;
     return bundle;
   }
 
-  public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
+  public Bundle toBundleForRemoteProcess(int interfaceVersion) {
     Bundle bundle = new Bundle();
     if (playerError != null) {
       bundle.putBundle(FIELD_PLAYBACK_ERROR, playerError.toBundle());
@@ -947,20 +947,16 @@ import java.util.Objects;
     if (mediaItemTransitionReason != MEDIA_ITEM_TRANSITION_REASON_DEFAULT) {
       bundle.putInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, mediaItemTransitionReason);
     }
-    if (controllerInterfaceVersion < 3
-        || !sessionPositionInfo.equals(SessionPositionInfo.DEFAULT)) {
-      bundle.putBundle(
-          FIELD_SESSION_POSITION_INFO, sessionPositionInfo.toBundle(controllerInterfaceVersion));
+    if (interfaceVersion < 3 || !sessionPositionInfo.equals(SessionPositionInfo.DEFAULT)) {
+      bundle.putBundle(FIELD_SESSION_POSITION_INFO, sessionPositionInfo.toBundle(interfaceVersion));
     }
-    if (controllerInterfaceVersion < 3
+    if (interfaceVersion < 3
         || !SessionPositionInfo.DEFAULT_POSITION_INFO.equalsForBundling(oldPositionInfo)) {
-      bundle.putBundle(
-          FIELD_OLD_POSITION_INFO, oldPositionInfo.toBundle(controllerInterfaceVersion));
+      bundle.putBundle(FIELD_OLD_POSITION_INFO, oldPositionInfo.toBundle(interfaceVersion));
     }
-    if (controllerInterfaceVersion < 3
+    if (interfaceVersion < 3
         || !SessionPositionInfo.DEFAULT_POSITION_INFO.equalsForBundling(newPositionInfo)) {
-      bundle.putBundle(
-          FIELD_NEW_POSITION_INFO, newPositionInfo.toBundle(controllerInterfaceVersion));
+      bundle.putBundle(FIELD_NEW_POSITION_INFO, newPositionInfo.toBundle(interfaceVersion));
     }
     if (discontinuityReason != DISCONTINUITY_REASON_DEFAULT) {
       bundle.putInt(FIELD_DISCONTINUITY_REASON, discontinuityReason);
@@ -975,7 +971,7 @@ import java.util.Objects;
       bundle.putBoolean(FIELD_SHUFFLE_MODE_ENABLED, shuffleModeEnabled);
     }
     if (!timeline.equals(Timeline.EMPTY)) {
-      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle());
+      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle(interfaceVersion));
     }
     if (timelineChangeReason != TIMELINE_CHANGE_REASON_DEFAULT) {
       bundle.putInt(FIELD_TIMELINE_CHANGE_REASON, timelineChangeReason);
@@ -984,7 +980,7 @@ import java.util.Objects;
       bundle.putBundle(FIELD_VIDEO_SIZE, videoSize.toBundle());
     }
     if (!playlistMetadata.equals(MediaMetadata.EMPTY)) {
-      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle());
+      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle(interfaceVersion));
     }
     if (volume != 1) {
       bundle.putFloat(FIELD_VOLUME, volume);
@@ -1029,20 +1025,19 @@ import java.util.Objects;
       bundle.putBoolean(FIELD_IS_LOADING, isLoading);
     }
     if (!mediaMetadata.equals(MediaMetadata.EMPTY)) {
-      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
+      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle(interfaceVersion));
     }
-    long defaultSeekBackIncrementMs =
-        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS;
+    long defaultSeekBackIncrementMs = interfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS;
     if (seekBackIncrementMs != defaultSeekBackIncrementMs) {
       bundle.putLong(FIELD_SEEK_BACK_INCREMENT_MS, seekBackIncrementMs);
     }
     long defaultSeekForwardIncrementMs =
-        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+        interfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
     if (seekForwardIncrementMs != defaultSeekForwardIncrementMs) {
       bundle.putLong(FIELD_SEEK_FORWARD_INCREMENT_MS, seekForwardIncrementMs);
     }
     long defaultMaxSeekToPreviousPositionMs =
-        controllerInterfaceVersion < 6 ? 0 : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+        interfaceVersion < 6 ? 0 : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
     if (maxSeekToPreviousPositionMs != defaultMaxSeekToPreviousPositionMs) {
       bundle.putLong(FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS, maxSeekToPreviousPositionMs);
     }
@@ -1056,7 +1051,7 @@ import java.util.Objects;
   }
 
   /** Restores a {@code PlayerInfo} from a {@link Bundle}. */
-  public static PlayerInfo fromBundle(Bundle bundle, int sessionInterfaceVersion) {
+  public static PlayerInfo fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
     if (inProcessBinder instanceof InProcessBinder) {
       return ((InProcessBinder) inProcessBinder).getPlayerInfo();
@@ -1071,17 +1066,17 @@ import java.util.Objects;
     SessionPositionInfo sessionPositionInfo =
         sessionPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT
-            : SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
+            : SessionPositionInfo.fromBundle(sessionPositionInfoBundle, interfaceVersion);
     @Nullable Bundle oldPositionInfoBundle = bundle.getBundle(FIELD_OLD_POSITION_INFO);
     PositionInfo oldPositionInfo =
         oldPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.fromBundle(oldPositionInfoBundle);
+            : PositionInfo.fromBundle(oldPositionInfoBundle, interfaceVersion);
     @Nullable Bundle newPositionInfoBundle = bundle.getBundle(FIELD_NEW_POSITION_INFO);
     PositionInfo newPositionInfo =
         newPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.fromBundle(newPositionInfoBundle);
+            : PositionInfo.fromBundle(newPositionInfoBundle, interfaceVersion);
     int discontinuityReason =
         bundle.getInt(FIELD_DISCONTINUITY_REASON, DISCONTINUITY_REASON_DEFAULT);
     @Nullable Bundle playbackParametersBundle = bundle.getBundle(FIELD_PLAYBACK_PARAMETERS);
@@ -1095,7 +1090,9 @@ import java.util.Objects;
         bundle.getBoolean(FIELD_SHUFFLE_MODE_ENABLED, /* defaultValue= */ false);
     @Nullable Bundle timelineBundle = bundle.getBundle(FIELD_TIMELINE);
     Timeline timeline =
-        timelineBundle == null ? Timeline.EMPTY : Timeline.fromBundle(timelineBundle);
+        timelineBundle == null
+            ? Timeline.EMPTY
+            : Timeline.fromBundle(timelineBundle, interfaceVersion);
     int timelineChangeReason =
         bundle.getInt(
             FIELD_TIMELINE_CHANGE_REASON, /* defaultValue= */ TIMELINE_CHANGE_REASON_DEFAULT);
@@ -1106,7 +1103,7 @@ import java.util.Objects;
     MediaMetadata playlistMetadata =
         playlistMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.fromBundle(playlistMetadataBundle);
+            : MediaMetadata.fromBundle(playlistMetadataBundle, interfaceVersion);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
     float unmuteVolume = bundle.getFloat(FIELD_UNMUTE_VOLUME, /* defaultValue= */ 1);
     int audioSessionId = bundle.getInt(FIELD_AUDIO_SESSION_ID, C.AUDIO_SESSION_ID_UNSET);
@@ -1141,21 +1138,19 @@ import java.util.Objects;
     MediaMetadata mediaMetadata =
         mediaMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.fromBundle(mediaMetadataBundle);
+            : MediaMetadata.fromBundle(mediaMetadataBundle, interfaceVersion);
     long seekBackIncrementMs =
         bundle.getLong(
             FIELD_SEEK_BACK_INCREMENT_MS,
-            /* defaultValue= */ sessionInterfaceVersion < 4 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS);
+            /* defaultValue= */ interfaceVersion < 4 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS);
     long seekForwardIncrementMs =
         bundle.getLong(
             FIELD_SEEK_FORWARD_INCREMENT_MS,
-            /* defaultValue= */ sessionInterfaceVersion < 4
-                ? 0
-                : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS);
+            /* defaultValue= */ interfaceVersion < 4 ? 0 : C.DEFAULT_SEEK_FORWARD_INCREMENT_MS);
     long maxSeekToPreviousPosition =
         bundle.getLong(
             FIELD_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
-            /* defaultValue= */ sessionInterfaceVersion < 4
+            /* defaultValue= */ interfaceVersion < 4
                 ? 0
                 : C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
     Bundle currentTracksBundle = bundle.getBundle(FIELD_CURRENT_TRACKS);

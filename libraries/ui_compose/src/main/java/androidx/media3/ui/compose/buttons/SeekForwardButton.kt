@@ -34,6 +34,6 @@ import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
  */
 @UnstableApi
 @Composable
-fun SeekForwardButton(player: Player, content: @Composable SeekForwardButtonState.() -> Unit) {
+fun SeekForwardButton(player: Player?, content: @Composable SeekForwardButtonState.() -> Unit) {
   rememberSeekForwardButtonState(player).content()
 }

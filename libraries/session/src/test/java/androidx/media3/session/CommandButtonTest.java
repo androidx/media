@@ -22,6 +22,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
 import androidx.media3.common.HeartRating;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.SimpleBasePlayer;
@@ -149,7 +150,9 @@ public class CommandButtonTest {
             .build();
 
     CommandButton serialisedButton =
-        CommandButton.fromBundle(button.toBundle(), MediaSessionStub.VERSION_INT);
+        CommandButton.fromBundle(
+            button.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(serialisedButton.iconUri).isEqualTo(uri);
   }
@@ -164,7 +167,9 @@ public class CommandButtonTest {
             .build();
 
     CommandButton serialisedButton =
-        CommandButton.fromBundle(button.toBundle(), MediaSessionStub.VERSION_INT);
+        CommandButton.fromBundle(
+            button.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(serialisedButton.iconUri).isNull();
   }
@@ -200,7 +205,10 @@ public class CommandButtonTest {
             .build();
 
     assertThat(button)
-        .isEqualTo(CommandButton.fromBundle(button.toBundle(), MediaSessionStub.VERSION_INT));
+        .isEqualTo(
+            CommandButton.fromBundle(
+                button.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+                MediaLibraryInfo.INTERFACE_VERSION));
     assertThat(button)
         .isNotEqualTo(
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
@@ -522,11 +530,17 @@ public class CommandButtonTest {
             .build();
 
     CommandButton restoredButtonWithSessionCommand =
-        CommandButton.fromBundle(buttonWithSessionCommand.toBundle(), MediaSessionStub.VERSION_INT);
+        CommandButton.fromBundle(
+            buttonWithSessionCommand.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
     CommandButton restoredButtonWithPlayerCommand =
-        CommandButton.fromBundle(buttonWithPlayerCommand.toBundle(), MediaSessionStub.VERSION_INT);
+        CommandButton.fromBundle(
+            buttonWithPlayerCommand.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
     CommandButton restoredButtonWithDefaultValues =
-        CommandButton.fromBundle(buttonWithDefaultValues.toBundle(), MediaSessionStub.VERSION_INT);
+        CommandButton.fromBundle(
+            buttonWithDefaultValues.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredButtonWithSessionCommand).isEqualTo(buttonWithSessionCommand);
     assertThat(restoredButtonWithSessionCommand.extras.get("key")).isEqualTo("value");
@@ -545,7 +559,8 @@ public class CommandButtonTest {
 
     CommandButton restoredButtonAssumingOldSessionInterface =
         CommandButton.fromBundle(
-            buttonWithEnabledFalse.toBundle(), /* sessionInterfaceVersion= */ 2);
+            buttonWithEnabledFalse.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            /* interfaceVersion= */ 2);
 
     assertThat(restoredButtonAssumingOldSessionInterface.isEnabled).isTrue();
   }
@@ -569,7 +584,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -607,7 +625,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -650,7 +671,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ false, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ false,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -692,7 +716,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -735,7 +762,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ false);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ false,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -782,7 +812,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -833,7 +866,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ false, /* forwardSlotAllowed= */ false);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ false,
+            /* forwardSlotAllowed= */ false,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -875,7 +911,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(customLayout)
         .containsExactly(
@@ -916,7 +955,10 @@ public class CommandButtonTest {
 
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     // Note: Intentionally using string constants of private strings to ensure they don't change in
     // future versions without backwards-compat logic.

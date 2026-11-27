@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.core.util.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioDeviceInfo;
@@ -687,6 +687,16 @@ public interface AudioOutputProvider {
   /** Sets the {@link Clock} to use in the provider. */
   @UnstableApi
   default void setClock(Clock clock) {}
+
+  /**
+   * Returns whether there are any pending asynchronous releases of audio outputs.
+   *
+   * <p>Implementations that release resources synchronously should return false.
+   */
+  @UnstableApi
+  default boolean hasPendingReleases() {
+    return false;
+  }
 
   /** Releases resources held by the provider. */
   void release();

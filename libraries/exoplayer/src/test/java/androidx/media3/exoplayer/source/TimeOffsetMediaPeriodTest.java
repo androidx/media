@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.source;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -51,6 +52,11 @@ import org.junit.runner.RunWith;
 public final class TimeOffsetMediaPeriodTest {
 
   @Test
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(MediaPeriod.class, TimeOffsetMediaPeriod.class);
+  }
+
+  @Test
   public void selectTracks_createsSampleStreamCorrectingOffset() throws Exception {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
@@ -75,6 +81,21 @@ public final class TimeOffsetMediaPeriodTest {
         .containsExactly(C.RESULT_FORMAT_READ, C.RESULT_BUFFER_READ, C.RESULT_BUFFER_READ);
     assertThat(readBufferTimeUs).isEqualTo(5000);
     assertThat(readEndOfStreamBuffer).isTrue();
+  }
+
+  @Test
+  public void setEndPositionUs_isForwardedWithTimeOffset() throws Exception {
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    TimeOffsetMediaPeriod timeOffsetMediaPeriod =
+        new TimeOffsetMediaPeriod(spyPeriod, /* timeOffsetUs= */ -3000);
+    prepareMediaPeriodSync(timeOffsetMediaPeriod, /* positionUs= */ 0);
+
+    assertThat(timeOffsetMediaPeriod.setEndPositionUs(9000)).isEqualTo(9000);
+    verify(spyPeriod).setEndPositionUs(12000);
   }
 
   @Test
@@ -226,7 +247,12 @@ public final class TimeOffsetMediaPeriodTest {
         eventDispatcher,
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher(),
-        /* deferOnPrepared= */ false);
+        /* deferOnPrepared= */ false) {
+      @Override
+      public long setEndPositionUs(long endPositionUs) {
+        return endPositionUs;
+      }
+    };
   }
 
   private static void prepareMediaPeriodSync(MediaPeriod mediaPeriod, long positionUs)

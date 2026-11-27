@@ -163,7 +163,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -203,7 +203,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -242,7 +242,7 @@ public final class PreloadMediaSourceTest {
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -270,7 +270,7 @@ public final class PreloadMediaSourceTest {
   @Test
   public void preload_whileSourceIsAccessedByExternalCaller_notProceedWithPreloading() {
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             new FakeMediaSourceFactory(),
@@ -283,8 +283,7 @@ public final class PreloadMediaSourceTest {
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -312,7 +311,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -359,7 +358,7 @@ public final class PreloadMediaSourceTest {
     mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     LoadControl loadControl =
         mock(
             LoadControl.class,
@@ -440,7 +439,7 @@ public final class PreloadMediaSourceTest {
         };
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -509,7 +508,7 @@ public final class PreloadMediaSourceTest {
                     startPositionUs,
                     new MediaSourceEventListener.EventDispatcher()) {
                   @Override
-                  public void prepare(Callback callback, long positionUs) {
+                  public synchronized void prepare(Callback callback, long positionUs) {
                     // Do nothing to simulate that something wrong happens and onPrepared will not
                     // be called.
                   }
@@ -525,7 +524,7 @@ public final class PreloadMediaSourceTest {
         };
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -637,7 +636,7 @@ public final class PreloadMediaSourceTest {
         };
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -668,7 +667,7 @@ public final class PreloadMediaSourceTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             new FakeMediaSourceFactory(),
@@ -684,7 +683,7 @@ public final class PreloadMediaSourceTest {
         IllegalStateException.class,
         () ->
             preloadMediaSource.prepareSource(
-                (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET));
+                (source, timeline) -> {}, PlayerId.UNSET, bandwidthMeter));
 
     preloadThread.quit();
   }
@@ -694,7 +693,7 @@ public final class PreloadMediaSourceTest {
     HandlerThread preloadThread = new HandlerThread("preload");
     preloadThread.start();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             new FakeMediaSourceFactory(),
@@ -712,9 +711,7 @@ public final class PreloadMediaSourceTest {
         IllegalStateException.class,
         () ->
             preloadMediaSource.prepareSource(
-                mock(MediaSource.MediaSourceCaller.class),
-                bandwidthMeter.getTransferListener(),
-                PlayerId.UNSET));
+                mock(MediaSource.MediaSourceCaller.class), PlayerId.UNSET, bandwidthMeter));
 
     preloadThread.quit();
   }
@@ -724,7 +721,7 @@ public final class PreloadMediaSourceTest {
       prepareSource_beforeSourceInfoRefreshedForPreloading_onlyInvokeExternalCallerOnSourceInfoRefreshed() {
     FakeMediaSourceFactory mediaSourceFactory = new FakeMediaSourceFactory();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -740,8 +737,7 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
     wrappedMediaSource.setAllowPreparation(true);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -755,7 +751,7 @@ public final class PreloadMediaSourceTest {
   public void prepareSource_afterPreload_immediatelyInvokeExternalCallerOnSourceInfoRefreshed() {
     FakeMediaSourceFactory mediaSourceFactory = new FakeMediaSourceFactory();
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mediaSourceFactory,
@@ -770,8 +766,7 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
 
     verify(externalCaller).onSourceInfoRefreshed(eq(preloadMediaSource), any());
     verify(mockPreloadControl).onSourcePrepared(eq(preloadMediaSource));
@@ -797,7 +792,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any());
+                  .prepareSource(any(), any(), any(BandwidthMeter.class));
               doAnswer(
                       createPeriodInvocation -> {
                         MediaPeriod mediaPeriod = mock(MediaPeriod.class);
@@ -823,7 +818,7 @@ public final class PreloadMediaSourceTest {
                 new ExoTrackSelection[0],
                 Tracks.EMPTY,
                 /* info= */ null));
-    mockTrackSelector.init(() -> {}, bandwidthMeter);
+    mockTrackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -840,8 +835,7 @@ public final class PreloadMediaSourceTest {
     AtomicReference<Timeline> externalCallerSourceInfoTimelineReference = new AtomicReference<>();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoTimelineReference.set(timeline);
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
     Pair<Object, Long> periodPosition =
         externalCallerSourceInfoTimelineReference
             .get()
@@ -875,7 +869,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any());
+                  .prepareSource(any(), any(), any(BandwidthMeter.class));
               doAnswer(
                       createPeriodInvocation -> {
                         MediaPeriod mediaPeriod = mock(MediaPeriod.class);
@@ -901,7 +895,7 @@ public final class PreloadMediaSourceTest {
                 new ExoTrackSelection[0],
                 Tracks.EMPTY,
                 /* info= */ null));
-    mockTrackSelector.init(() -> {}, bandwidthMeter);
+    mockTrackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -918,8 +912,7 @@ public final class PreloadMediaSourceTest {
     AtomicReference<Timeline> externalCallerSourceInfoTimelineReference = new AtomicReference<>();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoTimelineReference.set(timeline);
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
     // Create a period from different position.
     Pair<Object, Long> periodPosition =
         externalCallerSourceInfoTimelineReference
@@ -966,7 +959,7 @@ public final class PreloadMediaSourceTest {
             });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -987,6 +980,116 @@ public final class PreloadMediaSourceTest {
   }
 
   @Test
+  public void clear_whenContentPeriodJustPrepared_preloadTerminatesWithoutException() {
+    AtomicReference<FakeMediaPeriod> fakeMediaPeriodReference = new AtomicReference<>();
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenReturn(
+            new FakeMediaSource() {
+              @Override
+              protected MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                FakeMediaPeriod fakeMediaPeriod =
+                    new FakeMediaPeriod(
+                        trackGroupArray,
+                        allocator,
+                        FakeTimeline.TimelineWindowDefinition
+                            .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                        mediaSourceEventDispatcher,
+                        DrmSessionManager.DRM_UNSUPPORTED,
+                        new DrmSessionEventListener.EventDispatcher(),
+                        /* deferOnPrepared= */ true);
+                fakeMediaPeriodReference.set(fakeMediaPeriod);
+                return fakeMediaPeriod;
+              }
+            });
+    TrackSelector trackSelector = new FakeTrackSelector();
+    trackSelector.init(unused -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mockMediaSourceFactory,
+            mockPreloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            loadControl,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    fakeMediaPeriodReference.get().setPreparationComplete();
+    preloadMediaSource.clear();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockPreloadControl, never()).onTracksSelected(eq(preloadMediaSource));
+  }
+
+  @Test
+  public void
+      clear_whenContentPeriodJustRequestedContinueLoading_preloadTerminatesWithoutException() {
+    AtomicReference<MediaPeriod.Callback> capturedCallback = new AtomicReference<>();
+    AtomicReference<FakeMediaPeriod> fakeMediaPeriodReference = new AtomicReference<>();
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenReturn(
+            new FakeMediaSource() {
+              @Override
+              protected MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                FakeMediaPeriod fakeMediaPeriod =
+                    new FakeMediaPeriod(
+                        trackGroupArray,
+                        allocator,
+                        FakeTimeline.TimelineWindowDefinition
+                            .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                        mediaSourceEventDispatcher) {
+                      @Override
+                      public synchronized void prepare(Callback callback, long positionUs) {
+                        capturedCallback.set(callback);
+                        super.prepare(callback, positionUs);
+                      }
+                    };
+                fakeMediaPeriodReference.set(fakeMediaPeriod);
+                return fakeMediaPeriod;
+              }
+            });
+    TrackSelector trackSelector = new FakeTrackSelector();
+    trackSelector.init(unused -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mockMediaSourceFactory,
+            mockPreloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            loadControl,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    capturedCallback.get().onContinueLoadingRequested(fakeMediaPeriodReference.get());
+    preloadMediaSource.clear();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockPreloadControl, never())
+        .onContinueLoadingRequested(eq(preloadMediaSource), anyLong());
+  }
+
+  @Test
   public void releaseSourceByAllExternalCallers_preloadNotCalledBefore_releaseInternalSource() {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -1003,13 +1106,13 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any());
+                  .prepareSource(any(), any(), any(BandwidthMeter.class));
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1023,8 +1126,7 @@ public final class PreloadMediaSourceTest {
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoRefreshedCalled.set(true);
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releaseSource(externalCaller);
 
@@ -1053,13 +1155,13 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any());
+                  .prepareSource(any(), any(), any(BandwidthMeter.class));
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1073,8 +1175,7 @@ public final class PreloadMediaSourceTest {
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
     preloadMediaSource.releaseSource(externalCaller);
 
     verify(loadControl).onPrepared(PlayerId.PRELOAD);
@@ -1104,13 +1205,13 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any());
+                  .prepareSource(any(), any(), any(BandwidthMeter.class));
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1127,10 +1228,8 @@ public final class PreloadMediaSourceTest {
         (source, timeline) -> externalCaller1SourceInfoRefreshedCalled.set(true);
     MediaSource.MediaSourceCaller externalCaller2 =
         (source, timeline) -> externalCaller2SourceInfoRefreshedCalled.set(true);
-    preloadMediaSource.prepareSource(
-        externalCaller1, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
-    preloadMediaSource.prepareSource(
-        externalCaller2, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller1, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(externalCaller2, PlayerId.UNSET, bandwidthMeter);
     // Only releaseSource by externalCaller1.
     preloadMediaSource.releaseSource(externalCaller1);
 
@@ -1160,13 +1259,13 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any());
+                  .prepareSource(any(), any(), any(BandwidthMeter.class));
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1207,13 +1306,13 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any());
+                  .prepareSource(any(), any(), any(BandwidthMeter.class));
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
             });
     TrackSelector trackSelector = new FakeTrackSelector();
-    trackSelector.init(() -> {}, bandwidthMeter);
+    trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
             mockMediaSourceFactory,
@@ -1227,8 +1326,7 @@ public final class PreloadMediaSourceTest {
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
-    preloadMediaSource.prepareSource(
-        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releasePreloadMediaSource();
     shadowOf(Looper.getMainLooper()).idle();

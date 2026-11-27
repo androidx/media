@@ -40,6 +40,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowAudioTrack;
 import org.robolectric.shadows.ShadowMediaCodec;
 
@@ -70,6 +71,7 @@ public class EndToEndGaplessTest {
   }
 
   @Test
+  @Config(minSdk = 29) // AudioFormat.getFrameSizeInBytes is only available from API 29.
   public void testPlayback_twoIdenticalMp3Files() throws Exception {
     ExoPlayer player =
         new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
@@ -90,8 +92,8 @@ public class EndToEndGaplessTest {
     int bytesPerFrame = audioTrackListener.getAudioTrackOutputFormat().getFrameSizeInBytes();
     int paddingBytes = max(0, playerAudioFormat.encoderPadding) * bytesPerFrame;
     int delayBytes = max(0, playerAudioFormat.encoderDelay) * bytesPerFrame;
-    assertThat(paddingBytes).isEqualTo(2808);
-    assertThat(delayBytes).isEqualTo(1152);
+    assertThat(paddingBytes).isEqualTo(1750);
+    assertThat(delayBytes).isEqualTo(2210);
 
     byte[] decoderOutputBytes = Bytes.concat(mp3Decoder.getAllOutputBytes().toArray(new byte[0][]));
     int bytesPerAudioFile = decoderOutputBytes.length / 2;

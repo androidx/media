@@ -28,7 +28,7 @@ import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
-import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
+import static androidx.media3.transformer.SequenceEffectTestUtil.createVideoOnlyComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -50,12 +50,14 @@ import java.util.Set;
 import org.json.JSONException;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Tests for Ultra HDR support in Transformer that should only run in mobile harness. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class TransformerMhUltraHdrTest {
 
@@ -96,7 +98,7 @@ public final class TransformerMhUltraHdrTest {
   public void exportHdrVideoThenUltraHdrImage_exportsHdr() throws Exception {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
             oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));

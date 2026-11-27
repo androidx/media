@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+  <string name="exo_controls_show">ପ୍ଲେୟାର ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକୁ ଦେଖାନ୍ତୁ</string>
+  <string name="exo_controls_hide">ପ୍ଲେୟାର ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକୁ ଲୁଚାନ୍ତୁ</string>
+  <string name="exo_controls_seek_bar_description">ପ୍ଲେବେକର ପ୍ରୋଗ୍ରେସ</string>
+  <string name="exo_controls_settings_description">ସେଟିଂସ</string>
+  <string name="exo_controls_overflow_hide_description">ଅତିରିକ୍ତ ସେଟିଂସକୁ ଲୁଚାନ୍ତୁ</string>
+  <string name="exo_controls_overflow_show_description">ଅତିରିକ୍ତ ସେଟିଂସକୁ ଦେଖାନ୍ତୁ</string>
+  <string name="exo_controls_fullscreen_enter_description">ପୂର୍ଣ୍ଣସ୍କ୍ରିନ କରନ୍ତୁ</string>
+  <string name="exo_controls_fullscreen_exit_description">ପୂର୍ଣ୍ଣସ୍କ୍ରିନରୁ ବାହାରି ଯାଆନ୍ତୁ</string>
+  <string name="exo_controls_previous_description">ପୂର୍ବବର୍ତ୍ତୀ</string>
+  <string name="exo_controls_next_description">ପରବର୍ତ୍ତୀ</string>
+  <string name="exo_controls_pause_description">ବିରତ କରନ୍ତୁ</string>
+  <string name="exo_controls_play_description">ଚଲାନ୍ତୁ</string>
+  <string name="exo_controls_stop_description">ବନ୍ଦ କରନ୍ତୁ</string>
+  <string name="exo_controls_rewind_description">ରିୱାଇଣ୍ଡ କରନ୍ତୁ</string>
+  <plurals name="exo_controls_rewind_by_amount_description">
+    <item quantity="one">%d ସେକେଣ୍ଡ ରିୱାଇଣ୍ଡ କରନ୍ତୁ</item>
+    <item quantity="other">%d ସେକେଣ୍ଡ ରିୱାଇଣ୍ଡ କରନ୍ତୁ</item>
+  </plurals>
+  <string name="exo_controls_fastforward_description">ଫାଷ୍ଟ ଫରୱାର୍ଡ କରନ୍ତୁ</string>
+  <plurals name="exo_controls_fastforward_by_amount_description">
+    <item quantity="one">%d ସେକେଣ୍ଡ ଫାଷ୍ଟ ଫରୱାର୍ଡ କରନ୍ତୁ</item>
+    <item quantity="other">%d ସେକେଣ୍ଡ ଫାଷ୍ଟ ଫରୱାର୍ଡ କରନ୍ତୁ</item>
+  </plurals>
+  <string name="exo_controls_repeat_off_description">ବର୍ତ୍ତମାନର ମୋଡ: କିଛି ବି ରିପିଟ କରନ୍ତୁ ନାହିଁ। ରିପିଟ ମୋଡକୁ ଟୋଗଲ କରନ୍ତୁ।</string>
+  <string name="exo_controls_repeat_one_description">ବର୍ତ୍ତମାନର ମୋଡ: ଗୋଟିଏ ରିପିଟ କରନ୍ତୁ। ରିପିଟ ମୋଡକୁ ଟୋଗଲ କରନ୍ତୁ।</string>
+  <string name="exo_controls_repeat_all_description">ବର୍ତ୍ତମାନର ମୋଡ: ସବୁ ରିପିଟ କରନ୍ତୁ। ରିପିଟ ମୋଡକୁ ଟୋଗଲ କରନ୍ତୁ।</string>
+  <string name="exo_controls_shuffle_on_description">ସଫଲ ମୋଡକୁ ଅକ୍ଷମ କରନ୍ତୁ</string>
+  <string name="exo_controls_shuffle_off_description">ସଫଲ ମୋଡକୁ ସକ୍ଷମ କରନ୍ତୁ</string>
+  <string name="exo_controls_vr_description">VR ମୋଡ</string>
+  <string name="exo_controls_cc_enabled_description">ସବଟାଇଟେଲଗୁଡ଼ିକୁ ଅକ୍ଷମ କରନ୍ତୁ</string>
+  <string name="exo_controls_cc_disabled_description">ସବଟାଇଟେଲଗୁଡ଼ିକୁ ସକ୍ଷମ କରନ୍ତୁ</string>
+  <string name="exo_controls_playback_speed">ସ୍ପିଡ</string>
+  <string-array name="exo_controls_playback_speeds">
+    <item>0.25x</item>
+    <item>0.5x</item>
+    <item>0.75x</item>
+    <item>ସାଧାରଣ</item>
+    <item>1.25x</item>
+    <item>1.5x</item>
+    <item>2x</item>
+  </string-array>
+  <string name="exo_track_selection_title_audio">ଅଡିଓ</string>
+  <string name="exo_track_selection_none">କିଛି ନାହିଁ</string>
+  <string name="exo_track_selection_auto">ସ୍ୱତଃ</string>
+  <string name="exo_track_unknown">ଅଜଣା</string>
+  <string name="exo_track_unknown_name">ଅଜଣା (%1$s)</string>
+  <string name="exo_track_resolution">%1$d × %2$d</string>
+  <string name="exo_track_mono">ମନୋ</string>
+  <string name="exo_track_stereo">ଷ୍ଟେରିଓ</string>
+  <string name="exo_track_surround">ପରିପାର୍ଶ୍ଵ ସାଉଣ୍ଡ</string>
+  <string name="exo_track_surround_5_point_1">5.1 ପରିପାର୍ଶ୍ଵ ସାଉଣ୍ଡ</string>
+  <string name="exo_track_surround_7_point_1">7.1 ପରିପାର୍ଶ୍ଵ ସାଉଣ୍ଡ</string>
+  <string name="exo_track_role_alternate">ବିକଳ୍ପ</string>
+  <string name="exo_track_role_supplementary">ସପ୍ଲିମେଣ୍ଟାରୀ</string>
+  <string name="exo_track_role_commentary">କମେଣ୍ଟ୍ରି</string>
+  <string name="exo_track_role_closed_captions">CC</string>
+  <string name="exo_track_bitrate">%1$.2f Mbps</string>
+  <string name="exo_item_list">%1$s, %2$s</string>
+</resources>

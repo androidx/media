@@ -16,6 +16,11 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.constrainValue;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MAX_PITCH;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MAX_PLAYBACK_SPEED;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MIN_PITCH;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MIN_PLAYBACK_SPEED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -29,6 +34,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
@@ -47,7 +53,8 @@ import java.util.concurrent.ScheduledExecutorService;
 public final class AudioTrackAudioOutput implements AudioOutput {
 
   /** Listener for potential capability change events. */
-  /* package */ interface CapabilityChangeListener {
+  @UnstableApi
+  public interface CapabilityChangeListener {
 
     /** The audio device routing changed. */
     void onRoutedDeviceChanged(AudioDeviceInfo routedDevice);
@@ -85,6 +92,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
   private final AudioTrack audioTrack;
   private final OutputConfig config;
+  private final float maxPlaybackSpeed;
   @Nullable private final CapabilityChangeListener capabilityChangeListener;
   @Nullable private OnRoutingChangedListenerApi24 onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
@@ -104,11 +112,28 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   private boolean hasData;
 
   /**
+   * @deprecated Use {@link
+   *     #AudioTrackAudioOutput(AudioTrack,OutputConfig,CapabilityChangeListener,float,Clock)}
+   *     instead.
+   */
+  @UnstableApi
+  @Deprecated
+  public AudioTrackAudioOutput(
+      AudioTrack audioTrack,
+      OutputConfig config,
+      @Nullable CapabilityChangeListener capabilityChangeListener,
+      Clock clock) {
+    this(audioTrack, config, capabilityChangeListener, MAX_PLAYBACK_SPEED, clock);
+  }
+
+  /**
    * Creates a new instance.
    *
    * @param audioTrack The audio track to wrap.
    * @param config The output configuration.
    * @param capabilityChangeListener The {@link CapabilityChangeListener}.
+   * @param maxPlaybackSpeed The maximum playback speed set on the track if {@link
+   *     OutputConfig#usePlaybackParameters} is enabled.
    * @param clock The {@link Clock}.
    */
   @UnstableApi
@@ -117,13 +142,13 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       AudioTrack audioTrack,
       OutputConfig config,
       @Nullable CapabilityChangeListener capabilityChangeListener,
+      float maxPlaybackSpeed,
       Clock clock) {
     this.audioTrack = audioTrack;
     this.config = config;
+    this.maxPlaybackSpeed = maxPlaybackSpeed;
     this.capabilityChangeListener = capabilityChangeListener;
     listeners = new ListenerSet<>(Thread.currentThread());
-    // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
-    listeners.setThrowsWhenUsingWrongThread(false);
 
     isOutputPcm = Util.isEncodingLinearPcm(config.encoding);
     if (isOutputPcm) {
@@ -186,7 +211,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
   @Override
   public long getPositionUs() {
-    return audioTrackPositionTracker.getCurrentPositionUs();
+    return audioTrackPositionTracker.getCurrentPositionUs(getWrittenFrames());
   }
 
   @Override
@@ -305,8 +330,9 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     PlaybackParams playbackParams =
         new PlaybackParams()
             .allowDefaults()
-            .setSpeed(playbackParameters.speed)
-            .setPitch(playbackParameters.pitch)
+            .setSpeed(
+                constrainValue(playbackParameters.speed, MIN_PLAYBACK_SPEED, maxPlaybackSpeed))
+            .setPitch(constrainValue(playbackParameters.pitch, MIN_PITCH, MAX_PITCH))
             .setAudioFallbackMode(PlaybackParams.AUDIO_FALLBACK_MODE_FAIL);
     try {
       audioTrack.setPlaybackParams(playbackParams);
@@ -371,6 +397,13 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     return audioTrackPositionTracker.isStalled(getWrittenFrames());
   }
 
+  /** Returns whether there are any pending asynchronous releases. */
+  /* package */ static boolean hasPendingReleases() {
+    synchronized (releaseExecutorLock) {
+      return pendingReleaseCount > 0;
+    }
+  }
+
   private long getWrittenFrames() {
     return isOutputPcm ? Util.ceilDivide(writtenPcmBytes, pcmFrameSize) : writtenEncodedFrames;
   }
@@ -415,7 +448,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   }
 
   private void maybeReportUnderrun() {
-    if (hasPendingAudioTrackUnderruns(getWrittenFrames())) {
+    if (listeners.isRunningOnCorrectThread() && hasPendingAudioTrackUnderruns(getWrittenFrames())) {
       listeners.sendEvent(Listener::onUnderrun);
     }
   }
@@ -465,7 +498,12 @@ public final class AudioTrackAudioOutput implements AudioOutput {
                   audioTrack.release();
                 } finally {
                   if (audioTrackThreadHandler.getLooper().getThread().isAlive()) {
-                    audioTrackThreadHandler.post(() -> listeners.sendEvent(Listener::onReleased));
+                    audioTrackThreadHandler.post(
+                        () -> {
+                          if (listeners.isRunningOnCorrectThread()) {
+                            listeners.sendEvent(Listener::onReleased);
+                          }
+                        });
                   }
                   synchronized (releaseExecutorLock) {
                     pendingReleaseCount--;
@@ -508,7 +546,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
               + ", "
               + getWrittenFrames();
 
-      if (AudioTrackAudioOutputProvider.failOnSpuriousAudioTimestamp) {
+      if (!MediaLibraryInfo.enableWorkarounds()) {
         throw new InvalidAudioTrackTimestampException(message);
       }
       Log.w(TAG, message);
@@ -532,7 +570,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
               + ", "
               + getWrittenFrames();
 
-      if (AudioTrackAudioOutputProvider.failOnSpuriousAudioTimestamp) {
+      if (!MediaLibraryInfo.enableWorkarounds()) {
         throw new InvalidAudioTrackTimestampException(message);
       }
       Log.w(TAG, message);
@@ -545,13 +583,15 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
     @Override
     public void onPositionAdvancing(long playoutStartSystemTimeMs) {
-      listeners.sendEvent(listener -> listener.onPositionAdvancing(playoutStartSystemTimeMs));
+      if (listeners.isRunningOnCorrectThread()) {
+        listeners.sendEvent(listener -> listener.onPositionAdvancing(playoutStartSystemTimeMs));
+      }
     }
   }
 
   /**
    * Thrown when the audio track has provided a spurious timestamp, if {@link
-   * AudioTrackAudioOutputProvider#failOnSpuriousAudioTimestamp} is set.
+   * MediaLibraryInfo#enableWorkarounds()} is false.
    */
   @UnstableApi
   public static final class InvalidAudioTrackTimestampException extends RuntimeException {

@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.source;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
@@ -78,7 +79,8 @@ public class FilteringMediaSource extends WrappingMediaSource {
     super.releasePeriod(wrappedPeriod);
   }
 
-  private static final class FilteringMediaPeriod implements MediaPeriod, MediaPeriod.Callback {
+  @VisibleForTesting
+  static final class FilteringMediaPeriod implements MediaPeriod, MediaPeriod.Callback {
 
     public final MediaPeriod mediaPeriod;
 
@@ -128,6 +130,11 @@ public class FilteringMediaSource extends WrappingMediaSource {
     @Override
     public void discardBuffer(long positionUs, boolean toKeyframe) {
       mediaPeriod.discardBuffer(positionUs, toKeyframe);
+    }
+
+    @Override
+    public void setUsesStreamPrerollFlags() {
+      mediaPeriod.setUsesStreamPrerollFlags();
     }
 
     @Override
@@ -188,6 +195,11 @@ public class FilteringMediaSource extends WrappingMediaSource {
     @Override
     public void onContinueLoadingRequested(MediaPeriod source) {
       checkNotNull(callback).onContinueLoadingRequested(/* source= */ this);
+    }
+
+    @Override
+    public long setEndPositionUs(long endPositionUs) {
+      return mediaPeriod.setEndPositionUs(endPositionUs);
     }
   }
 }

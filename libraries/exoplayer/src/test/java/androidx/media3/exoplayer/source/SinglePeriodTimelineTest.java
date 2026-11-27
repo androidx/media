@@ -48,7 +48,7 @@ public final class SinglePeriodTimelineTest {
             /* durationUs= */ C.TIME_UNSET,
             /* isSeekable= */ false,
             /* isDynamic= */ true,
-            /* isLive= */ true,
+            /* useLiveConfiguration= */ true,
             /* manifest= */ null,
             MediaItem.fromUri(Uri.EMPTY));
     // Should return null with any positive position projection.
@@ -125,7 +125,7 @@ public final class SinglePeriodTimelineTest {
             /* durationUs= */ C.TIME_UNSET,
             /* isSeekable= */ false,
             /* isDynamic= */ false,
-            /* isLive= */ false,
+            /* useLiveConfiguration= */ false,
             /* manifest= */ null,
             new MediaItem.Builder().setUri(Uri.EMPTY).setTag(null).build());
 
@@ -148,7 +148,7 @@ public final class SinglePeriodTimelineTest {
             /* durationUs= */ C.TIME_UNSET,
             /* isSeekable= */ false,
             /* isDynamic= */ false,
-            /* isLive= */ false,
+            /* useLiveConfiguration= */ false,
             /* manifest= */ null,
             new MediaItem.Builder().setUri(Uri.EMPTY).setTag(tag).build());
 
@@ -165,7 +165,7 @@ public final class SinglePeriodTimelineTest {
             /* durationUs= */ C.TIME_UNSET,
             /* isSeekable= */ false,
             /* isDynamic= */ false,
-            /* isLive= */ false,
+            /* useLiveConfiguration= */ false,
             /* manifest= */ null,
             mediaItem);
 
@@ -182,7 +182,7 @@ public final class SinglePeriodTimelineTest {
             /* durationUs= */ C.TIME_UNSET,
             /* isSeekable= */ false,
             /* isDynamic= */ false,
-            /* isLive= */ false,
+            /* useLiveConfiguration= */ false,
             /* manifest= */ null,
             MediaItem.fromUri(Uri.EMPTY));
     Object uid = timeline.getPeriod(/* periodIndex= */ 0, period, /* setIds= */ true).uid;

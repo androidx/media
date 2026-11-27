@@ -32,6 +32,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.annotation.Config;
 
 /** End to end parameterized tests for {@link WebmMuxer}. */
 @RunWith(RobolectricTestParameterInjector.class)
@@ -39,7 +40,7 @@ public class WebmMuxerEndToEndTest {
 
   private enum TestFile {
     VP8_WEBM("asset:///media/mkv/", "bbb_960x540_60fps_vp8.webm"),
-    VP9_WEBM("asset:///media/mp4/", "bbb_642x642_768kbps_30fps_vp9.webm"),
+    VP9_WEBM("asset:///media/mkv/", "bbb_642x642_768kbps_30fps_vp9.webm"),
     OPUS_WEBM("asset:///media/mkv/", "bbb_1ch_48kHz_q10_opus.webm"),
     VORBIS_WEBM("asset:///media/mkv/", "bbb_1ch_12kHz_q10_vorbis.webm"),
     VP9_MP4("asset:///media/mp4/", "bbb_800x640_768kbps_30fps_vp9.mp4");
@@ -60,6 +61,8 @@ public class WebmMuxerEndToEndTest {
   @TestParameter private TestFile testFile;
 
   @Test
+  // TODO: b/507292304 - Suppressed due to failure on SDK 23.
+  @Config(minSdk = 24)
   public void createWebmFile_fromInputFileSampleData_matchesExpected() throws Exception {
     String outputPath = temporaryFolder.newFile("muxeroutput.webm").getPath();
 

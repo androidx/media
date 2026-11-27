@@ -90,7 +90,8 @@ import java.util.Set;
       long mediaDurationUs,
       boolean startsAtKeyFrame,
       boolean clearVideoEffects) {
-    EditedMediaItem firstEditedMediaItem = oldComposition.sequences.get(0).editedMediaItems.get(0);
+    EditedMediaItemSequence sequence = oldComposition.sequences.get(0);
+    EditedMediaItem firstEditedMediaItem = sequence.editedMediaItems.get(0);
 
     MediaItem.ClippingConfiguration clippingConfiguration =
         new MediaItem.ClippingConfiguration.Builder()
@@ -122,7 +123,7 @@ import java.util.Set;
     return oldComposition
         .buildUpon()
         .setSequences(
-            ImmutableList.of(new EditedMediaItemSequence.Builder(editedMediaItem).build()))
+            ImmutableList.of(sequence.copyWithEditedMediaItems(ImmutableList.of(editedMediaItem))))
         .build();
   }
 

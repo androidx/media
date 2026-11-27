@@ -30,6 +30,7 @@ interface IRemoteMediaControllerCompat {
   void setVolumeTo(String controllerId, int value, int flags);
   void adjustVolume(String controllerId, int direction, int flags);
   void sendCommand(String controllerId, String command, in Bundle params, in ResultReceiver cb);
+  String getPackageName(String controllerId);
 
   // TransportControl methods
   void prepare(String controllerId);

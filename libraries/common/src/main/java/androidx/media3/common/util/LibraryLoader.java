@@ -59,7 +59,7 @@ public abstract class LibraryLoader {
     } catch (UnsatisfiedLinkError exception) {
       // Log a warning as an attempt to check for the library indicates that the app depends on an
       // extension and generally would expect its native libraries to be available.
-      Log.w(TAG, "Failed to load " + Arrays.toString(nativeLibraries));
+      Log.w(TAG, "Failed to load " + Arrays.toString(nativeLibraries), exception);
     }
     return isAvailable;
   }

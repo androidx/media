@@ -63,7 +63,8 @@ public final class FakeMediaChunk extends MediaChunk {
         /* trackSelectionData= */ null,
         startTimeUs,
         endTimeUs,
-        /* chunkIndex= */ 0);
+        /* chunkIndex= */ 0,
+        /* steeredPathwayId= */ null);
   }
 
   @Override

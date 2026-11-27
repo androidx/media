@@ -1,24 +1,24 @@
 seekMap:
   isSeekable = true
-  duration = 2807979
+  duration = 2783979
   getPosition(0) = [[timeUs=0, position=237]]
   getPosition(1) = [[timeUs=1, position=237]]
-  getPosition(1403989) = [[timeUs=1403989, position=20120]]
-  getPosition(2807979) = [[timeUs=2807979, position=38396]]
+  getPosition(1391989) = [[timeUs=1391989, position=20120]]
+  getPosition(2783979) = [[timeUs=2783979, position=38396]]
 numberOfTracks = 1
 track 0:
   total output bytes = 38160
   sample count = 117
-  track duration = 2807979
+  track duration = 2783979
   format 0:
-    averageBitrate = 64000
+    averageBitrate = 109656
     containerMimeType = audio/mpeg
     sampleMimeType = audio/mpeg
     maxInputSize = 4096
     channelCount = 2
     sampleRate = 48000
-    encoderDelay = 576
-    encoderPadding = 576
+    encoderDelay = 1105
+    encoderPadding = 47
     metadata = entries=[TSSE: description=null: values=[Lavf58.29.100]]
   sample 0:
     time = 0

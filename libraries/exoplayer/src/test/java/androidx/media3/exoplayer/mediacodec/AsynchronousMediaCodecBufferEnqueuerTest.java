@@ -57,7 +57,11 @@ public class AsynchronousMediaCodecBufferEnqueuerTest {
     codec.start();
     handlerThread = new TestHandlerThread("TestHandlerThread");
     enqueuer =
-        new AsynchronousMediaCodecBufferEnqueuer(codec, handlerThread, mockConditionVariable);
+        new AsynchronousMediaCodecBufferEnqueuer(
+            codec,
+            handlerThread,
+            mockConditionVariable,
+            /* enableAsyncCryptoSynchronization= */ false);
   }
 
   @After

@@ -17,13 +17,13 @@ package androidx.media3.datasource.cache;
 
 import static androidx.media3.test.utils.TestUtil.createTestFile;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.File;
@@ -34,6 +34,7 @@ import java.util.Collection;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -208,6 +209,8 @@ public class CachedContentIndexTest {
     0x66,
     (byte) 0x8A // hashcode_of_CachedContent_array
   };
+
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
   private File cacheDir;
 
   @Before
@@ -373,24 +376,15 @@ public class CachedContentIndexTest {
       assertThat(b != -1).isTrue();
     }
 
-    boolean threw = false;
-    try {
-      assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance(key2));
-    } catch (AssertionError e) {
-      threw = true;
-    }
-    assertWithMessage("Encrypted index file can not be read with different encryption key")
-        .that(threw)
-        .isTrue();
+    assertThrows(
+        "Encrypted index file can not be read with different encryption key",
+        AssertionError.class,
+        () -> assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance(key2)));
 
-    try {
-      assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance());
-    } catch (AssertionError e) {
-      threw = true;
-    }
-    assertWithMessage("Encrypted index file can not be read without encryption key")
-        .that(threw)
-        .isTrue();
+    assertThrows(
+        "Encrypted index file can not be read without encryption key",
+        AssertionError.class,
+        () -> assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance()));
 
     // Non encrypted index file can be read even when encryption key provided.
     assertStoredAndLoadedEqual(newLegacyInstance(), newLegacyInstance(key));
@@ -462,7 +456,7 @@ public class CachedContentIndexTest {
   }
 
   private CachedContentIndex newInstance() {
-    return new CachedContentIndex(TestUtil.getInMemoryDatabaseProvider());
+    return new CachedContentIndex(inMemoryDatabaseRule.createDatabaseProvider());
   }
 
   private CachedContentIndex newLegacyInstance() {

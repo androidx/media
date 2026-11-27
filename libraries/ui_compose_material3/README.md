@@ -6,6 +6,12 @@ Provides out of the box UI elements such as Composable icons and buttons.
 
 The easiest way to use the module is to add it as a gradle dependency:
 
+```kotlin
+implementation("androidx.media3:media3-ui-compose-material3:1.X.X")
+```
+
+Or in Gradle Groovy DSL `build.gradle`:
+
 ```groovy
 implementation 'androidx.media3:media3-ui-compose-material3:1.X.X'
 ```

@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -71,13 +72,14 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private static final int MSG_START_RENDERING = 1;
   private static final int MSG_STOP_RENDERING = 2;
   private static final int MSG_SET_VOLUME = 3;
-  private static final int MSG_SET_PLAYBACK_AUDIO_GRAPH_WRAPPER = 4;
+  private static final int MSG_REPLACE_PLAYBACK_AUDIO_GRAPH_WRAPPER = 4;
   private static final int MSG_SET_OUTPUT_SURFACE_INFO = 5;
   private static final int MSG_CLEAR_OUTPUT_SURFACE = 6;
   private static final int MSG_START_SEEK = 7;
   private static final int MSG_END_SEEK = 8;
   private static final int MSG_RELEASE = 9;
   private static final int MSG_SET_AUDIO_ATTRIBUTES = 10;
+  private static final int MSG_REDRAW = 11;
 
   private final Clock clock;
   private final HandlerWrapper handler;
@@ -95,6 +97,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private int droppedFrames;
   private long droppedFrameAccumulationStartTimeMs;
 
+  private boolean replayAllowed;
   private boolean released;
 
   /**
@@ -122,6 +125,8 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
     this.videoPacketReleaseControl = videoPacketReleaseControl;
+    // Allowing replay for the first frame.
+    replayAllowed = true;
   }
 
   // Public methods
@@ -154,10 +159,14 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     handler.obtainMessage(MSG_CLEAR_OUTPUT_SURFACE, surfaceCleared).sendToTarget();
   }
 
-  /** Sets a new {@link PlaybackAudioGraphWrapper}. */
-  public void setPlaybackAudioGraphWrapper(PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
+  /**
+   * Releases the current {@link PlaybackAudioGraphWrapper} and replaces it with the provided
+   * instance.
+   */
+  public void replacePlaybackAudioGraphWrapper(
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
     handler
-        .obtainMessage(MSG_SET_PLAYBACK_AUDIO_GRAPH_WRAPPER, playbackAudioGraphWrapper)
+        .obtainMessage(MSG_REPLACE_PLAYBACK_AUDIO_GRAPH_WRAPPER, playbackAudioGraphWrapper)
         .sendToTarget();
   }
 
@@ -186,6 +195,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   public void setAudioAttributes(AudioAttributes attributes) {
     handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, attributes).sendToTarget();
+  }
+
+  public void redraw() {
+    handler.sendEmptyMessage(MSG_REDRAW);
   }
 
   /**
@@ -220,15 +233,19 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
       switch (message.what) {
         case MSG_START_RENDERING:
           startRenderingInternal();
+          replayAllowed = false;
           break;
         case MSG_STOP_RENDERING:
           stopRenderingInternal();
+          // If seeked when paused, replay will still be allowed, but videoPacketReleaseControl
+          // ignores the replay.
+          replayAllowed = true;
           break;
         case MSG_SET_VOLUME:
           checkNotNull(playbackAudioGraphWrapper).setVolume(/* volume= */ (float) message.obj);
           break;
-        case MSG_SET_PLAYBACK_AUDIO_GRAPH_WRAPPER:
-          playbackAudioGraphWrapper = (PlaybackAudioGraphWrapper) message.obj;
+        case MSG_REPLACE_PLAYBACK_AUDIO_GRAPH_WRAPPER:
+          replacePlaybackAudioGraphWrapperInternal((PlaybackAudioGraphWrapper) message.obj);
           break;
         case MSG_SET_OUTPUT_SURFACE_INFO:
           setOutputSurfaceInfoOnInternalThread(
@@ -253,6 +270,11 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           break;
         case MSG_SET_AUDIO_ATTRIBUTES:
           playbackAudioGraphWrapper.setAudioAttributes((AudioAttributes) message.obj);
+          break;
+        case MSG_REDRAW:
+          if (SDK_INT >= 26 && videoPacketReleaseControl != null && replayAllowed) {
+            videoPacketReleaseControl.redraw();
+          }
           break;
         default:
           maybeRaiseError(
@@ -289,6 +311,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
       playbackAudioGraphWrapper.release();
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
       playbackVideoGraphWrapper.release();
+      if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+        videoPacketReleaseControl.close();
+      }
     } catch (RuntimeException e) {
       Log.e(TAG, "error while releasing the player", e);
     } finally {
@@ -296,29 +321,32 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     }
   }
 
-  public void startRenderingInternal() {
+  private void startRenderingInternal() {
     droppedFrameAccumulationStartTimeMs = clock.elapsedRealtime();
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
-    if (videoPacketReleaseControl != null) {
+    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
       videoPacketReleaseControl.onStarted();
     }
   }
 
-  public void stopRenderingInternal() {
+  private void stopRenderingInternal() {
     maybeNotifyDroppedFrames();
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
-    if (videoPacketReleaseControl != null) {
+    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
       videoPacketReleaseControl.onStopped();
     }
   }
 
+  private void replacePlaybackAudioGraphWrapperInternal(
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
+    this.playbackAudioGraphWrapper.release();
+    this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
+  }
+
   private void clearOutputSurfaceInternal(ConditionVariable surfaceCleared) {
     try {
-      if (videoPacketReleaseControl != null) {
-        videoPacketReleaseControl.setOutputSurface(null);
-      }
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
       surfaceCleared.open();
     } catch (RuntimeException e) {
@@ -331,9 +359,6 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private void setOutputSurfaceInfoOnInternalThread(OutputSurfaceInfo outputSurfaceInfo) {
     try {
-      if (videoPacketReleaseControl != null) {
-        videoPacketReleaseControl.setOutputSurface(outputSurfaceInfo.surface);
-      }
       playbackVideoGraphWrapper.setOutputSurfaceInfo(
           outputSurfaceInfo.surface, outputSurfaceInfo.size);
     } catch (RuntimeException e) {

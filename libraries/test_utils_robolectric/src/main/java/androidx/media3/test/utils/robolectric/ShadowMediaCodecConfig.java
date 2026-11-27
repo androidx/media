@@ -119,14 +119,17 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
       new CodecInfo(
           /* codecName= */ "media3.video.vp9",
           MimeTypes.VIDEO_VP9,
-          /* profileLevels= */ ImmutableList.of(),
+          /* profileLevels= */ ImmutableList.of(
+              createCodecProfileLevel(CodecProfileLevel.VP9Profile0, CodecProfileLevel.VP9Level51)),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AV1 =
       new CodecInfo(
           /* codecName= */ "media3.video.av1",
           MimeTypes.VIDEO_AV1,
-          /* profileLevels= */ ImmutableList.of(),
+          /* profileLevels= */ ImmutableList.of(
+              createCodecProfileLevel(
+                  CodecProfileLevel.AV1ProfileMain8, CodecProfileLevel.AV1Level51)),
           /* colorFormats= */ ImmutableList.of(
               MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible));
   public static final CodecInfo CODEC_INFO_AAC =
@@ -179,14 +182,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
           CODEC_INFO_RAW);
 
   /**
-   * @deprecated Use {@link ShadowMediaCodecConfig#withAllDefaultSupportedCodecs()} instead.
-   */
-  @Deprecated
-  public static ShadowMediaCodecConfig forAllSupportedMimeTypes() {
-    return withAllDefaultSupportedCodecs();
-  }
-
-  /**
    * Returns a {@link ShadowMediaCodecConfig} instance populated with a default list of supported
    * decoders using a default codec configuration.
    *
@@ -196,14 +191,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   public static ShadowMediaCodecConfig withAllDefaultSupportedCodecs() {
     return new ShadowMediaCodecConfig(
         createDecoders(ALL_SUPPORTED_CODECS.asList(), /* forcePassthrough= */ false));
-  }
-
-  /**
-   * @deprecated Use {@link ShadowMediaCodecConfig#withNoDefaultSupportedCodecs()} instead.
-   */
-  @Deprecated
-  public static ShadowMediaCodecConfig withNoDefaultSupportedMimeTypes() {
-    return withNoDefaultSupportedCodecs();
   }
 
   /** Returns a {@link ShadowMediaCodecConfig} instance populated with no shadow codecs. */
@@ -245,7 +232,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   // TODO(b/452541218): Remove this suppression once Robolectric is updated to a version that
   //  includes the @RequiresApi(Q) annotation from ShadowMediaCodecList.addCodec().
   @SuppressLint("NewApi") // The upstream annotation causing this warning was removed.
-  public static void configureShadowMediaCodec(
+  private static void configureShadowMediaCodec(
       String codecName,
       String mimeType,
       boolean isEncoder,
@@ -401,7 +388,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
     public void configure() {
       // TODO: Update ShadowMediaCodec to consider the MediaFormat.KEY_MAX_INPUT_SIZE value passed
       // to configure() so we don't have to specify large buffers here.
-      int bufferSize = MimeTypes.isVideo(codecInfo.mimeType) ? 250_000 : 20_000;
+      int bufferSize = MimeTypes.isVideo(codecInfo.mimeType) ? 1_000_000 : 20_000;
       configureShadowMediaCodec(
           codecInfo.codecName,
           codecInfo.mimeType,

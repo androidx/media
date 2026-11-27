@@ -32,7 +32,7 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun rememberPreviousButtonState(player: Player): PreviousButtonState {
+fun rememberPreviousButtonState(player: Player?): PreviousButtonState {
   val previousButtonState = remember(player) { PreviousButtonState(player) }
   LaunchedEffect(player) { previousButtonState.observe() }
   return previousButtonState
@@ -44,15 +44,16 @@ fun rememberPreviousButtonState(player: Player): PreviousButtonState {
  *
  * This button has no internal state to maintain, it can only be enabled or disabled.
  *
- * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)`
+ * @property[isEnabled] true if [player] is not `null` and [Player.COMMAND_SEEK_TO_PREVIOUS] is
+ *   available.
  */
 @UnstableApi
-class PreviousButtonState(private val player: Player) {
+class PreviousButtonState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)
     private set
 
-  private val playerStateObserver =
-    player.observeState(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
       isEnabled = player.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)
     }
 
@@ -60,18 +61,13 @@ class PreviousButtonState(private val player: Player) {
    * Handles the interaction with the PreviousButton by seeking to a later position in the current
    * or next MediaItem (if available).
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
-   * it can be freely provided into containers that take care of skipping the [onClick] if a
-   * particular UI node is not enabled (see Compose Clickable Modifier).
+   * This method does nothing if [Player.COMMAND_SEEK_TO_PREVIOUS] is not available.
    *
    * @see [Player.seekToPrevious]
    * @see [Player.COMMAND_SEEK_TO_PREVIOUS]
    */
   fun onClick() {
-    check(isEnabled)
-    if (player.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)) {
-      player.seekToPrevious()
-    }
+    player?.let { if (it.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)) it.seekToPrevious() }
   }
 
   /**
@@ -79,5 +75,7 @@ class PreviousButtonState(private val player: Player) {
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    * enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing = playerStateObserver.observe()
+  suspend fun observe() {
+    playerStateObserver?.observe()
+  }
 }

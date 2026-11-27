@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
@@ -113,6 +114,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void setUsesStreamPrerollFlags() {
+    castNonNull(mediaPeriod).setUsesStreamPrerollFlags();
+  }
+
+  @Override
   public long readDiscontinuity() {
     long discontinuityPositionUs = mediaPeriod.readDiscontinuity();
     return discontinuityPositionUs == C.TIME_UNSET
@@ -176,6 +182,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkNotNull(callback).onContinueLoadingRequested(/* source= */ this);
   }
 
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    long correctedEndPositionUs =
+        endPositionUs == C.TIME_END_OF_SOURCE ? C.TIME_END_OF_SOURCE : endPositionUs - timeOffsetUs;
+    long actualEndPositionUs = mediaPeriod.setEndPositionUs(correctedEndPositionUs);
+    return actualEndPositionUs == C.TIME_END_OF_SOURCE
+        ? C.TIME_END_OF_SOURCE
+        : actualEndPositionUs + timeOffsetUs;
+  }
+
   private static final class TimeOffsetSampleStream implements SampleStream {
 
     private final SampleStream sampleStream;
@@ -213,6 +229,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public int skipData(long positionUs) {
       return sampleStream.skipData(positionUs - timeOffsetUs);
+    }
+
+    @Override
+    public @SampleStream.Flags int getFlags() {
+      return sampleStream.getFlags();
     }
   }
 }

@@ -43,7 +43,7 @@ import java.util.concurrent.Executor;
 @UnstableApi
 public abstract class BaseGlShaderProgram implements GlShaderProgram {
   private static final String TAG = "BaseGlShaderProgram";
-  protected final TexturePool outputTexturePool;
+  /* package */ final TexturePool outputTexturePool;
   private InputListener inputListener;
   private OutputListener outputListener;
   private ErrorListener errorListener;

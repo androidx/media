@@ -60,14 +60,13 @@ public class FakeTrackSelector extends DefaultTrackSelector {
   }
 
   @Override
-  protected ExoTrackSelection.@NullableType Definition[] selectAllTracks(
+  protected void selectAllTracks(
+      ExoTrackSelection.@NullableType Definition[] definitions,
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       @AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
       Parameters params) {
     int rendererCount = mappedTrackInfo.getRendererCount();
-    ExoTrackSelection.@NullableType Definition[] definitions =
-        new ExoTrackSelection.Definition[rendererCount];
     for (int i = 0; i < rendererCount; i++) {
       TrackGroupArray trackGroupArray = mappedTrackInfo.getTrackGroups(i);
       boolean hasTracks = trackGroupArray.length > 0;
@@ -76,7 +75,6 @@ public class FakeTrackSelector extends DefaultTrackSelector {
               ? new ExoTrackSelection.Definition(trackGroupArray.get(0), /* tracks...= */ 0)
               : null;
     }
-    return definitions;
   }
 
   /** Returns list of all {@link FakeTrackSelection}s that this track selector has made so far. */

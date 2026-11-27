@@ -18,7 +18,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.BT601_MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.transformer.ParameterizedAndroidTestUtil.assumeSequenceFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
@@ -58,7 +58,7 @@ public final class ParameterizedInputSequenceExportTest {
       new SdrImageItemConfig(JPG_ASSET, /* frameCount= */ 41);
   private static final VideoItemConfig BT709_ITEM =
       new VideoItemConfig(
-          MP4_ASSET,
+          MP4_ADVANCED_ASSET,
           new Effects(
               /* audioProcessors= */ ImmutableList.of(),
               ImmutableList.of(Presentation.createForHeight(360))));

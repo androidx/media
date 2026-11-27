@@ -28,6 +28,6 @@ track 0:
       data = length 18, hash 77EBC81
   sample 0:
     time = 4133288
-    flags = 536870913
+    flags = 603979777
     data = length 70930, hash 2CD9EE13
 tracksEnded = true

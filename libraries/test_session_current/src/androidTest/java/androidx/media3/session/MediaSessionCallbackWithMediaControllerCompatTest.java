@@ -32,6 +32,7 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.VOLUME_CHANGE_TIMEOUT_MS;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -60,6 +61,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.PollingCheck;
@@ -77,6 +79,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -153,13 +156,13 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                   private ControllerInfo connectedController;
 
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
                     if (EXPECTED_CONTROLLER_PACKAGE_NAME.equals(controller.getPackageName())) {
                       connectedController = controller;
-                      return MediaSession.Callback.super.onConnect(session, controller);
+                      return MediaSession.Callback.super.onConnectAsync(session, controller);
                     }
-                    return MediaSession.ConnectionResult.reject();
+                    return immediateFuture(MediaSession.ConnectionResult.reject());
                   }
 
                   @Override
@@ -196,14 +199,14 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                   private ControllerInfo connectedController;
 
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
                     if (EXPECTED_CONTROLLER_PACKAGE_NAME.equals(controller.getPackageName())) {
                       connectedController = controller;
                       connectedLatch.countDown();
-                      return MediaSession.Callback.super.onConnect(session, controller);
+                      return MediaSession.Callback.super.onConnectAsync(session, controller);
                     }
-                    return MediaSession.ConnectionResult.reject();
+                    return immediateFuture(MediaSession.ConnectionResult.reject());
                   }
 
                   @Override
@@ -239,10 +242,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             controllerInOnConnect.set(controller);
-            return MediaSession.Callback.super.onConnect(session, controller);
+            return MediaSession.Callback.super.onConnectAsync(session, controller);
           }
 
           @Override
@@ -275,9 +278,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
-            return MediaSession.ConnectionResult.reject();
+            return immediateFuture(MediaSession.ConnectionResult.reject());
           }
 
           @Override
@@ -299,6 +302,117 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     controller.getTransportControls().prepare();
 
     assertThat(latch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
+  }
+
+  @Test
+  public void onConnectAsync_asyncAccept_legacyControllerConnectsSuccessfully() throws Exception {
+    CountDownLatch onPostConnectLatch = new CountDownLatch(1);
+    CountDownLatch onSetMediaItemsLatch = new CountDownLatch(1);
+    SettableFuture<MediaSession.ConnectionResult> onConnectFuture = SettableFuture.create();
+    AtomicBoolean onConnectFutureCompletedInsidePostConnect = new AtomicBoolean(false);
+    AtomicBoolean onSetMediaItemsCalledAfterPostConnect = new AtomicBoolean(false);
+    List<Boolean> postConnectMethodCall = new ArrayList<>();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+              MediaSession session, ControllerInfo controller) {
+            return onConnectFuture;
+          }
+
+          @Override
+          public void onPostConnect(MediaSession session, ControllerInfo controller) {
+            onConnectFutureCompletedInsidePostConnect.set(onConnectFuture.isDone());
+            postConnectMethodCall.add(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY));
+            onPostConnectLatch.countDown();
+          }
+
+          @Override
+          public ListenableFuture<MediaItemsWithStartPosition> onSetMediaItems(
+              MediaSession mediaSession,
+              ControllerInfo controller,
+              List<MediaItem> mediaItems,
+              int startIndex,
+              long startPositionMs) {
+            if (!mediaItems.isEmpty() && mediaItems.get(0).mediaId.equals("mediaIdDelayed")) {
+              onSetMediaItemsCalledAfterPostConnect.set(onPostConnectLatch.getCount() == 0);
+              onSetMediaItemsLatch.countDown();
+              MediaItem.Builder mediaItem =
+                  new MediaItem.Builder()
+                      .setMediaId("mediaIdDelayed")
+                      .setUri("http://www.example.com");
+              MediaItemsWithStartPosition mediaItemsWithStartPosition =
+                  new MediaItemsWithStartPosition(
+                      ImmutableList.of(mediaItem.build()),
+                      /* startIndex= */ 0,
+                      /* startPositionMs= */ 0L);
+              return immediateFuture(mediaItemsWithStartPosition);
+            }
+            return MediaSession.Callback.super.onSetMediaItems(
+                mediaSession, controller, mediaItems, startIndex, startPositionMs);
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setCallback(callback)
+            .setId("onConnectAsync_asyncAccept")
+            .build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ false);
+    controller.getTransportControls().playFromMediaId("mediaIdDelayed", Bundle.EMPTY);
+
+    // Wait before completing onConnectAsync.
+    assertThat(onPostConnectLatch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
+    onConnectFuture.set(new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
+
+    assertThat(onPostConnectLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(onSetMediaItemsLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    // Assert that play was not called before onPostConnectLatch was called.
+    assertThat(postConnectMethodCall).containsExactly(false);
+    // Assert postConnect was called only after completing the future.
+    assertThat(onConnectFutureCompletedInsidePostConnect.get()).isTrue();
+    // Assert onSetMediaItems was called after postConnect.
+    assertThat(onSetMediaItemsCalledAfterPostConnect.get()).isTrue();
+    // Assert pending play task was run eventually.
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+  }
+
+  @Test
+  public void onConnectAsync_asyncReject_legacyControllerDisconnects() throws Exception {
+    CountDownLatch onPostConnectLatch = new CountDownLatch(1);
+    SettableFuture<MediaSession.ConnectionResult> onConnectFuture = SettableFuture.create();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+              MediaSession session, ControllerInfo controller) {
+            return onConnectFuture;
+          }
+
+          @Override
+          public void onPostConnect(MediaSession session, ControllerInfo controller) {
+            onPostConnectLatch.countDown();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setCallback(callback)
+            .setId("onConnectAsync_asyncReject")
+            .build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ false);
+    controller.getTransportControls().play();
+
+    onConnectFuture.set(MediaSession.ConnectionResult.reject());
+
+    assertThat(onPostConnectLatch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY)).isFalse();
   }
 
   @Test
@@ -1202,12 +1316,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             context,
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
-    int testRepeatMode = Player.REPEAT_MODE_ALL;
+    int testRepeatMode = PlaybackStateCompat.REPEAT_MODE_ALL;
 
     controller.getTransportControls().setRepeatMode(testRepeatMode);
     player.awaitMethodCalled(MockPlayer.METHOD_SET_REPEAT_MODE, TIMEOUT_MS);
 
-    assertThat(player.repeatMode).isEqualTo(testRepeatMode);
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ALL);
   }
 
   @Test
@@ -1506,18 +1620,21 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             if (EXPECTED_CONTROLLER_PACKAGE_NAME.equals(controller.getPackageName())) {
-              MediaSession.ConnectionResult commands =
-                  MediaSession.Callback.super.onConnect(session, controller);
-              SessionCommands.Builder builder = commands.availableSessionCommands.buildUpon();
-              builder.add(new SessionCommand(testCommand, /* extras= */ Bundle.EMPTY));
-              return MediaSession.ConnectionResult.accept(
-                  /* availableSessionCommands= */ builder.build(),
-                  commands.availablePlayerCommands);
+              return Futures.transform(
+                  MediaSession.Callback.super.onConnectAsync(session, controller),
+                  commands -> {
+                    SessionCommands.Builder builder = commands.availableSessionCommands.buildUpon();
+                    builder.add(new SessionCommand(testCommand, /* extras= */ Bundle.EMPTY));
+                    return MediaSession.ConnectionResult.accept(
+                        /* availableSessionCommands= */ builder.build(),
+                        commands.availablePlayerCommands);
+                  },
+                  MoreExecutors.directExecutor());
             } else {
-              return MediaSession.ConnectionResult.reject();
+              return immediateFuture(MediaSession.ConnectionResult.reject());
             }
           }
 
@@ -1559,18 +1676,21 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             if (EXPECTED_CONTROLLER_PACKAGE_NAME.equals(controller.getPackageName())) {
-              MediaSession.ConnectionResult connectionResult =
-                  MediaSession.Callback.super.onConnect(session, controller);
-              SessionCommands.Builder builder =
-                  connectionResult.availableSessionCommands.buildUpon().add(customCommand);
-              return MediaSession.ConnectionResult.accept(
-                  /* availableSessionCommands= */ builder.build(),
-                  connectionResult.availablePlayerCommands);
+              return Futures.transform(
+                  MediaSession.Callback.super.onConnectAsync(session, controller),
+                  connectionResult -> {
+                    SessionCommands.Builder builder =
+                        connectionResult.availableSessionCommands.buildUpon().add(customCommand);
+                    return MediaSession.ConnectionResult.accept(
+                        /* availableSessionCommands= */ builder.build(),
+                        connectionResult.availablePlayerCommands);
+                  },
+                  MoreExecutors.directExecutor());
             } else {
-              return MediaSession.ConnectionResult.reject();
+              return immediateFuture(MediaSession.ConnectionResult.reject());
             }
           }
 
@@ -1609,9 +1729,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     MediaSession.Callback sessionCallback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
-            return MediaSession.ConnectionResult.reject();
+            return immediateFuture(MediaSession.ConnectionResult.reject());
           }
         };
     session =
@@ -2099,7 +2219,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
   @Test
   public void onCommandRequest() throws Exception {
-    ArrayList<Integer> commands = new ArrayList<>();
+    List<Integer> commands = new CopyOnWriteArrayList<>();
     CountDownLatch latchForPause = new CountDownLatch(1);
     MediaSession.Callback callback =
         new TestSessionCallback() {
@@ -2146,8 +2266,55 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   @Test
   public void deadlock() throws Exception {
     MockPlayer player = new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
+    int iterations = 100;
+    int commandsPerIteration = 5;
+    CountDownLatch latch = new CountDownLatch(iterations * commandsPerIteration);
+    ForwardingPlayer countingPlayer =
+        new ForwardingPlayer(player) {
+          @Override
+          public void play() {
+            super.play();
+            latch.countDown();
+          }
+
+          @Override
+          public void pause() {
+            super.pause();
+            latch.countDown();
+          }
+
+          @Override
+          public void stop() {
+            super.stop();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToNext() {
+            super.seekToNext();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToNextMediaItem() {
+            super.seekToNextMediaItem();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToPrevious() {
+            super.seekToPrevious();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToPreviousMediaItem() {
+            super.seekToPreviousMediaItem();
+            latch.countDown();
+          }
+        };
     session =
-        new MediaSession.Builder(context, player)
+        new MediaSession.Builder(context, countingPlayer)
             .setId("deadlock")
             .setCallback(new TestSessionCallback())
             .build();
@@ -2160,7 +2327,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     handler.postAndSync(
         () -> {
           int state = STATE_IDLE;
-          for (int i = 0; i < 100; i++) {
+          for (int i = 0; i < iterations; i++) {
             // triggers call from session to controller.
             player.notifyPlaybackStateChanged(state);
             // triggers call from controller to session.
@@ -2178,6 +2345,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           }
         },
         LONG_TIMEOUT_MS);
+    assertWithMessage("Timed out waiting for all commands to be dispatched to the player")
+        .that(latch.await(LONG_TIMEOUT_MS, MILLISECONDS))
+        .isTrue();
   }
 
   @Test
@@ -3077,12 +3247,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   private static class TestSessionCallback implements MediaSession.Callback {
 
     @Override
-    public MediaSession.ConnectionResult onConnect(
+    public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
         MediaSession session, ControllerInfo controller) {
       if (EXPECTED_CONTROLLER_PACKAGE_NAME.equals(controller.getPackageName())) {
-        return MediaSession.Callback.super.onConnect(session, controller);
+        return MediaSession.Callback.super.onConnectAsync(session, controller);
       }
-      return MediaSession.ConnectionResult.reject();
+      return immediateFuture(MediaSession.ConnectionResult.reject());
     }
   }
 
@@ -3093,7 +3263,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     public CallerCollectorPlayer(AtomicReference<MediaSession> mediaSession, MockPlayer player) {
       super(player);
       this.mediaSession = mediaSession;
-      callers = new ArrayList<>();
+      callers = new CopyOnWriteArrayList<>();
     }
 
     @Override

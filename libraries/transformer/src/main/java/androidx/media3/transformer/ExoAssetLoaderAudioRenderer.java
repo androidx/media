@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
@@ -22,8 +23,11 @@ import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /* package */ final class ExoAssetLoaderAudioRenderer extends ExoAssetLoaderBaseRenderer {
@@ -52,7 +56,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   protected void initDecoder(Format inputFormat) throws ExportException {
+    checkArgument(!shouldEnableBypass(inputFormat));
     decoder = decoderFactory.createForAudioDecoding(inputFormat, logSessionId);
+  }
+
+  @Override
+  protected boolean shouldEnableBypass(Format format) {
+    return Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW)
+        && Util.isEncodingLinearPcm(format.pcmEncoding);
   }
 
   @Override

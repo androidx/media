@@ -20,7 +20,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
 
 import android.os.HandlerThread;
 import androidx.media3.common.Timeline;
@@ -33,10 +32,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Unit test for {@link PlayerMessage}. */
 @RunWith(AndroidJUnit4.class)
@@ -44,13 +46,14 @@ public class PlayerMessageTest {
 
   private static final long TIMEOUT_MS = 10;
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
   @Mock Clock clock;
   private HandlerThread handlerThread;
   private PlayerMessage message;
 
   @Before
   public void setUp() {
-    initMocks(this);
     PlayerMessage.Sender sender = (message) -> {};
     PlayerMessage.Target target = (messageType, payload) -> {};
     handlerThread = new HandlerThread("TestHandler");
@@ -60,7 +63,7 @@ public class PlayerMessageTest {
             sender,
             target,
             Timeline.EMPTY,
-            /* defaultWindowIndex= */ 0,
+            /* defaultMediaItemIndex= */ 0,
             clock,
             handlerThread.getLooper());
   }

@@ -16,31 +16,35 @@
 
 package androidx.media3.ui.compose.testutils
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlin.time.Duration
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.plus
-import kotlinx.coroutines.test.TestScope
+import androidx.compose.ui.test.MainTestClock
 
 /**
- * Moves the virtual clock of this dispatcher forward by [the specified amount][delayTime], running
- * the scheduled tasks in the meantime.
+ * Moves the virtual clock of this MainTestClock's dispatcher forward by [milliseconds], running the
+ * scheduled tasks in the meantime.
  *
- * Compared to a single [kotlinx.coroutines.test.advanceTimeBy], it does run the tasks that are
- * scheduled at exactly currentTime + [delayTime]. There is often a need for another run of the
- * scheduled tasks because they contain exactly the update needed for a correct assertion of the
- * test. If we will stop just before executing any task starting at the next millisecond, we might
- * be off by one iteration/task and there would be a need to awkwardly advance by delayTime+1.
+ * This helper addresses two critical differences in standard testing APIs:
+ *
+ * 1. **Difference to [MainTestClock.advanceTimeBy]**: Standard Compose clock advancement rounds the
+ *    requested duration up to the nearest multiple of the frame duration (typically 16ms) by
+ *    default to align with UI cycles. This often leads to discrepancies (e.g., advancing by 1000ms
+ *    results in 1008ms). This function defaults [ignoreFrameDuration] to `true` to allow precise
+ *    millisecond control, which is essential for verifying Media3 position-based logic. It also
+ *    runs tasks scheduled at exactly currentTime + [milliseconds]. This function includes an
+ *    explicit [kotlinx.coroutines.test.runCurrent] call on the underlying scheduler to drain any
+ *    tasks scheduled for the final millisecond, ensuring state assertions at that boundary reflect
+ *    the intended update.
+ *
+ * 2. **Difference to [kotlinx.coroutines.test.advanceTimeBy]**: Standard coroutine advancement only
+ *    moves virtual time for coroutines. In the v2 environment, this helper uses the [MainTestClock]
+ *    API to drive the **unified scheduler**. Unlike pure coroutine advancement, this call **pumps
+ *    Compose frames**, which is required for recomposition and for UI-state components to observe
+ *    the time change. Without this, the Kotlin clock would advance (moving the `FakePlayer`
+ *    position) but the Compose UI would remain frozen.
  */
-internal fun TestScope.advanceTimeByInclusive(delayTime: Duration) {
-  testScheduler.advanceTimeBy(delayTime)
-  testScheduler.runCurrent()
+internal fun MainTestClock.advancePrecisely(
+  milliseconds: Long,
+  ignoreFrameDuration: Boolean = true,
+) {
+  this.advanceTimeBy(milliseconds, ignoreFrameDuration)
+  this.scheduler.runCurrent()
 }
-
-// A scope that
-// 1. inherits the job from backgroundScope for cancellation after test assertions
-// 2. uses Composable's FrameClock to its context for animation, e.g. withFrameMillis
-@Composable
-internal fun TestScope.rememberCoroutineScopeWithBackgroundCancellation(): CoroutineScope =
-  rememberCoroutineScope().plus(backgroundScope.coroutineContext)

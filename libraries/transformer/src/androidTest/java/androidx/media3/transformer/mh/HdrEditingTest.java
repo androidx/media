@@ -56,6 +56,7 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +66,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -74,6 +76,7 @@ import org.junit.runner.RunWith;
  * {@link Transformer} instrumentation test for applying an {@linkplain
  * Composition#HDR_MODE_KEEP_HDR HDR frame edit}.
  */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class HdrEditingTest {
 
@@ -143,6 +146,7 @@ public final class HdrEditingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void exportAndTranscode_hdr10File_whenHdrEditingIsSupported() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -280,6 +284,7 @@ public final class HdrEditingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void
       exportAndTranscode_av1FileWithAv1HdrEditingUnsupportedAndHevcHdrEditingSupported_fallsBackToH265()
           throws Exception {

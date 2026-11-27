@@ -28,6 +28,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Build;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Clock;
@@ -35,13 +36,14 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.List;
 
 /** Utility class for checking testing {@link EditedMediaItemSequence} instances. */
 public final class SequenceEffectTestUtil {
   public static final ImmutableList<Effect> NO_EFFECT = ImmutableList.of();
-  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 50;
+  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 30;
 
   /**
    * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a
@@ -58,16 +60,17 @@ public final class SequenceEffectTestUtil {
   private SequenceEffectTestUtil() {}
 
   /**
-   * Creates a {@link Composition} with the specified {@link Presentation} and {@link
-   * EditedMediaItem} instances.
+   * Creates a {@link Composition} with a sequence of {@link C#TRACK_TYPE_VIDEO} only, using the
+   * specified {@link Presentation} and {@link EditedMediaItem} instances.
    */
-  public static Composition createComposition(
+  public static Composition createVideoOnlyComposition(
       @Nullable Presentation presentation,
       EditedMediaItem editedMediaItem,
       EditedMediaItem... editedMediaItems) {
     Composition.Builder builder =
         new Composition.Builder(
-            new EditedMediaItemSequence.Builder(editedMediaItem)
+            new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+                .addItem(editedMediaItem)
                 .addItems(editedMediaItems)
                 .build());
     if (presentation != null) {

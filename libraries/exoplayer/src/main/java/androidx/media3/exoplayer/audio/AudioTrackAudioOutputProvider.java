@@ -51,6 +51,8 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink.AudioTrackBufferSizeProv
 import androidx.media3.exoplayer.audio.DefaultAudioSink.AudioTrackProvider;
 import androidx.media3.exoplayer.audio.DefaultAudioSink.OutputMode;
 import androidx.media3.extractor.DtsUtil;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -63,16 +65,8 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
 
   private static final String TAG = "ATAudioOutputProvider";
 
-  /**
-   * Whether to throw an {@link AudioTrackAudioOutput.InvalidAudioTrackTimestampException} when a
-   * spurious timestamp is reported from {@link AudioTrack#getTimestamp}.
-   *
-   * <p>The flag must be set before creating a player. Should be set to {@code true} for testing and
-   * debugging purposes only.
-   */
-  @SuppressWarnings("NonFinalStaticField") // Test-only access
-  @UnstableApi
-  public static boolean failOnSpuriousAudioTimestamp = false;
+  private static final Supplier<Boolean> COMPRESSED_OFFLOAD_EXPLICIT_AAC_ENABLED =
+      Suppliers.memoize(AudioTrackAudioOutputProvider::isCompressedOffloadExplicitAacEnabled);
 
   /** A builder to create {@link AudioTrackAudioOutputProvider} instances. */
   public static final class Builder {
@@ -83,7 +77,11 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
     private AudioTrackBufferSizeProvider bufferSizeProvider;
     @Nullable private AudioCapabilities audioCapabilities;
-    @Nullable private AudioTrackProvider audioTrackProvider;
+    private float maxPlaybackSpeed;
+
+    @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
+    @Nullable
+    private AudioTrackProvider audioTrackProvider;
 
     /**
      * Creates a new builder.
@@ -96,6 +94,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       if (context == null) {
         audioCapabilities = AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES;
       }
+      maxPlaybackSpeed = MAX_PLAYBACK_SPEED;
     }
 
     /**
@@ -149,6 +148,25 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       return this;
     }
 
+    /**
+     * Sets the maximum playback speed that an {@link AudioTrackAudioOutput} provided by this
+     * instance is going to be configured for. This is also used to allocate buffers that are big
+     * enough to not underrun at the maximum playback speed. This value has no effect if {@code
+     * useAudioOutputPlaybackParams} is disabled.
+     *
+     * <p>The default value is {@link DefaultAudioSink#MAX_PLAYBACK_SPEED}.
+     *
+     * @param maxPlaybackSpeed The maximum playback speed to use. Must be at least {@code 1f}.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setMaxPlaybackSpeed(float maxPlaybackSpeed) {
+      checkArgument(maxPlaybackSpeed >= 1f);
+      this.maxPlaybackSpeed = maxPlaybackSpeed;
+      return this;
+    }
+
     /** Sets the static {@link AudioCapabilities} for backwards compatibility. */
     @UnstableApi
     @CanIgnoreReturnValue
@@ -162,6 +180,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     /** Sets the {@link AudioTrackProvider} for backwards compatibility. */
     @UnstableApi
     @CanIgnoreReturnValue
+    @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
     /* package */ Builder setAudioTrackProvider(@Nullable AudioTrackProvider audioTrackProvider) {
       this.audioTrackProvider = audioTrackProvider;
       return this;
@@ -178,11 +197,16 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
   }
 
   @Nullable private final Context context;
-  @Nullable private final AudioTrackProvider audioTrackProvider;
+
+  @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
+  @Nullable
+  private final AudioTrackProvider audioTrackProvider;
+
   @Nullable private final BiConsumer<AudioTrack.Builder, OutputConfig> builderModifier;
   private final AudioTrackBufferSizeProvider audioTrackBufferSizeProvider;
   private final AudioOffloadSupportProvider audioOffloadSupportProvider;
   @Nullable private final CapabilityChangeListener capabilityChangeListener;
+  private final float maxPlaybackSpeed;
 
   private @MonotonicNonNull ListenerSet<Listener> listeners;
   private Clock clock;
@@ -199,6 +223,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     this.audioCapabilities = builder.audioCapabilities;
     this.audioTrackProvider = builder.audioTrackProvider;
     this.capabilityChangeListener = builder.context == null ? null : new CapabilityChangeListener();
+    this.maxPlaybackSpeed = builder.maxPlaybackSpeed;
     this.clock = Clock.DEFAULT;
   }
 
@@ -234,7 +259,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       outputMode = OUTPUT_MODE_PCM;
       outputEncoding = format.pcmEncoding;
       outputSampleRate = format.sampleRate;
-      outputChannelConfig = getAudioOutputChannelConfig(format.channelCount);
+      outputChannelConfig = getAudioOutputChannelConfig(format);
       outputPcmFrameSize = Util.getPcmFrameSize(outputEncoding, format.channelCount);
       usePlaybackParameters = formatConfig.enablePlaybackParameters;
     } else {
@@ -248,7 +273,16 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       if (formatConfig.enableOffload && audioOffloadSupport.isFormatSupported) {
         outputMode = OUTPUT_MODE_OFFLOAD;
         outputEncoding = MimeTypes.getEncoding(checkNotNull(format.sampleMimeType), format.codecs);
-        outputChannelConfig = getAudioOutputChannelConfig(format.channelCount);
+        outputChannelConfig = getAudioOutputChannelConfig(format);
+        if ((outputEncoding == C.ENCODING_AAC_HE_V1 || outputEncoding == C.ENCODING_AAC_HE_V2)
+            && outputSampleRate >= 16000
+            && !COMPRESSED_OFFLOAD_EXPLICIT_AAC_ENABLED.get()) {
+          if (outputEncoding == C.ENCODING_AAC_HE_V2 && format.channelCount == 2) {
+            outputChannelConfig = AudioFormat.CHANNEL_OUT_MONO;
+          }
+          outputEncoding = C.ENCODING_AAC_LC;
+          outputSampleRate /= 2;
+        }
         // Offload requires AudioTrack playback parameters to apply speed changes quickly.
         usePlaybackParameters = true;
         useOffloadGapless = audioOffloadSupport.isGaplessSupported;
@@ -287,7 +321,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
                 outputPcmFrameSize != C.LENGTH_UNSET ? outputPcmFrameSize : 1,
                 outputSampleRate,
                 bitrate,
-                usePlaybackParameters ? MAX_PLAYBACK_SPEED : DEFAULT_PLAYBACK_SPEED);
+                usePlaybackParameters ? maxPlaybackSpeed : DEFAULT_PLAYBACK_SPEED);
 
     return new OutputConfig.Builder()
         .setSampleRate(outputSampleRate)
@@ -364,7 +398,8 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       }
       throw new InitializationException();
     }
-    return new AudioTrackAudioOutput(audioTrack, config, capabilityChangeListener, clock);
+    return new AudioTrackAudioOutput(
+        audioTrack, config, capabilityChangeListener, maxPlaybackSpeed, clock);
   }
 
   @Override
@@ -372,8 +407,6 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     verifySinglePlaybackLooper();
     if (listeners == null) {
       listeners = new ListenerSet<>(Thread.currentThread());
-      // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
-      listeners.setThrowsWhenUsingWrongThread(false);
     }
     listeners.add(listener);
   }
@@ -391,6 +424,12 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     this.clock = clock;
   }
 
+  @UnstableApi
+  @Override
+  public boolean hasPendingReleases() {
+    return AudioTrackAudioOutput.hasPendingReleases();
+  }
+
   @Override
   public void release() {
     if (listeners != null) {
@@ -399,6 +438,13 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     if (audioCapabilitiesReceiver != null) {
       audioCapabilitiesReceiver.unregister();
     }
+  }
+
+  /** Returns the {@link AudioCapabilities}. */
+  @UnstableApi
+  @Nullable
+  public AudioCapabilities getAudioCapabilities() {
+    return audioCapabilities;
   }
 
   private android.media.AudioAttributes getAudioTrackAttributes(
@@ -428,12 +474,12 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
   }
 
-  private int getAudioOutputChannelConfig(int channelCount) {
+  private int getAudioOutputChannelConfig(Format format) {
     if (audioTrackProvider != null) {
-      return audioTrackProvider.getAudioTrackChannelConfig(channelCount);
+      return audioTrackProvider.getAudioTrackChannelConfig(format.channelCount);
     }
 
-    return Util.getAudioTrackChannelConfig(channelCount);
+    return Util.getAudioTrackChannelConfig(format);
   }
 
   private int getAudioTrackMinBufferSize(int sampleRateInHz, int channelConfig, int encoding) {
@@ -541,5 +587,11 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         audioCapabilitiesReceiver.setRoutedDevice(routedDevice);
       }
     }
+  }
+
+  private static boolean isCompressedOffloadExplicitAacEnabled() {
+    return SDK_INT > 37
+        && Objects.equals(
+            Util.getSystemProperty("persist.audio.compressed_offload_implicit_aac"), "false");
   }
 }

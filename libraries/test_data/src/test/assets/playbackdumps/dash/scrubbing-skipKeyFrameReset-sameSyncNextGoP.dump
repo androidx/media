@@ -444,3 +444,9 @@ MediaCodecAdapter (media3.video.hevc):
       timeUs = 1000002519000
       size = 16517
       rendered = true
+  setParameters:
+    count = 2
+    set parameters:
+      operating-rate = 960.0
+    set parameters:
+      operating-rate = 30.3

@@ -1439,6 +1439,7 @@ public class SimpleBasePlayerTest {
             .setPlaybackParameters(PlaybackParameters.DEFAULT)
             .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT)
             .setAudioAttributes(AudioAttributes.DEFAULT)
+            .setAudioSessionId(1234)
             .setVolume(1f)
             .setVideoSize(VideoSize.UNKNOWN)
             .setCurrentCues(CueGroup.EMPTY_TIME_ZERO)
@@ -1509,6 +1510,7 @@ public class SimpleBasePlayerTest {
             .setPlaybackParameters(playbackParameters)
             .setTrackSelectionParameters(trackSelectionParameters)
             .setAudioAttributes(audioAttributes)
+            .setAudioSessionId(5678)
             .setVolume(0.5f)
             .setVideoSize(videoSize)
             .setCurrentCues(cueGroup)
@@ -1569,6 +1571,7 @@ public class SimpleBasePlayerTest {
     verify(listener).onPlaybackParametersChanged(playbackParameters);
     verify(listener).onTrackSelectionParametersChanged(trackSelectionParameters);
     verify(listener).onAudioAttributesChanged(audioAttributes);
+    verify(listener).onAudioSessionIdChanged(5678);
     verify(listener).onVolumeChanged(0.5f);
     verify(listener).onVideoSizeChanged(videoSize);
     verify(listener).onCues(cueGroup.cues);
@@ -1635,6 +1638,7 @@ public class SimpleBasePlayerTest {
                         Player.EVENT_MAX_SEEK_TO_PREVIOUS_POSITION_CHANGED,
                         Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
                         Player.EVENT_AUDIO_ATTRIBUTES_CHANGED,
+                        Player.EVENT_AUDIO_SESSION_ID,
                         Player.EVENT_VOLUME_CHANGED,
                         Player.EVENT_SURFACE_SIZE_CHANGED,
                         Player.EVENT_VIDEO_SIZE_CHANGED,

@@ -63,6 +63,7 @@ public final class ParsableNalUnitBitArrayTest {
         new ParsableNalUnitBitArray(ALL_ESCAPING_TEST_DATA, 0, ALL_ESCAPING_TEST_DATA.length);
     assertThat(array.canReadBits(48)).isTrue();
     assertThat(array.canReadBits(49)).isFalse();
+    assertThat(array.canReadBits(72)).isFalse();
     assertThat(array.readBits(15)).isEqualTo(0);
     assertThat(array.readBit()).isFalse();
     assertThat(array.readBits(17)).isEqualTo(0);
@@ -80,6 +81,21 @@ public final class ParsableNalUnitBitArrayTest {
     assertThat(array.readBits(17)).isEqualTo(3);
     assertThat(array.readBits(7)).isEqualTo(126);
     assertThat(array.readBits(23)).isEqualTo(127);
+    assertThat(array.canReadBits(1)).isFalse();
+  }
+
+  @Test
+  public void readMix_respectsStartOffset() {
+    ParsableNalUnitBitArray array =
+        new ParsableNalUnitBitArray(
+            MIX_TEST_DATA, /* offset= */ 2, /* limit= */ MIX_TEST_DATA.length);
+    assertThat(array.canReadBits(48)).isTrue();
+    assertThat(array.canReadBits(49)).isFalse();
+    assertThat(array.readBits(7)).isEqualTo(0);
+    assertThat(array.readBits(2)).isEqualTo(0);
+    assertThat(array.readBits(17)).isEqualTo(4092);
+    assertThat(array.readBits(7)).isEqualTo(0);
+    assertThat(array.readBits(15)).isEqualTo(127);
     assertThat(array.canReadBits(1)).isFalse();
   }
 

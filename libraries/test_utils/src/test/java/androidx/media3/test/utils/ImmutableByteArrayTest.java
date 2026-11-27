@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.testing.EqualsTester;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -191,5 +192,31 @@ public final class ImmutableByteArrayTest {
             ImmutableByteArray.concatToArray(
                 ImmutableByteArray.ofUnsigned(1, 2, 3), ImmutableByteArray.ofUnsigned(4, 5, 6)))
         .isEqualTo(TestUtil.createByteArray(1, 2, 3, 4, 5, 6));
+  }
+
+  @Test
+  public void equalsHashCode() {
+    new EqualsTester()
+        .addEqualityGroup(
+            ImmutableByteArray.ofUnsigned(1, 2, 3),
+            ImmutableByteArray.ofUnsigned(1, 2, 3),
+            ImmutableByteArray.ofUnsigned(0, 1, 2, 3, 4).subArray(1, 4))
+        .addEqualityGroup(ImmutableByteArray.ofUnsigned(0, 1, 2, 3, 4))
+        // Wrong values
+        .addEqualityGroup(ImmutableByteArray.ofUnsigned(0, 1, 2, 3, 4).subArray(0, 3))
+        // Wrong length
+        .addEqualityGroup(ImmutableByteArray.ofUnsigned(0, 1, 2, 3, 4).subArray(0, 2))
+        .testEquals();
+  }
+
+  @Test
+  public void toString_unsignedValuePrintedNegative() {
+    assertThat(ImmutableByteArray.ofUnsigned(7, 8, 255).toString()).isEqualTo("[7, 8, -1]");
+  }
+
+  @Test
+  public void toString_subArray() {
+    assertThat(ImmutableByteArray.ofUnsigned(7, 8, 9, 10).subArray(1, 3).toString())
+        .isEqualTo("[8, 9]");
   }
 }

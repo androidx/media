@@ -91,4 +91,15 @@ public class MediaLibraryInfoTest {
         .that(MediaLibraryInfo.VERSION_INT)
         .isEqualTo(expectedVersionInt);
   }
+
+  @Test
+  public void enableWorkarounds_defaultsToTrueAndCanBeSet() {
+    assertThat(MediaLibraryInfo.enableWorkarounds()).isTrue();
+    try {
+      MediaLibraryInfo.setEnableWorkarounds(false);
+      assertThat(MediaLibraryInfo.enableWorkarounds()).isFalse();
+    } finally {
+      MediaLibraryInfo.setEnableWorkarounds(true);
+    }
+  }
 }

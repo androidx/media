@@ -47,20 +47,29 @@ import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.List;
 import java.util.Map;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests for the behavior of clipping with progressive media. */
-@RunWith(AndroidJUnit4.class)
+// TODO: b/511055213 - Fails on API < 31 due to sync vs async MediaCodec behavior differences in
+// Robolectric.
+@Config(minSdk = 31)
+@Ignore("Flaky: b/491840995")
+@RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingProgressivePlaybackTest {
 
   private static final String TEST_MP4_URI = "asset:///media/mp4/sample.mp4";
+
+  @TestParameter private boolean enableMediaPeriodClipping;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -71,6 +80,7 @@ public final class ClippingProgressivePlaybackTest {
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
+    String dumpFileSuffix = enableMediaPeriodClipping ? "enabled" : "disabled";
 
     player.setMediaItem(
         new MediaItem.Builder()
@@ -90,7 +100,7 @@ public final class ClippingProgressivePlaybackTest {
     DumpFileAsserts.assertOutput(
         ApplicationProvider.getApplicationContext(),
         playbackOutput,
-        "playbackdumps/clipping/clipped.dump");
+        "playbackdumps/clipping/clipped_period_clipping_" + dumpFileSuffix + ".dump");
   }
 
   @Test
@@ -98,6 +108,7 @@ public final class ClippingProgressivePlaybackTest {
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
+    String dumpFileSuffix = enableMediaPeriodClipping ? "enabled" : "disabled";
 
     player.setMediaItem(
         new MediaItem.Builder()
@@ -119,7 +130,7 @@ public final class ClippingProgressivePlaybackTest {
     DumpFileAsserts.assertOutput(
         ApplicationProvider.getApplicationContext(),
         playbackOutput,
-        "playbackdumps/clipping/clipped_seek.dump");
+        "playbackdumps/clipping/clipped_seek_period_clipping_" + dumpFileSuffix + ".dump");
   }
 
   private Pair<ExoPlayer, PlaybackOutput> setUpPlayerAndCapturingOutputForClippingTest() {
@@ -152,6 +163,7 @@ public final class ClippingProgressivePlaybackTest {
                     return new ClippingMediaSource.Builder(progressiveSource)
                         .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
                         .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
+                        .setEnableClippingInMediaPeriod(enableMediaPeriodClipping)
                         .build();
                   }
                 })

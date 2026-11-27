@@ -15,26 +15,24 @@
  */
 package androidx.media3.test.proguard;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import org.junit.Ignore;
+import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test executing methods in {@link ExtractorModuleProguard}. */
-@Ignore // Can't read asset list from gradle from test-proguard (internal bug-ref: b/463675073)
 @RunWith(AndroidJUnit4.class)
 public final class ExtractorModuleProguardTest {
 
   @Test
   public void defaultExtractorFactory_createExtensionFlacExtractor_succeeds() throws Exception {
     ExtractorModuleProguard.createLibFlacExtractorWithDefaultExtractorsFactory(
-        ApplicationProvider.getApplicationContext());
+        InstrumentationRegistry.getInstrumentation().getContext());
   }
 
   @Test
   public void defaultExtractorFactory_createMidiExtractor_succeeds() throws Exception {
     ExtractorModuleProguard.createMidiExtractorWithDefaultExtractorsFactory(
-        ApplicationProvider.getApplicationContext());
+        InstrumentationRegistry.getInstrumentation().getContext());
   }
 }

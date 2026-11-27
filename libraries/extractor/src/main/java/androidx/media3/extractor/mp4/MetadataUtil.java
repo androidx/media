@@ -143,15 +143,26 @@ import com.google.common.collect.ImmutableList;
    * unrecognized.
    *
    * @param ilst Holds the data to be parsed.
+   * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return The parsed element, or null if the element's type was not recognized.
    */
   @Nullable
-  public static Metadata.Entry parseIlstElement(ParsableByteArray ilst) {
+  public static Metadata.Entry parseIlstElement(ParsableByteArray ilst, boolean ignoreArtwork) {
     int position = ilst.getPosition();
-    int endPosition = position + ilst.readInt();
+    int size = ilst.readInt();
+    if (size < Mp4Box.HEADER_SIZE) {
+      Log.w(TAG, "Skipped empty metadata entry");
+      return null;
+    }
+    int endPosition = position + size;
     int type = ilst.readInt();
     int typeTopByte = (type >> 24) & 0xFF;
     try {
+      int remainingPayloadSize = endPosition - ilst.getPosition();
+      if (remainingPayloadSize < Mp4Box.HEADER_SIZE) {
+        Log.w(TAG, "Skipped empty metadata entry: " + Mp4Box.getBoxTypeString(type));
+        return null;
+      }
       if (typeTopByte == TYPE_TOP_BYTE_COPYRIGHT || typeTopByte == TYPE_TOP_BYTE_REPLACEMENT) {
         int shortType = type & 0x00FFFFFF;
         if (shortType == SHORT_TYPE_COMMENT) {
@@ -190,7 +201,7 @@ import com.google.common.collect.ImmutableList;
       } else if (type == TYPE_COMPILATION) {
         return parseIntegerAttribute(type, "TCMP", ilst, true, true);
       } else if (type == TYPE_COVER_ART) {
-        return parseCoverArt(ilst);
+        return ignoreArtwork ? null : parseCoverArt(ilst);
       } else if (type == TYPE_ALBUM_ARTIST) {
         return parseTextAttribute(type, "TPE2", ilst);
       } else if (type == TYPE_SORT_TRACK_NAME) {
@@ -242,7 +253,12 @@ import com.google.common.collect.ImmutableList;
         int dataSize = atomSize - 16;
         byte[] value = new byte[dataSize];
         ilst.readBytes(value, 0, dataSize);
-        return new MdtaMetadataEntry(key, value, localeIndicator, typeIndicator);
+        try {
+          return new MdtaMetadataEntry(key, value, localeIndicator, typeIndicator);
+        } catch (Exception e) {
+          Log.w(TAG, "Failed to parse metadata entry with key: " + key);
+          break;
+        }
       }
       ilst.setPosition(atomPosition + atomSize);
     }

@@ -37,7 +37,6 @@ import java.util.concurrent.CountDownLatch;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
@@ -58,7 +57,7 @@ import org.junit.runner.RunWith;
 @SuppressWarnings("deprecation") // Tests behavior of deprecated MediaControllerCompat.Callback
 public class MediaControllerCompatCallbackWithMediaSessionCompatTest {
 
-  private static final int TIMEOUT_MS = 1_000;
+  private static final int TIMEOUT_MS = 3_000;
 
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
 
@@ -86,7 +85,6 @@ public class MediaControllerCompatCallbackWithMediaSessionCompatTest {
 
   /** Custom actions in the legacy session used for instance by Android Auto and Wear OS. */
   @Test
-  @Ignore("Flaky, see b/235057692")
   public void setPlaybackState_withCustomActions_onPlaybackStateCompatChangedCalled()
       throws Exception {
     MediaSessionCompat.Token sessionToken = session.getSessionToken();
@@ -110,28 +108,34 @@ public class MediaControllerCompatCallbackWithMediaSessionCompatTest {
     List<String> receivedDisplayNames = new ArrayList<>();
     List<String> receivedBundleValues = new ArrayList<>();
     List<Integer> receivedIconResIds = new ArrayList<>();
+    CountDownLatch sessionReady = new CountDownLatch(1);
     CountDownLatch countDownLatch = new CountDownLatch(1);
-    threadTestRule
-        .getHandler()
-        .postAndSync(
-            () -> {
-              MediaControllerCompat mediaControllerCompat =
-                  new MediaControllerCompat(context, sessionToken);
-              mediaControllerCompat.registerCallback(
-                  new MediaControllerCompat.Callback() {
-                    @Override
-                    public void onPlaybackStateChanged(PlaybackStateCompat state) {
-                      List<PlaybackStateCompat.CustomAction> layout = state.getCustomActions();
-                      for (PlaybackStateCompat.CustomAction action : layout) {
-                        receivedActions.add(action.getAction());
-                        receivedDisplayNames.add(String.valueOf(action.getName()));
-                        receivedBundleValues.add(action.getExtras().getString("key"));
-                        receivedIconResIds.add(action.getIcon());
-                      }
-                      countDownLatch.countDown();
-                    }
-                  });
-            });
+    MediaControllerCompat mediaControllerCompat = new MediaControllerCompat(context, sessionToken);
+    mediaControllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onSessionReady() {
+            sessionReady.countDown();
+          }
+
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            List<PlaybackStateCompat.CustomAction> layout = state.getCustomActions();
+            if (layout.isEmpty()) {
+              return;
+            }
+            for (PlaybackStateCompat.CustomAction action : layout) {
+              receivedActions.add(action.getAction());
+              receivedDisplayNames.add(String.valueOf(action.getName()));
+              receivedBundleValues.add(action.getExtras().getString("key"));
+              receivedIconResIds.add(action.getIcon());
+            }
+            countDownLatch.countDown();
+          }
+        },
+        threadTestRule.getHandler());
+
+    assertThat(sessionReady.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     session.setPlaybackState(builder.build());
 
@@ -151,25 +155,28 @@ public class MediaControllerCompatCallbackWithMediaSessionCompatTest {
   public void setExtras_onExtrasChangedCalled() throws Exception {
     Bundle sessionExtras = new Bundle();
     sessionExtras.putString("key-1", "value-1");
+    CountDownLatch sessionReady = new CountDownLatch(1);
     CountDownLatch countDownLatch = new CountDownLatch(1);
     MediaSessionCompat.Token sessionToken = session.getSessionToken();
     List<Bundle> receivedSessionExtras = new ArrayList<>();
-    threadTestRule
-        .getHandler()
-        .postAndSync(
-            () -> {
-              MediaControllerCompat mediaControllerCompat =
-                  new MediaControllerCompat(context, sessionToken);
-              mediaControllerCompat.registerCallback(
-                  new MediaControllerCompat.Callback() {
-                    @Override
-                    public void onExtrasChanged(Bundle extras) {
-                      receivedSessionExtras.add(extras);
-                      receivedSessionExtras.add(mediaControllerCompat.getExtras());
-                      countDownLatch.countDown();
-                    }
-                  });
-            });
+    MediaControllerCompat mediaControllerCompat = new MediaControllerCompat(context, sessionToken);
+    mediaControllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onSessionReady() {
+            sessionReady.countDown();
+          }
+
+          @Override
+          public void onExtrasChanged(Bundle extras) {
+            receivedSessionExtras.add(extras);
+            receivedSessionExtras.add(mediaControllerCompat.getExtras());
+            countDownLatch.countDown();
+          }
+        },
+        threadTestRule.getHandler());
+
+    assertThat(sessionReady.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     session.setExtras(sessionExtras);
 

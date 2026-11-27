@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic"
+     availabilityStartTime="2026-05-14T12:00:00Z"
+     minimumUpdatePeriod="PT1S" minBufferTime="PT1S">
+  <Location>https://example.com/location1/manifest.mpd</Location>
+  <Location serviceLocation="loc2">https://example.com/location2/manifest.mpd</Location>
+  <Period id="1" start="PT0S">
+    <AdaptationSet mimeType="video/mp4">
+      <Representation id="1" bandwidth="1" width="1" height="1" />
+    </AdaptationSet>
+  </Period>
+</MPD>

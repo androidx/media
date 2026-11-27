@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" 
+     profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash-if-simple-2017" 
+     type="static" 
+     mediaPresentationDuration="PT0H10M0.000S" 
+     minBufferTime="PT2.0S">
+  <Period id="p0" duration="PT0H10M0.000S">
+    <AdaptationSet id="0" contentType="video" mimeType="video/mp4" segmentAlignment="true" maxWidth="3840" maxHeight="2160" maxFrameRate="60">
+      <SupplementalProperty schemeIdUri="urn:dolby:dash:dolby-vision:2018" value="10.1"/> 
+      <Representation id="dv_4k_15mbps" 
+                      bandwidth="15000000" 
+                      codecs="dvh1.10.05" 
+                      width="3840" 
+                      height="2160"
+                      frameRate="60">
+        <SegmentTemplate timescale="24000" 
+                         initialization="video/init.mp4" 
+                         media="video/seg_$Number$.m4s" 
+                         startNumber="1" 
+                         duration="96000"/>
+      </Representation>
+      <Representation id="dv_1080p_5mbps"
+                      bandwidth="5000000"
+                      codecs="dvh1.10.02"
+                      width="1920"
+                      height="1080"
+                      frameRate="24">
+        <SegmentTemplate timescale="24000"
+                         initialization="video_low/init.mp4"
+                         media="video_low/seg_$Number$.m4s"
+                         startNumber="1"
+                         duration="96000"/>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

@@ -192,6 +192,17 @@ public final class Tracks {
     }
 
     /**
+     * Copies the {@code Group} with a new media {@link TrackGroup}.
+     *
+     * @param trackGroup The new {@link TrackGroup}.
+     * @return The copied {@code Group}.
+     */
+    @UnstableApi
+    public Group copyWithMediaTrackGroup(TrackGroup trackGroup) {
+      return new Group(trackGroup, adaptiveSupported, trackSupport, trackSelected);
+    }
+
+    /**
      * Copies the {@code Group} with a new {@link TrackGroup#id}.
      *
      * @param groupId The new {@link TrackGroup#id}

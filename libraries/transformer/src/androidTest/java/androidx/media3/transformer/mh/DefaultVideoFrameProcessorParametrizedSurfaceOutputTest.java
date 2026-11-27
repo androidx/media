@@ -35,6 +35,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -49,6 +50,7 @@ import org.junit.runners.Parameterized.Parameters;
  * succeeds.
  */
 // TODO: b/263395272 - Move this test to effects/mh tests
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(Parameterized.class)
 public class DefaultVideoFrameProcessorParametrizedSurfaceOutputTest {
   @Rule public final TestName testName = new TestName();

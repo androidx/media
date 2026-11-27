@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 
@@ -33,7 +34,7 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun rememberPlaybackSpeedState(player: Player): PlaybackSpeedState {
+fun rememberPlaybackSpeedState(player: Player?): PlaybackSpeedState {
   val playbackSpeedState = remember(player) { PlaybackSpeedState(player) }
   LaunchedEffect(player) { playbackSpeedState.observe() }
   return playbackSpeedState
@@ -46,20 +47,26 @@ fun rememberPlaybackSpeedState(player: Player): PlaybackSpeedState {
  * In most cases, this will be created via [rememberPlaybackSpeedState].
  *
  * @param[player] [Player] object that operates as a state provider.
- * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)`
+ * @property[isEnabled] true if [player] is not `null` and [Player.COMMAND_SET_SPEED_AND_PITCH] is
+ *   available.
  * @property[playbackSpeed] determined by
- *   [Player.playbackParameters.speed][androidx.media3.common.PlaybackParameters.speed].
+ *   [Player.playbackParameters.speed][androidx.media3.common.PlaybackParameters.speed]. Defaults to
+ *   `1f` if the [player] is `null`.
  */
 @UnstableApi
-class PlaybackSpeedState(private val player: Player) {
+class PlaybackSpeedState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)
     private set
 
   var playbackSpeed by mutableFloatStateOf(1f)
     private set
 
-  private val playerStateObserver =
-    player.observeState(
+  private var isSpeedTemporarilyOverridden = false
+
+  private var originalSpeedBeforeOverride by mutableFloatStateOf(C.RATE_UNSET)
+
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(
       Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
     ) {
@@ -70,15 +77,43 @@ class PlaybackSpeedState(private val player: Player) {
   /**
    * Updates the playback speed of the [Player] backing this state.
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled].
+   * This method does nothing if [Player.COMMAND_SET_SPEED_AND_PITCH] is not available.
    *
    * @see [Player.setPlaybackSpeed]
    * @see [Player.COMMAND_SET_SPEED_AND_PITCH]
    */
   fun updatePlaybackSpeed(speed: Float) {
-    check(isEnabled)
-    if (player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) {
-      player.playbackParameters = player.playbackParameters.withSpeed(speed)
+    player?.let {
+      if (it.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) {
+        it.playbackParameters = it.playbackParameters.withSpeed(speed)
+      }
+    }
+  }
+
+  /**
+   * Starts a temporary speed override, i.e. fast-forward or slow motion.
+   *
+   * If there isn't an ongoing override, remembers the current speed to restore later.
+   */
+  fun temporarilyOverrideSpeedWith(speed: Float) {
+    if (!isSpeedTemporarilyOverridden) {
+      originalSpeedBeforeOverride = playbackSpeed
+      isSpeedTemporarilyOverridden = true
+    }
+    updatePlaybackSpeed(speed)
+  }
+
+  /**
+   * Restores the playback speed to the value it had before the first call to
+   * [temporarilyOverrideSpeedWith].
+   *
+   * If the playback speed is changed while a temporary override is active, this method will still
+   * restore the speed to the value that was current *before* the override began.
+   */
+  fun restoreOverriddenSpeed() {
+    if (isSpeedTemporarilyOverridden) {
+      isSpeedTemporarilyOverridden = false
+      updatePlaybackSpeed(originalSpeedBeforeOverride)
     }
   }
 
@@ -88,5 +123,7 @@ class PlaybackSpeedState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the UI element
    *   responsible for setting the playback speed should be enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing = playerStateObserver.observe()
+  suspend fun observe() {
+    playerStateObserver?.observe()
+  }
 }

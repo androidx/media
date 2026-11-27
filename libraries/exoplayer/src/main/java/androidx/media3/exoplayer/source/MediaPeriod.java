@@ -19,6 +19,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -175,6 +176,17 @@ public interface MediaPeriod extends SequenceableLoader {
   long readDiscontinuity();
 
   /**
+   * Notifies the media period that the player will use {@link SampleStream#getFlags()} to check if
+   * streams contain initial discontinuities at the start of the period rather than using {@link
+   * #readDiscontinuity()}.
+   *
+   * <p>If invoked then {@link #readDiscontinuity()} should only report discontinuities that occur
+   * during playback, not any initial discontinuities at the start of the period.
+   */
+  @ExperimentalApi // TODO: b/510217604 - Remove this method.
+  default void setUsesStreamPrerollFlags() {}
+
+  /**
    * Attempts to seek to the specified position in microseconds.
    *
    * <p>After this method has been called, all {@link SampleStream}s provided by the period are
@@ -257,4 +269,24 @@ public interface MediaPeriod extends SequenceableLoader {
    */
   @Override
   void reevaluateBuffer(long positionUs);
+
+  /**
+   * Sets the end position at which the period stops loading and providing samples.
+   *
+   * <p>This method may be called at any time.
+   *
+   * <p>If a value other than {@link C#TIME_END_OF_SOURCE} is returned, the implementation must stop
+   * returning samples from the created {@link SampleStream} instances beyond the specified end
+   * position and mark further reads with {@link C#BUFFER_FLAG_END_OF_STREAM}. The stream may return
+   * additional out of order samples required for decoding.
+   *
+   * @param endPositionUs The requested end position, in microseconds, or {@link
+   *     C#TIME_END_OF_SOURCE} to not set an end position.
+   * @return Returns the actual position, in microseconds, at which the source stops loading and
+   *     providing samples, or {@link C#TIME_END_OF_SOURCE} if setting the end position is not
+   *     supported and all samples until then end of the source will be provided.
+   */
+  default long setEndPositionUs(long endPositionUs) {
+    return C.TIME_END_OF_SOURCE;
+  }
 }

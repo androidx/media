@@ -15,21 +15,26 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Label;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.extractor.metadata.Chapter;
 import java.util.Arrays;
 import java.util.Objects;
 
 /** Chapter information ID3 frame. */
 @UnstableApi
-public final class ChapterFrame extends Id3Frame {
+public final class ChapterFrame extends Id3Frame implements Chapter {
 
   public static final String ID = "CHAP";
 
   public final String chapterId;
   public final int startTimeMs;
   public final int endTimeMs;
+  @Nullable private final Label title;
 
   /** The byte offset of the start of the chapter, or {@link C#INDEX_UNSET} if not set. */
   public final long startOffset;
@@ -47,9 +52,12 @@ public final class ChapterFrame extends Id3Frame {
       long endOffset,
       Id3Frame[] subFrames) {
     super(ID);
+    checkArgument(startTimeMs <= endTimeMs);
     this.chapterId = chapterId;
     this.startTimeMs = startTimeMs;
     this.endTimeMs = endTimeMs;
+    String title = findTitle(subFrames);
+    this.title = title != null ? new Label(/* language= */ null, title) : null;
     this.startOffset = startOffset;
     this.endOffset = endOffset;
     this.subFrames = subFrames;
@@ -63,6 +71,43 @@ public final class ChapterFrame extends Id3Frame {
   /** Returns the sub-frame at {@code index}. */
   public Id3Frame getSubFrame(int index) {
     return subFrames[index];
+  }
+
+  // Chapter implementation.
+
+  @Override
+  public long getStartTimeMs() {
+    return startTimeMs;
+  }
+
+  @Override
+  public long getEndTimeMs() {
+    return endTimeMs;
+  }
+
+  @Override
+  public boolean isHidden() {
+    return false;
+  }
+
+  @Override
+  @Nullable
+  public Label getTitle() {
+    return title;
+  }
+
+  @Nullable
+  private static String findTitle(Id3Frame[] subFrames) {
+    for (Id3Frame frame : subFrames) {
+      if (frame instanceof TextInformationFrame
+          && ((TextInformationFrame) frame).id.equals("TIT2")) {
+        TextInformationFrame textFrame = (TextInformationFrame) frame;
+        if (!textFrame.values.isEmpty()) {
+          return textFrame.values.get(0);
+        }
+      }
+    }
+    return null;
   }
 
   @Override

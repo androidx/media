@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
 
-import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
@@ -29,14 +28,13 @@ import androidx.media3.datasource.DataSink;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.FileDataSource;
-import androidx.media3.datasource.cache.Cache.CacheException;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.io.File;
 import java.io.IOException;
 import java.util.Random;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -44,7 +42,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class CacheDataSourceTest2 {
 
-  private static final String EXO_CACHE_DIR = "exo";
   private static final int EXO_CACHE_MAX_FILESIZE = 128;
 
   private static final Uri URI = Uri.parse("http://test.com/content");
@@ -67,6 +64,8 @@ public final class CacheDataSourceTest2 {
   private static final DataSpec START_OFF_BOUNDARY =
       new DataSpec(URI, OFFSET_OFF_BOUNDARY, DATA.length - OFFSET_OFF_BOUNDARY);
 
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
+
   @Test
   public void testWithoutEncryption() throws IOException {
     testReads(false);
@@ -79,9 +78,7 @@ public final class CacheDataSourceTest2 {
 
   private void testReads(boolean useEncryption) throws IOException {
     FakeDataSource upstreamSource = buildFakeUpstreamSource();
-    CacheDataSource source =
-        buildCacheDataSource(
-            ApplicationProvider.getApplicationContext(), upstreamSource, useEncryption);
+    CacheDataSource source = buildCacheDataSource(upstreamSource, useEncryption);
     // First read, should arrive from upstream.
     testRead(END_ON_BOUNDARY, source);
     assertSingleOpen(upstreamSource, 0, OFFSET_ON_BOUNDARY);
@@ -148,14 +145,9 @@ public final class CacheDataSourceTest2 {
     return fakeDataSource;
   }
 
-  private static CacheDataSource buildCacheDataSource(
-      Context context, DataSource upstreamSource, boolean useAesEncryption) throws CacheException {
-    File cacheDir = context.getExternalCacheDir();
-    Cache cache =
-        new SimpleCache(
-            new File(cacheDir, EXO_CACHE_DIR),
-            new NoOpCacheEvictor(),
-            TestUtil.getInMemoryDatabaseProvider());
+  private CacheDataSource buildCacheDataSource(DataSource upstreamSource, boolean useAesEncryption)
+      throws IOException {
+    Cache cache = inMemoryDatabaseRule.createSimpleCache();
     emptyCache(cache);
 
     // Source and cipher

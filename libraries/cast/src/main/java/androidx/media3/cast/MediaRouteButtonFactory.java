@@ -15,19 +15,38 @@
  */
 package androidx.media3.cast;
 
+import static androidx.media3.cast.CastUtils.verifyMainThread;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.content.Context;
 import android.view.Menu;
 import android.view.MenuItem;
+import androidx.annotation.MainThread;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.MenuItemCompat;
+import androidx.media3.cast.Cast.MediaRouteSelectorListener;
 import androidx.media3.common.util.BackgroundExecutor;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.mediarouter.app.MediaRouteActionProvider;
 import androidx.mediarouter.app.MediaRouteButton;
-import com.google.android.gms.cast.framework.CastButtonFactory;
+import androidx.mediarouter.media.MediaRouteSelector;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-/** A factory class to set up a media route button. */
+/**
+ * A factory class to set up a media route button.
+ *
+ * <p>Must be called on the main thread.
+ */
+@MainThread
 @UnstableApi
 public final class MediaRouteButtonFactory {
+
+  private static final String MESSAGE_FAILED_TO_GET_SELECTOR =
+      "media route button failed to get the media route selector.";
 
   /**
    * Sets up a media route button in the action bar menu with an asynchronous callback, which will
@@ -53,7 +72,7 @@ public final class MediaRouteButtonFactory {
    * <pre>{@code
    * public class MyActivity extends AppCompatActivity {
    *     ...
-   *     @Override
+   *     &#64;Override
    *     public boolean onCreateOptionsMenu(Menu menu) {
    *         ...
    *         getMenuInflater().inflate(R.menu.sample_media_route_button_menu, menu);
@@ -62,12 +81,12 @@ public final class MediaRouteButtonFactory {
    *         Futures.addCallback(
    *             menuItemFuture,
    *             new FutureCallback<MenuItem>() {
-   *               @Override
+   *               &#64;Override
    *               public void onSuccess(MenuItem menuItem) {
    *                 // Do something with the menu item.
    *               }
    *
-   *               @Override
+   *               &#64;Override
    *               public void onFailure(Throwable t) {
    *                 // Handle the failure.
    *               }
@@ -85,9 +104,10 @@ public final class MediaRouteButtonFactory {
    * <p>If setting up the media route button fails, the future may fail with an exception. Consumers
    * should handle the failure gracefully, for example by not showing the media route button.
    *
-   * <p>The callback of the returned {@link ListenableFuture} may be called on a different thread
-   * than the caller's thread. If the caller wants to update the UI in the callbacks, it is
-   * responsible for forwarding the callback to the UI thread.
+   * <p>The method must be called on the main thread. The callback of the returned {@link
+   * ListenableFuture} may be called on a different thread than the caller's thread. If the caller
+   * wants to update the UI in the callbacks, it is responsible for forwarding the callback to the
+   * UI thread.
    *
    * <p>Clicking on the media route button opens a dialog that allows the user to select a remote
    * device for transferring media.
@@ -98,20 +118,60 @@ public final class MediaRouteButtonFactory {
    * @param menu The {@link Menu} to which the menu item with the button will be added.
    * @param menuResourceId The resource ID of the menu item for the media route button.
    * @return A {@link ListenableFuture} that resolves to the created {@link MenuItem} when the media
-   *     route button is set up successfully. The future may fail with {link
-   *     IllegalArgumentException} if the menu doesn't contain a menu item with the given {@code
+   *     route button is set up successfully. The future may fail with {@link IllegalStateException}
+   *     if this method is failed to set a {@link MediaRouteSelector} to the menu item. The
+   *     completer of the returned {@link ListenableFuture} may be called on a different thread than
+   *     the caller's thread.
+   * @throws IllegalArgumentException if the menu doesn't contain a menu item with the given {@code
    *     menuResourceId} identifier or the menu item doesn't have a {@link
-   *     androidx.mediarouter.app.MediaRouteActionProvider} as its action provider, and may fail
-   *     with {@link IllegalStateException} if this method is not called on the main thread.
+   *     androidx.mediarouter.app.MediaRouteActionProvider} as its action provider.
+   * @throws IllegalStateException If any of the following condition occurs:
+   *     <ul>
+   *       <li>This method is not called on the main thread.
+   *       <li>The {@link Cast} has not been initialized via {@link Cast#initialize()} before this
+   *           method is called.
+   *     </ul>
    */
+  @CanIgnoreReturnValue
   public static ListenableFuture<MenuItem> setUpMediaRouteButton(
       Context context, Menu menu, int menuResourceId) {
-    return CallbackToFutureAdapter.getFuture(
-        completer ->
-            CastButtonFactory.setUpMediaRouteButton(
-                    context, BackgroundExecutor.get(), menu, menuResourceId)
-                .addOnSuccessListener(completer::set)
-                .addOnFailureListener(completer::setException));
+    verifyMainThread();
+    MenuItem mediaRouteMenuItem = menu.findItem(menuResourceId);
+    if (mediaRouteMenuItem == null) {
+      throw new IllegalArgumentException("menu doesn't contain a menu item");
+    }
+    MediaRouteActionProvider mediaRouteActionProvider =
+        (MediaRouteActionProvider) MenuItemCompat.getActionProvider(mediaRouteMenuItem);
+    if (mediaRouteActionProvider == null) {
+      throw new IllegalArgumentException("menu item doesn't have a MediaRouteActionProvider.");
+    }
+    return setUpMediaRouteButton(context, mediaRouteMenuItem, mediaRouteActionProvider);
+  }
+
+  /**
+   * Sets up a media route button with an asynchronous callback, which will not block the caller
+   * thread. Returns a {@link ListenableFuture} with the menu item of the media route button.
+   *
+   * <p>This method is used internally and for testing purposes. It accepts the {@link
+   * MediaRouteActionProvider} as a direct parameter to facilitate unit testing, bypassing
+   * limitations where a MenuItem cannot be configured with a non-null {@link
+   * MediaRouteActionProvider} in test environments.
+   *
+   * @param mediaRouteMenuItem The {@link MenuItem} of the media route button.
+   * @param mediaRouteActionProvider The {@link MediaRouteActionProvider} of the media route button.
+   * @return A {@link ListenableFuture} that resolves to the created {@link MenuItem} when the media
+   *     route button is set up successfully. The future may fail with {@link IllegalStateException}
+   *     if this method is failed to set a {@link MediaRouteSelector} to the menu item. The
+   *     completer of the returned {@link ListenableFuture} may be called on a different thread than
+   *     the caller's thread.
+   */
+  /* package */ static ListenableFuture<MenuItem> setUpMediaRouteButton(
+      Context context,
+      MenuItem mediaRouteMenuItem,
+      MediaRouteActionProvider mediaRouteActionProvider) {
+    ListenableFuture<Void> setUpFuture =
+        setUpMediaRouteButton(context, mediaRouteActionProvider::setRouteSelector);
+    return Futures.transform(setUpFuture, unused -> mediaRouteMenuItem, BackgroundExecutor.get());
   }
 
   /**
@@ -124,7 +184,7 @@ public final class MediaRouteButtonFactory {
    * <pre>{@code
    * public class MyActivity extends AppCompatActivity {
    *     ...
-   *     @Override
+   *     &#64;Override
    *     public void onCreate(Bundle savedInstanceState) {
    *         ...
    *         MediaRouteButton button = findViewById(R.id.media_route_button);
@@ -133,12 +193,12 @@ public final class MediaRouteButtonFactory {
    *         Futures.addCallback(
    *             setUpFuture,
    *             new FutureCallback<Void>() {
-   *               @Override
+   *               &#64;Override
    *               public void onSuccess(Void unused) {
    *                 // Indicate that the media route button is set up successfully.
    *               }
    *
-   *               @Override
+   *               &#64;Override
    *               public void onFailure(Throwable t) {
    *                 // Handle the failure.
    *               }
@@ -155,6 +215,10 @@ public final class MediaRouteButtonFactory {
    * <p>If setting up the media route button fails, the future may fail with an exception. Consumers
    * should handle the failure gracefully, for example by not showing the media route button.
    *
+   * <p>The method must be called on the main thread. The returned {@link ListenableFuture} may be
+   * called on a different thread than the caller's thread. If the caller wants to update the UI in
+   * the callbacks, it is responsible for forwarding the callback to the UI thread.
+   *
    * <p>Clicking on the media route button opens a dialog that allows the user to select a remote
    * device for transferring media.
    *
@@ -164,15 +228,73 @@ public final class MediaRouteButtonFactory {
    * @param button The {@link MediaRouteButton} to set up.
    * @return A {@link ListenableFuture} that will resolve to null when the media route button is
    *     successfully set up. The future may fail with {@link IllegalStateException} if this method
-   *     is not called on the main thread.
+   *     is failed to set a {@link MediaRouteSelector} to the media route button. The completer of
+   *     the returned {@link ListenableFuture} may be called on a different thread than the caller's
+   *     thread.
+   * @throws IllegalArgumentException If the media route button is null.
+   * @throws IllegalStateException If any of the following conditions occur:
+   *     <ul>
+   *       <li>This method is not called on the main thread.
+   *       <li>The {@link Cast} has not been initialized via {@link Cast#initialize()} before this
+   *           method is called.
+   *     </ul>
    */
+  @CanIgnoreReturnValue
   public static ListenableFuture<Void> setUpMediaRouteButton(
       Context context, MediaRouteButton button) {
+    verifyMainThread();
+    checkNotNull(button, "media route button can't be null.");
+    return setUpMediaRouteButton(context, button::setRouteSelector);
+  }
+
+  /**
+   * Sets up a media route button with an asynchronous callback, which will not block the caller
+   * thread.
+   *
+   * @param context The {@link Context} for creating the media route button.
+   * @param onCompletion The {@link Consumer<MediaRouteSelector>} to be called when the {@link
+   *     MediaRouteSelector} is set.
+   * @return A {@link ListenableFuture} that will resolve to null when the media route button is
+   *     successfully set up. The future may fail with {@link IllegalStateException} if this method
+   *     is not called on the main thread or it is failed to set a {@link MediaRouteSelector} to the
+   *     media route button.
+   * @throws IllegalStateException If the {@link Cast} has not been initialized via {@link
+   *     Cast#initialize()} before this method is called.
+   */
+  private static ListenableFuture<Void> setUpMediaRouteButton(
+      Context context, Consumer<MediaRouteSelector> onCompletion) {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.ensureInitialized(context);
     return CallbackToFutureAdapter.getFuture(
-        completer ->
-            CastButtonFactory.setUpMediaRouteButton(context, BackgroundExecutor.get(), button)
-                .addOnSuccessListener(unused -> completer.set(null))
-                .addOnFailureListener(completer::setException));
+        completer -> {
+          final MediaRouteSelectorListener mediaRouteSelectorListener =
+              new MediaRouteSelectorListener() {
+                @Override
+                void onMediaRouteSelectorChanged(MediaRouteSelector selector) {
+                  if (!selector.isEmpty()) {
+                    onCompletion.accept(selector);
+                    completer.set(null);
+                  } else {
+                    completer.setException(
+                        new IllegalStateException(MESSAGE_FAILED_TO_GET_SELECTOR));
+                  }
+                }
+              };
+          MediaRouteSelector selector =
+              cast.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener);
+          if (selector != null) {
+            if (!selector.isEmpty()) {
+              onCompletion.accept(selector);
+              completer.set(null);
+            } else {
+              completer.setException(new IllegalStateException(MESSAGE_FAILED_TO_GET_SELECTOR));
+            }
+          }
+          completer.addCancellationListener(
+              () -> cast.unregisterListener(mediaRouteSelectorListener),
+              ContextCompat.getMainExecutor(context));
+          return "MediaRouteButtonFactory.setUpMediaRouteButton";
+        });
   }
 
   private MediaRouteButtonFactory() {}

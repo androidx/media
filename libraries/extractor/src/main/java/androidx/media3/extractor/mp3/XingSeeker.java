@@ -15,10 +15,12 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SeekPoint;
 
@@ -29,33 +31,45 @@ import androidx.media3.extractor.SeekPoint;
 
   /**
    * Returns a {@link XingSeeker} for seeking in the stream, if required information is present.
-   * Returns {@code null} if not. On returning, {@code frame}'s position is not specified so the
+   * Returns {@code null} if not. On returning, {@code xingFrame}'s position is not specified so the
    * caller should reset it.
    *
    * @param xingFrame The parsed Xing data from this audio frame.
    * @param position The position of the start of this frame in the stream.
+   * @param streamLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
    * @return A {@link XingSeeker} for seeking in the stream, or {@code null} if the required
    *     information is not present.
    */
   @Nullable
-  public static XingSeeker create(XingFrame xingFrame, long position) {
+  public static XingSeeker create(XingFrame xingFrame, long position, long streamLength) {
     long durationUs = xingFrame.computeDurationUs();
     if (durationUs == C.TIME_UNSET) {
       return null;
     }
+    long dataSize;
+    if (xingFrame.dataSize != C.LENGTH_UNSET
+        && streamLength != C.LENGTH_UNSET
+        && position + xingFrame.dataSize != streamLength) {
+      long dataSizeFromStreamLength = streamLength - position;
+      Log.i(
+          TAG,
+          "Data size mismatch between stream ("
+              + dataSizeFromStreamLength
+              + ") and Xing frame ("
+              + xingFrame.dataSize
+              + "), using smaller value.");
+      dataSize = Math.min(xingFrame.dataSize, dataSizeFromStreamLength);
+    } else {
+      dataSize = xingFrame.dataSize;
+    }
     return new XingSeeker(
-        position,
-        xingFrame.header.frameSize,
-        durationUs,
-        xingFrame.header.bitrate,
-        xingFrame.dataSize,
-        xingFrame.tableOfContents);
+        position, xingFrame.header.frameSize, durationUs, dataSize, xingFrame.tableOfContents);
   }
 
   private final long dataStartPosition;
   private final int xingFrameSize;
   private final long durationUs;
-  private final int bitrate;
+  private final int averageBitrate;
 
   /** Data size, including the XING frame. */
   private final long dataSize;
@@ -72,13 +86,12 @@ import androidx.media3.extractor.SeekPoint;
       long dataStartPosition,
       int xingFrameSize,
       long durationUs,
-      int bitrate,
       long dataSize,
       @Nullable long[] tableOfContents) {
     this.dataStartPosition = dataStartPosition;
     this.xingFrameSize = xingFrameSize;
     this.durationUs = durationUs;
-    this.bitrate = bitrate;
+    this.averageBitrate = computeAverageBitrate(dataSize - xingFrameSize, durationUs);
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
     dataEndPosition = dataSize == C.LENGTH_UNSET ? C.INDEX_UNSET : dataStartPosition + dataSize;
@@ -155,7 +168,7 @@ import androidx.media3.extractor.SeekPoint;
 
   @Override
   public int getAverageBitrate() {
-    return bitrate;
+    return averageBitrate;
   }
 
   /**

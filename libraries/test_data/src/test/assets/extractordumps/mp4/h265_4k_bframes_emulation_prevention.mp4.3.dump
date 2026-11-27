@@ -1,0 +1,118 @@
+seekMap:
+  isSeekable = true
+  duration = 3738600
+  getPosition(0) = [[timeUs=5033, position=40]]
+  getPosition(1) = [[timeUs=5033, position=40]]
+  getPosition(1869300) = [[timeUs=1205111, position=38525], [timeUs=2271833, position=4839471]]
+  getPosition(3738600) = [[timeUs=3338555, position=9089240]]
+numberOfTracks = 2
+track 0:
+  total output bytes = 2456055
+  sample count = 15
+  track duration = 3738600
+  format 0:
+    averageBitrate = 35641933
+    id = 1
+    containerMimeType = video/mp4
+    sampleMimeType = video/hevc
+    codecs = hvc1.2.4.H150
+    maxInputSize = 768644
+    maxNumReorderSamples = 2
+    width = 3840
+    height = 2160
+    decodedWidth = 3840
+    decodedHeight = 2160
+    frameRate = 29.96
+    rotationDegrees = 90
+    maxSubLayers = 3
+    colorInfo:
+      colorSpace = 6
+      colorRange = 2
+      colorTransfer = 7
+      lumaBitdepth = 10
+      chromaBitdepth = 10
+    metadata = entries=[mdta: key=com.android.version, value=16, mdta: key=com.android.video.temporal_layers_count, value=3, mdta: key=com.android.capture.fps, value=30.0, mdta: key=com.samsung.android.utc_offset, value=+0900, Mp4Timestamp: creation time=3858978553, modification time=3858978553, timescale=10000, ThumbnailMetadata: presentationTimeUs=5033]
+    initializationData:
+      data = length 112, hash D4FDE232
+  sample 0:
+    time = 3338555
+    flags = 1
+    data = length 635709, hash 72771AAD
+  sample 1:
+    time = 3271888
+    flags = 0
+    data = length 79122, hash A394ABEC
+  sample 2:
+    time = 3238555
+    flags = 67108864
+    data = length 27438, hash 3C72890E
+  sample 3:
+    time = 3305222
+    flags = 67108864
+    data = length 35470, hash E257662F
+  sample 4:
+    time = 3471922
+    flags = 0
+    data = length 435746, hash 4D779EB0
+  sample 5:
+    time = 3405233
+    flags = 0
+    data = length 100207, hash 7C4C8101
+  sample 6:
+    time = 3371911
+    flags = 67108864
+    data = length 35241, hash 70278DB0
+  sample 7:
+    time = 3438577
+    flags = 67108864
+    data = length 32129, hash 8B9B5C4A
+  sample 8:
+    time = 3605244
+    flags = 0
+    data = length 418835, hash 3B2C44C
+  sample 9:
+    time = 3538577
+    flags = 0
+    data = length 99173, hash 5AF4B6D0
+  sample 10:
+    time = 3505244
+    flags = 67108864
+    data = length 17401, hash FA027FF3
+  sample 11:
+    time = 3571911
+    flags = 67108864
+    data = length 39100, hash A14ADC1D
+  sample 12:
+    time = 3638577
+    flags = 0
+    data = length 377560, hash 30214917
+  sample 13:
+    time = 3671911
+    flags = 0
+    data = length 87115, hash CD52C1D2
+  sample 14:
+    time = 3705244
+    flags = 603979776
+    data = length 35809, hash 8D9232A8
+track 1:
+  total output bytes = 620
+  sample count = 1
+  track duration = 3711900
+  format 0:
+    averageBitrate = 256416
+    peakBitrate = 256000
+    id = 2
+    containerMimeType = video/mp4
+    sampleMimeType = audio/mp4a-latm
+    codecs = mp4a.40.2
+    maxInputSize = 999
+    channelCount = 2
+    sampleRate = 48000
+    metadata = entries=[mdta: key=com.android.version, value=16, mdta: key=com.android.video.temporal_layers_count, value=3, mdta: key=com.samsung.android.utc_offset, value=+0900, Mp4Timestamp: creation time=3858978553, modification time=3858978553, timescale=10000]
+    initializationData:
+      data = length 2, hash 560
+  sample 0:
+    time = 3690604
+    flags = 536870913
+    data = length 620, hash 296DC48
+tracksEnded = true

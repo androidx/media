@@ -1,0 +1,67 @@
+seekMap:
+  isSeekable = true
+  duration = 939000
+  getPosition(0) = [[timeUs=0, position=44]]
+  getPosition(1) = [[timeUs=1, position=44]]
+  getPosition(469500) = [[timeUs=469500, position=20524]]
+  getPosition(939000) = [[timeUs=939000, position=41004]]
+numberOfTracks = 1
+track 0:
+  total output bytes = 45056
+  sample count = 11
+  track duration = 939000
+  format 0:
+    averageBitrate = 384000
+    id = 1
+    containerMimeType = audio/mp4
+    sampleMimeType = audio/vnd.dts.hd;profile=lbr
+    maxInputSize = 4126
+    channelCount = 6
+    sampleRate = 48000
+    language = und
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf62.3.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 4096, hash 1F0B79C5
+  sample 1:
+    time = 85333
+    flags = 1
+    data = length 4096, hash 2EC282A1
+  sample 2:
+    time = 170666
+    flags = 1
+    data = length 4096, hash 6B7902F0
+  sample 3:
+    time = 256000
+    flags = 1
+    data = length 4096, hash 8FC4EE2C
+  sample 4:
+    time = 341333
+    flags = 1
+    data = length 4096, hash 67899547
+  sample 5:
+    time = 426666
+    flags = 1
+    data = length 4096, hash 1BE4CF1C
+  sample 6:
+    time = 512000
+    flags = 1
+    data = length 4096, hash 620F5E51
+  sample 7:
+    time = 597333
+    flags = 1
+    data = length 4096, hash 4D3E0644
+  sample 8:
+    time = 682666
+    flags = 1
+    data = length 4096, hash F69B5FED
+  sample 9:
+    time = 768000
+    flags = 1
+    data = length 4096, hash 93D31EA7
+  sample 10:
+    time = 853333
+    flags = 536870913
+    data = length 4096, hash 41F1D921
+tracksEnded = true

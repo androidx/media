@@ -16,6 +16,7 @@ track 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/av01
+    codecs = av01.0.09M.10
     maxInputSize = 144656
     width = 1920
     height = 1080

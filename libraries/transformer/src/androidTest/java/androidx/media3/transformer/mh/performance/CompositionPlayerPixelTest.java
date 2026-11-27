@@ -17,7 +17,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
@@ -58,6 +58,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -67,6 +68,7 @@ import org.junit.runner.RunWith;
 // These tests are in the performance package even though they are not performance tests so that
 // they are not run on all devices. This is because they use ImageReader, which has a tendency to
 // drop frames.
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerPixelTest {
 
@@ -130,8 +132,8 @@ public class CompositionPlayerPixelTest {
     ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
     outputImageReader =
         ImageReader.newInstance(
-            MP4_ASSET.videoFormat.width,
-            MP4_ASSET.videoFormat.height,
+            MP4_ADVANCED_ASSET.videoFormat.width,
+            MP4_ADVANCED_ASSET.videoFormat.height,
             PixelFormat.RGBA_8888,
             /* maxImages= */ 1);
 
@@ -150,18 +152,20 @@ public class CompositionPlayerPixelTest {
 
               player.setVideoSurface(
                   outputImageReader.getSurface(),
-                  new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+                  new Size(
+                      MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
               player.setComposition(
                   new Composition.Builder(
                           EditedMediaItemSequence.withAudioAndVideoFrom(
                               ImmutableList.of(
-                                  new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  new EditedMediaItem.Builder(
+                                          MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
                                       .setEffects(
                                           new Effects(
                                               /* audioProcessors= */ ImmutableList.of(),
                                               /* videoEffects= */ ImmutableList.of(
                                                   createTimestampOverlay())))
-                                      .setDurationUs(MP4_ASSET.videoDurationUs)
+                                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
                                       .build())))
                       .build());
               player.addListener(
@@ -206,8 +210,8 @@ public class CompositionPlayerPixelTest {
     ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
     outputImageReader =
         ImageReader.newInstance(
-            MP4_ASSET.videoFormat.width,
-            MP4_ASSET.videoFormat.height,
+            MP4_ADVANCED_ASSET.videoFormat.width,
+            MP4_ADVANCED_ASSET.videoFormat.height,
             PixelFormat.RGBA_8888,
             /* maxImages= */ 1);
 
@@ -229,22 +233,25 @@ public class CompositionPlayerPixelTest {
 
               player.setVideoSurface(
                   outputImageReader.getSurface(),
-                  new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+                  new Size(
+                      MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
               player.setComposition(
                   new Composition.Builder(
                           EditedMediaItemSequence.withAudioAndVideoFrom(
                               ImmutableList.of(
-                                  new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  new EditedMediaItem.Builder(
+                                          MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
                                       .setEffects(
                                           new Effects(
                                               /* audioProcessors= */ ImmutableList.of(),
                                               /* videoEffects= */ ImmutableList.of(
                                                   createTimestampOverlay())))
-                                      .setDurationUs(MP4_ASSET.videoDurationUs)
+                                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
                                       .build())),
                           EditedMediaItemSequence.withAudioAndVideoFrom(
                               ImmutableList.of(
-                                  new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  new EditedMediaItem.Builder(
+                                          MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
                                       .setEffects(
                                           new Effects(
                                               /* audioProcessors= */ ImmutableList.of(),
@@ -256,7 +263,7 @@ public class CompositionPlayerPixelTest {
                                                             /* degrees= */ 90);
                                                         return rotationMatrix;
                                                       })))
-                                      .setDurationUs(MP4_ASSET.videoDurationUs)
+                                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
                                       .build())))
                       .setVideoCompositorSettings(TEST_COMPOSITOR_SETTINGS)
                       .build());

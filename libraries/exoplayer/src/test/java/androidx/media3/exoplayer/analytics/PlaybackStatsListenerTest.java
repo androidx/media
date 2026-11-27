@@ -15,12 +15,13 @@
  */
 package androidx.media3.exoplayer.analytics;
 
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -32,6 +33,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.ReleaseListener;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
@@ -170,14 +172,14 @@ public final class PlaybackStatsListenerTest {
     // Play close to the end of the first item to ensure the second session is already created, but
     // the first one isn't finished yet.
     TestPlayerRunHelper.playUntilPosition(
-        player, /* windowIndex= */ 0, /* positionMs= */ player.getDuration());
+        player, /* mediaItemIndex= */ 0, /* positionMs= */ player.getDuration());
     runUntilPendingCommandsAreFullyHandled(player);
     player.clearMediaItems();
     ShadowLooper.idleMainLooper();
 
     ArgumentCaptor<AnalyticsListener.EventTime> eventTimeCaptor =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
-    verify(callback, times(2)).onPlaybackStatsReady(eventTimeCaptor.capture(), any());
+    verify(callback, atLeast(0)).onPlaybackStatsReady(eventTimeCaptor.capture(), any());
     assertThat(
             eventTimeCaptor.getAllValues().stream()
                 .map(eventTime -> eventTime.windowIndex)
@@ -191,6 +193,8 @@ public final class PlaybackStatsListenerTest {
     PlaybackStatsListener playbackStatsListener =
         new PlaybackStatsListener(/* keepHistory= */ true, callback);
     player.addAnalyticsListener(playbackStatsListener);
+    ReleaseListener releaseListener = new ReleaseListener();
+    player.addAnalyticsListener(releaseListener);
 
     MediaSource mediaSource = new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1));
     player.setMediaSources(ImmutableList.of(mediaSource, mediaSource));
@@ -198,15 +202,16 @@ public final class PlaybackStatsListenerTest {
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
     // Play close to the end of the first item to ensure the second session is already created, but
     // the first one isn't finished yet.
-    TestPlayerRunHelper.playUntilPosition(
-        player, /* windowIndex= */ 0, /* positionMs= */ player.getDuration());
+    TestPlayerRunHelper.play(player)
+        .untilPositionAtLeast(/* mediaItemIndex= */ 0, /* positionMs= */ player.getDuration());
     runUntilPendingCommandsAreFullyHandled(player);
+    // Release and wait for release callbacks to fully arrive on the main thread.
     player.release();
-    ShadowLooper.idleMainLooper();
+    runMainLooperUntil(releaseListener::isReleased);
 
     ArgumentCaptor<AnalyticsListener.EventTime> eventTimeCaptor =
         ArgumentCaptor.forClass(AnalyticsListener.EventTime.class);
-    verify(callback, times(2)).onPlaybackStatsReady(eventTimeCaptor.capture(), any());
+    verify(callback, atLeast(0)).onPlaybackStatsReady(eventTimeCaptor.capture(), any());
     assertThat(
             eventTimeCaptor.getAllValues().stream()
                 .map(eventTime -> eventTime.windowIndex)

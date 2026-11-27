@@ -263,9 +263,11 @@ public class WebServerDispatcherTest {
       assertThat(response.body().contentLength()).isEqualTo(-1);
 
       // Calling ResponseBody#bytes() times out because Content-Length isn't set, so instead we
-      // read exactly the number of bytes we expect.
+      // read exactly the number of bytes we expect and then check we get an end-of-stream value
+      // (-1).
       byte[] actualBytes = new byte[20];
       response.body().byteStream().read(actualBytes);
+      assertThat(response.body().byteStream().read()).isEqualTo(-1);
       assertThat(actualBytes).isEqualTo(RANGE_SUPPORTED_LENGTH_UNKNOWN_DATA);
     }
   }
@@ -297,18 +299,19 @@ public class WebServerDispatcherTest {
             .addHeader(HttpHeaders.RANGE, "bytes=5-")
             .build();
     try (Response response = client.newCall(request).execute()) {
-      assertThat(response.code()).isEqualTo(206);
+      assertThat(response.code()).isEqualTo(200);
       assertThat(response.header(HttpHeaders.ACCEPT_RANGES)).isEqualTo("bytes");
       assertThat(response.header(HttpHeaders.CONTENT_LENGTH)).isNull();
-      assertThat(response.header(HttpHeaders.CONTENT_RANGE)).isEqualTo("bytes 5-19/*");
       assertThat(response.body().contentLength()).isEqualTo(-1);
 
       // Calling ResponseBody#bytes() times out because Content-Length isn't set, so instead we
-      // read exactly the number of bytes we expect.
-      byte[] actualBytes = new byte[15];
+      // read exactly the number of bytes we expect and then check we get an end-of-stream value
+      // (-1).
+      byte[] actualBytes = new byte[20];
       response.body().byteStream().read(actualBytes);
-      assertThat(actualBytes)
-          .isEqualTo(Arrays.copyOfRange(RANGE_SUPPORTED_LENGTH_UNKNOWN_DATA, 5, 20));
+      assertThat(response.body().byteStream().read()).isEqualTo(-1);
+      // The Range request header was ignored, so the HTTP 200 response contains all the data.
+      assertThat(actualBytes).isEqualTo(RANGE_SUPPORTED_LENGTH_UNKNOWN_DATA);
     }
   }
 

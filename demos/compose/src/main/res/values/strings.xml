@@ -17,8 +17,4 @@
   <string name="app_name">Media3 Compose Demo</string>
   <!-- Accessibility description for a playback speed selection button. The button is shown with the current playback speed. If a user clicks it, the list of possible playback speeds will be shown. [CHAR_LIMIT=NONE] -->
   <string name="playback_speed">Speed</string>
-  <!-- Accessibility description for a mute button in the unmuted state. If a user clicks it, the player's volume will be changed to zero. [CHAR_LIMIT=NONE] -->
-  <string name="mute_button_shown_unmuted">Mute</string>
-  <!-- Accessibility description for a mute button in the muted state. If a user clicks it, the player's volume will be changed to whatever it was previously before muting. [CHAR_LIMIT=NONE] -->
-  <string name="mute_button_shown_muted">Unmute</string>
 </resources>

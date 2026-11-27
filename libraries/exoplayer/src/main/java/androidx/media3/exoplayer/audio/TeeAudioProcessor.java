@@ -25,7 +25,7 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.extractor.WavUtil;
+import androidx.media3.common.util.WavUtil;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -87,7 +87,7 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
   }
 
   @Override
-  protected void onFlush() {
+  protected void onFlush(StreamMetadata streamMetadata) {
     flushSinkIfActive();
   }
 

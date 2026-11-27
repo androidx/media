@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 
 import android.os.Bundle;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -67,13 +68,16 @@ public class LibraryResultTest {
             .build();
     LibraryParams params = new LibraryParams.Builder().build();
     LibraryResult<MediaItem> libraryResult = LibraryResult.ofItem(mediaItem, params);
-    Bundle libraryResultBundle = libraryResult.toBundle();
+    Bundle libraryResultBundle = libraryResult.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     LibraryResult<?> libraryResultFromUntyped =
-        LibraryResult.fromUnknownBundle(libraryResultBundle);
+        LibraryResult.fromUnknownBundle(libraryResultBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
-    Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle();
+    Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
-    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isEqualTo(mediaItem);
+    assertThat(
+            LibraryResult.fromUnknownBundle(bundleOfUntyped, MediaLibraryInfo.INTERFACE_VERSION)
+                .value)
+        .isEqualTo(mediaItem);
   }
 
   @Test
@@ -87,41 +91,56 @@ public class LibraryResultTest {
     LibraryParams params = new LibraryParams.Builder().build();
     LibraryResult<ImmutableList<MediaItem>> libraryResult =
         LibraryResult.ofItemList(ImmutableList.of(mediaItem), params);
-    Bundle libraryResultBundle = libraryResult.toBundle();
+    Bundle libraryResultBundle = libraryResult.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     LibraryResult<?> mediaItemLibraryResultFromUntyped =
-        LibraryResult.fromUnknownBundle(libraryResultBundle);
+        LibraryResult.fromUnknownBundle(libraryResultBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
-    Bundle bundleOfUntyped = mediaItemLibraryResultFromUntyped.toBundle();
+    Bundle bundleOfUntyped =
+        mediaItemLibraryResultFromUntyped.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
-    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value)
+    assertThat(
+            LibraryResult.fromUnknownBundle(bundleOfUntyped, MediaLibraryInfo.INTERFACE_VERSION)
+                .value)
         .isEqualTo(ImmutableList.of(mediaItem));
   }
 
   @Test
   public void toBundle_errorResultThatWasUnbundledAsAnUnknownType_noException() {
     LibraryResult<ImmutableList<Error>> libraryResult = LibraryResult.ofError(ERROR_NOT_SUPPORTED);
-    Bundle errorLibraryResultBundle = libraryResult.toBundle();
+    Bundle errorLibraryResultBundle = libraryResult.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     LibraryResult<?> libraryResultFromUntyped =
-        LibraryResult.fromUnknownBundle(errorLibraryResultBundle);
+        LibraryResult.fromUnknownBundle(
+            errorLibraryResultBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
-    Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle();
+    Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
-    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isNull();
-    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).resultCode)
+    assertThat(
+            LibraryResult.fromUnknownBundle(bundleOfUntyped, MediaLibraryInfo.INTERFACE_VERSION)
+                .value)
+        .isNull();
+    assertThat(
+            LibraryResult.fromUnknownBundle(bundleOfUntyped, MediaLibraryInfo.INTERFACE_VERSION)
+                .resultCode)
         .isEqualTo(ERROR_NOT_SUPPORTED);
   }
 
   @Test
   public void toBundle_voidResultThatWasUnbundledAsAnUnknownType_noException() {
     LibraryResult<ImmutableList<Error>> libraryResult = LibraryResult.ofError(ERROR_NOT_SUPPORTED);
-    Bundle errorLibraryResultBundle = libraryResult.toBundle();
+    Bundle errorLibraryResultBundle = libraryResult.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     LibraryResult<?> libraryResultFromUntyped =
-        LibraryResult.fromUnknownBundle(errorLibraryResultBundle);
+        LibraryResult.fromUnknownBundle(
+            errorLibraryResultBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
-    Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle();
+    Bundle bundleOfUntyped = libraryResultFromUntyped.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
-    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).value).isNull();
-    assertThat(LibraryResult.fromUnknownBundle(bundleOfUntyped).resultCode)
+    assertThat(
+            LibraryResult.fromUnknownBundle(bundleOfUntyped, MediaLibraryInfo.INTERFACE_VERSION)
+                .value)
+        .isNull();
+    assertThat(
+            LibraryResult.fromUnknownBundle(bundleOfUntyped, MediaLibraryInfo.INTERFACE_VERSION)
+                .resultCode)
         .isEqualTo(ERROR_NOT_SUPPORTED);
   }
 
@@ -133,7 +152,9 @@ public class LibraryResultTest {
         LibraryResult.ofError(new SessionError(ERROR_NOT_SUPPORTED, "error message", errorExtras));
 
     LibraryResult<?> errorLibraryResultFromBundle =
-        LibraryResult.fromUnknownBundle(errorLibraryResult.toBundle());
+        LibraryResult.fromUnknownBundle(
+            errorLibraryResult.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(errorLibraryResultFromBundle.resultCode).isEqualTo(errorLibraryResult.resultCode);
     assertThat(errorLibraryResultFromBundle.sessionError)

@@ -48,6 +48,7 @@ import java.util.zip.Inflater;
   private static final int MAX_COORDINATE_COUNT = 10_000;
   private static final int MAX_VERTEX_COUNT = 32 * 1000;
   private static final int MAX_TRIANGLE_INDICES = 128 * 1000;
+  private static final double LOG2 = Math.log(2.0);
 
   private ProjectionDecoder() {}
 
@@ -168,7 +169,7 @@ import java.util.zip.Inflater;
   private static Mesh parseMesh(ParsableByteArray input) {
     // Read the coordinates.
     int coordinateCount = input.readInt();
-    if (coordinateCount > MAX_COORDINATE_COUNT) {
+    if (coordinateCount <= 0 || coordinateCount > MAX_COORDINATE_COUNT) {
       return null;
     }
     float[] coordinates = new float[coordinateCount];
@@ -177,12 +178,11 @@ import java.util.zip.Inflater;
     }
     // Read the vertices.
     int vertexCount = input.readInt();
-    if (vertexCount > MAX_VERTEX_COUNT) {
+    if (vertexCount <= 0 || vertexCount > MAX_VERTEX_COUNT) {
       return null;
     }
 
-    final double log2 = Math.log(2.0);
-    int coordinateCountSizeBits = (int) Math.ceil(Math.log(2.0 * coordinateCount) / log2);
+    int coordinateCountSizeBits = (int) Math.ceil(Math.log(2.0 * coordinateCount) / LOG2);
 
     ParsableBitArray bitInput = new ParsableBitArray(input.getData());
     bitInput.setPosition(input.getPosition() * 8);
@@ -205,15 +205,18 @@ import java.util.zip.Inflater;
     bitInput.setPosition(((bitInput.getPosition() + 7) & ~7));
 
     int subMeshCount = bitInput.readBits(32);
+    if (subMeshCount <= 0) {
+      return null;
+    }
     SubMesh[] subMeshes = new SubMesh[subMeshCount];
     for (int i = 0; i < subMeshCount; i++) {
       int textureId = bitInput.readBits(8);
       int drawMode = bitInput.readBits(8);
       int triangleIndexCount = bitInput.readBits(32);
-      if (triangleIndexCount > MAX_TRIANGLE_INDICES) {
+      if (triangleIndexCount <= 0 || triangleIndexCount > MAX_TRIANGLE_INDICES) {
         return null;
       }
-      int vertexCountSizeBits = (int) Math.ceil(Math.log(2.0 * vertexCount) / log2);
+      int vertexCountSizeBits = (int) Math.ceil(Math.log(2.0 * vertexCount) / LOG2);
       int index = 0;
       float[] triangleVertices = new float[triangleIndexCount * 3];
       float[] textureCoords = new float[triangleIndexCount * 2];

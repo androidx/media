@@ -54,7 +54,6 @@ import org.robolectric.shadows.ShadowTelephonyManager;
 
 /** Unit test for {@link DefaultBandwidthMeter}. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = Config.ALL_SDKS) // Test all SDKs because network detection logic changed over time.
 public final class DefaultBandwidthMeterTest {
 
   private static final String FAST_COUNTRY_ISO = "TW";
@@ -447,6 +446,61 @@ public final class DefaultBandwidthMeterTest {
     long initialEstimate = bandwidthMeter.getBitrateEstimate();
 
     assertThat(initialEstimate).isEqualTo(123456789);
+  }
+
+  @Test
+  public void initialBitrateSupplier_setsInitialEstimate() {
+    setActiveNetworkInfo(networkInfoWifi);
+    DefaultBandwidthMeter.InitialBitrateSupplier supplier = networkType -> 123456789L;
+    DefaultBandwidthMeter bandwidthMeter =
+        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+            .setInitialBitrateSupplier(supplier)
+            .build();
+    ShadowLooper.idleMainLooper();
+    long initialEstimate = bandwidthMeter.getBitrateEstimate();
+
+    assertThat(initialEstimate).isEqualTo(123456789);
+  }
+
+  @Test
+  public void initialBitrateSupplier_returnsTimeUnset_fallsBackToDefault() {
+    setActiveNetworkInfo(networkInfoWifi);
+    DefaultBandwidthMeter.InitialBitrateSupplier supplier = networkType -> C.TIME_UNSET;
+    DefaultBandwidthMeter bandwidthMeter =
+        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+            .setInitialBitrateSupplier(supplier)
+            .build();
+    ShadowLooper.idleMainLooper();
+    long initialEstimate = bandwidthMeter.getBitrateEstimate();
+
+    assertThat(initialEstimate).isNotEqualTo(C.TIME_UNSET);
+    assertThat(initialEstimate).isGreaterThan(0);
+  }
+
+  @Test
+  public void initialBitrateSupplier_onNetworkTypeOverride_setsInitialEstimate() {
+    setActiveNetworkInfo(networkInfoWifi);
+    long expected4gBitrate = 987654321L;
+    DefaultBandwidthMeter.InitialBitrateSupplier supplier =
+        networkType -> {
+          if (networkType == C.NETWORK_TYPE_4G) {
+            return expected4gBitrate;
+          }
+          return C.TIME_UNSET; // Fallback to default for other types
+        };
+    DefaultBandwidthMeter bandwidthMeter =
+        new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext())
+            .setInitialBitrateSupplier(supplier)
+            .build();
+    ShadowLooper.idleMainLooper();
+    long initialEstimateWifi = bandwidthMeter.getBitrateEstimate();
+    assertThat(initialEstimateWifi).isNotEqualTo(expected4gBitrate);
+
+    bandwidthMeter.setNetworkTypeOverride(C.NETWORK_TYPE_4G);
+    ShadowLooper.idleMainLooper();
+    long initialEstimate4g = bandwidthMeter.getBitrateEstimate();
+
+    assertThat(initialEstimate4g).isEqualTo(expected4gBitrate);
   }
 
   @Test

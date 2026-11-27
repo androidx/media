@@ -19,18 +19,31 @@ import static androidx.media3.common.Player.STATE_BUFFERING;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
+import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_12_5FPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_15FPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AVC;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
+import static androidx.media3.transformer.TestUtil.FILE_PNG;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBuilder;
+import static androidx.media3.transformer.TestUtil.createTestHardwareBufferCompositionPlayerBuilder;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -44,22 +57,35 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.view.Surface;
 import android.view.TextureView;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.VideoCompositorSettings;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.AlphaScale;
+import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -68,25 +94,43 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
+import androidx.media3.test.utils.FakeFrameProcessor;
 import androidx.media3.test.utils.TestSpeedProvider;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Unit tests for {@link CompositionPlayer}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class CompositionPlayerTest {
+  @Rule
+  public ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withCodecs(
+          /* decoders= */ ImmutableList.of(CODEC_INFO_AVC),
+          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
+
   private static final long TEST_TIMEOUT_MS = 1_000;
 
   private static final SpeedProvider TEST_SPEED_PROVIDER =
@@ -101,16 +145,305 @@ public class CompositionPlayerTest {
           return C.TIME_UNSET;
         }
       };
+  private static final SpeedProvider DOUBLE_SPEED_PROVIDER =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 2f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
+
+  private static final SpeedProvider HALF_SPEED_PROVIDER =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 0.5f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
+  private static final Input TWO_AUDIO_ITEMS =
+      new Input(
+          CompositionPlayerTest::buildComposition,
+          /* expectedDurationMs= */ 1_348,
+          "TWO_AUDIO_ITEMS");
+  private static final Input TWO_AUDIO_ITEMS_WITH_SET_SPEED =
+      new Input(
+          () -> {
+            EditedMediaItem item1 =
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(HALF_SPEED_PROVIDER)
+                    .build();
+            EditedMediaItem item2 =
+                new EditedMediaItem.Builder(
+                        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+                    .setDurationUs(348_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(item1, item2))).build();
+          },
+          /* expectedDurationMs= */ 2_174,
+          "TWO_AUDIO_ITEMS_WITH_SET_SPEED");
+  private static final Input AUDIO_ITEM_WITH_SET_DOUBLE_SPEED =
+      new Input(
+          () -> {
+            EditedMediaItem item =
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
+          },
+          /* expectedDurationMs= */ 500,
+          "AUDIO_ITEM_WITH_SET_DOUBLE_SPEED");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(200_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 800,
+          "AUDIO_ITEM_WITH_CLIPPED_START");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_GREATER_THAN_HALF_DURATION =
+      new Input(
+          () -> {
+            // This test covers cases where the clipped duration exceeds half the original duration.
+            // It is needed to make sure no problems arise from clipping in this case. This would
+            // catch removing ClippingConfiguration wrapping SilenceMediaSource, because the problem
+            // only occurs when the clippedDuration exceeds half the original duration.
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(600_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 400,
+          "AUDIO_ITEM_WITH_CLIPPED_START_GREATER_THAN_HALF_DURATION");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_END =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(600_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 600,
+          "AUDIO_ITEM_WITH_CLIPPED_END");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_END =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(100_000)
+                            .setEndPositionUs(550_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 450,
+          "AUDIO_ITEM_WITH_CLIPPED_START_AND_END");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_DOUBLE_SPEED_EFFECT =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(200_000)
+                            .build())
+                    .build();
+            // Video must be removed because Composition presentation time assumes there is audio
+            // and video.
+            // TODO: b/469706967 - Remove setRemoveVideo() call when EditedMediaItems consider
+            // sequence types.
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setRemoveVideo(true)
+                    .setDurationUs(1_000_000L)
+                    .setEffects(toEffects(new SpeedChangingAudioProcessor(DOUBLE_SPEED_PROVIDER)))
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 400,
+          "AUDIO_ITEM_WITH_CLIPPED_START_AND_DOUBLE_SPEED_EFFECT");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_SET_DOUBLE_SPEED =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(200_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 400,
+          "AUDIO_ITEM_WITH_CLIPPED_START_AND_SET_DOUBLE_SPEED");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_END_AND_DOUBLE_SPEED_EFFECT =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(600_000)
+                            .build())
+                    .build();
+            // Video must be removed because Composition presentation time assumes there is audio
+            // and video.
+            // TODO: b/469706967 - Remove setRemoveVideo() call when EditedMediaItems consider
+            // sequence types.
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setRemoveVideo(true)
+                    .setDurationUs(1_000_000L)
+                    .setEffects(toEffects(new SpeedChangingAudioProcessor(DOUBLE_SPEED_PROVIDER)))
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 300,
+          "AUDIO_ITEM_WITH_CLIPPED_END_AND_DOUBLE_SPEED_EFFECT");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_END_AND_SET_DOUBLE_SPEED =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(600_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 300,
+          "AUDIO_ITEM_WITH_CLIPPED_END_AND_SET_DOUBLE_SPEED");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_HALF_SPEED_EFFECT =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(100_000)
+                            .setEndPositionUs(550_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setDurationUs(1_000_000L)
+                    .setEffects(toEffects(new SpeedChangingAudioProcessor(HALF_SPEED_PROVIDER)))
+                    .build();
+            EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
+            return new Composition.Builder(sequence).build();
+          },
+          /* expectedDurationMs= */ 900,
+          "AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_HALF_SPEED_EFFECT");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(100_000)
+                            .setEndPositionUs(550_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(HALF_SPEED_PROVIDER)
+                    .build();
+            EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
+            return new Composition.Builder(sequence).build();
+          },
+          /* expectedDurationMs= */ 900,
+          "AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED");
+
+  @MonotonicNonNull CompositionPlayer player;
+  private FakeFrameProcessor.Factory frameProcessorFactory;
+
+  @Before
+  public void setUp() {
+    frameProcessorFactory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true);
+  }
+
+  @After
+  public void tearDown() {
+    if (player != null) {
+      player.release();
+    }
+  }
 
   @Test
   public void builder_buildCalledTwice_throws() {
     CompositionPlayer.Builder builder = new CompositionPlayer.Builder(getApplicationContext());
 
-    CompositionPlayer player = builder.build();
+    player = builder.build();
 
     assertThrows(IllegalStateException.class, builder::build);
-
-    player.release();
   }
 
   @Test
@@ -139,7 +472,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void instance_accessedByWrongThread_throws() throws InterruptedException {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     AtomicReference<@NullableType RuntimeException> exception = new AtomicReference<>();
     ConditionVariable conditionVariable = new ConditionVariable();
     HandlerThread handlerThread = new HandlerThread("test");
@@ -174,6 +507,7 @@ public class CompositionPlayerTest {
     Handler applicationThreadHandler = new Handler(applicationLooper);
     AtomicReference<Thread> callbackThread = new AtomicReference<>();
     ConditionVariable eventsArrived = new ConditionVariable();
+    // Do not use the shared player to avoid it being released in tearDown on the wrong thread.
     CompositionPlayer player =
         createTestCompositionPlayerBuilder().setLooper(applicationLooper).build();
     // Listeners can be added by any thread.
@@ -214,7 +548,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void release_onNewlyCreateInstance() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     player.release();
   }
@@ -230,7 +564,7 @@ public class CompositionPlayerTest {
             throw new RuntimeException("AudioSink release error");
           }
         };
-    CompositionPlayer player = createTestCompositionPlayerBuilder().setAudioSink(audioSink).build();
+    player = createTestCompositionPlayerBuilder().setAudioSink(audioSink).build();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
 
@@ -253,7 +587,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getAvailableCommands_returnsSpecificCommands() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     assertThat(getCommandsAsList(player.getAvailableCommands()))
         .containsExactly(
@@ -273,33 +607,28 @@ public class CompositionPlayerTest {
             Player.COMMAND_SET_VOLUME,
             Player.COMMAND_RELEASE,
             Player.COMMAND_SET_AUDIO_ATTRIBUTES);
-
-    player.release();
   }
 
   @Test
   public void prepare_withoutCompositionSet_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     assertThrows(NullPointerException.class, player::prepare);
-
-    player.release();
   }
 
   @Test
   public void prepare_playbackStateIsBuffering() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     player.setComposition(buildComposition());
 
     player.prepare();
 
     assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
-    player.release();
   }
 
   @Test
   public void seekTo_playbackStateIsBuffering() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     player.setComposition(buildComposition());
     player.prepare();
     advance(player).untilState(STATE_READY);
@@ -307,12 +636,11 @@ public class CompositionPlayerTest {
     player.seekTo(100);
 
     assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
-    player.release();
   }
 
   @Test
   public void stop_playbackStateIsIdle() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     player.setComposition(buildComposition());
     player.prepare();
     advance(player).untilState(STATE_READY);
@@ -320,12 +648,11 @@ public class CompositionPlayerTest {
     player.stop();
 
     assertThat(player.getPlaybackState()).isEqualTo(STATE_IDLE);
-    player.release();
   }
 
   @Test
   public void setComposition_playbackStateIsUpdated() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     player.setComposition(buildComposition());
     assertThat(player.getPlaybackState()).isEqualTo(STATE_IDLE);
     player.prepare();
@@ -342,24 +669,22 @@ public class CompositionPlayerTest {
     assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
     player.stop();
     assertThat(player.getPlaybackState()).isEqualTo(STATE_IDLE);
-    player.release();
   }
 
   @Test
   public void playWhenReady_calledBeforePrepare_startsPlayingAfterPrepareCalled() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     player.setPlayWhenReady(true);
     player.setComposition(buildComposition());
     player.prepare();
 
     TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
-    player.release();
   }
 
   @Test
   public void playWhenReady_triggersPlayWhenReadyCallbackWithReason() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     AtomicInteger playWhenReadyReason = new AtomicInteger(-1);
     player.addListener(
         new Player.Listener() {
@@ -380,297 +705,87 @@ public class CompositionPlayerTest {
   @Test
   public void setVideoTextureView_throws() {
     Context context = getApplicationContext();
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     assertThrows(
         UnsupportedOperationException.class,
         () -> player.setVideoTextureView(new TextureView(context)));
-
-    player.release();
   }
 
   @Test
   public void setVideoSurface_withNonNullSurface_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
-    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    player = createTestCompositionPlayer();
+    SurfaceTexture surfaceTexture = new SurfaceTexture(/* texName= */ 0);
+    Surface surface = new Surface(surfaceTexture);
 
     assertThrows(UnsupportedOperationException.class, () -> player.setVideoSurface(surface));
 
-    player.release();
     surface.release();
+    surfaceTexture.release();
   }
 
   @Test
   public void clearVideoSurface_specifiedSurfaceNotPreviouslySet_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
+    SurfaceTexture surfaceTexture = new SurfaceTexture(/* texName= */ 0);
+    Surface surface = new Surface(surfaceTexture);
 
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> player.clearVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 0))));
+    assertThrows(IllegalArgumentException.class, () -> player.clearVideoSurface(surface));
 
     player.release();
+    surface.release();
+    surfaceTexture.release();
   }
 
   @Test
   public void getTotalBufferedDuration_playerStillIdle_returnsZero() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     assertThat(player.getTotalBufferedDuration()).isEqualTo(0);
-
-    player.release();
   }
 
   @Test
   public void getTotalBufferedDuration_setCompositionButNotPrepare_returnsZero() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     player.setComposition(buildComposition());
 
     assertThat(player.getTotalBufferedDuration()).isEqualTo(0);
-
-    player.release();
   }
 
   @Test
   public void getTotalBufferedDuration_playerReady_returnsNonZero() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     player.setComposition(buildComposition());
     player.prepare();
     TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getTotalBufferedDuration()).isGreaterThan(0);
-
-    player.release();
   }
 
   @Test
   public void getDuration_withoutComposition_returnsTimeUnset() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     assertThat(player.getDuration()).isEqualTo(C.TIME_UNSET);
-
-    player.release();
   }
 
   @Test
-  public void getDuration_withComposition_returnsDuration() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
-    Composition composition = buildComposition();
-
-    player.setComposition(composition);
-    player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    // Refer to the durations in buildComposition().
-    assertThat(player.getDuration()).isEqualTo(1_348);
-
-    player.release();
-  }
-
-  @Test
-  public void getDuration_withClippedStart_returnsCorrectDuration() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(200_000).build())
-            .build();
-    EditedMediaItem editedMediaItem1 =
-        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
-    Composition composition = new Composition.Builder(sequence).build();
-
-    player.setComposition(composition);
-    player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    assertThat(player.getDuration()).isEqualTo(800);
-
-    player.release();
-  }
-
-  @Test
-  public void getDuration_withClippedStartGreaterThanHalfDuration_returnsCorrectDuration()
+  public void getDuration_returnsExpectedDuration(
+      @TestParameter(valuesProvider = DurationTestCasesProvider.class) Input input)
       throws Exception {
-    // This test covers cases where the clipped duration exceeds half the original duration.
-    // It is needed to make sure no problems arise from clipping in this case. This would catch
-    // removing ClippingConfiguration wrapping SilenceMediaSource, because the problem only occurs
-    // when the clippedDuration exceeds half the original duration.
-    CompositionPlayer player = createTestCompositionPlayer();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(600_000).build())
-            .build();
-    EditedMediaItem editedMediaItem1 =
-        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
-    Composition composition = new Composition.Builder(sequence).build();
-
-    player.setComposition(composition);
+    player = createTestCompositionPlayer();
+    player.setComposition(input.composition.get());
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
+    advance(player).untilState(STATE_READY);
 
-    assertThat(player.getDuration()).isEqualTo(400);
-
-    player.release();
-  }
-
-  @Test
-  public void getDuration_withClippedEnd_returnsCorrectDuration() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setEndPositionUs(600_000).build())
-            .build();
-    EditedMediaItem editedMediaItem1 =
-        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
-    Composition composition = new Composition.Builder(sequence).build();
-
-    player.setComposition(composition);
-    player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    assertThat(player.getDuration()).isEqualTo(600);
-
-    player.release();
-  }
-
-  @Test
-  public void getDuration_withClippedStartEnd_returnsCorrectDuration() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionUs(100_000)
-                    .setEndPositionUs(550_000)
-                    .build())
-            .build();
-    EditedMediaItem editedMediaItem1 =
-        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
-    Composition composition = new Composition.Builder(sequence).build();
-
-    player.setComposition(composition);
-    player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    assertThat(player.getDuration()).isEqualTo(450);
-
-    player.release();
-  }
-
-  @Test
-  public void getDuration_withDurationAdjustingEffectsAndClippedStart_returnsCorrectDuration()
-      throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
-    ImmutableList<AudioProcessor> audioProcessors =
-        ImmutableList.of(
-            new SpeedChangingAudioProcessor(
-                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {2f})));
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(200_000).build())
-            .build();
-    // Video must be removed because Composition presentation time assumes there is audio and video.
-    EditedMediaItem editedMediaItem1 =
-        new EditedMediaItem.Builder(mediaItem)
-            .setRemoveVideo(true)
-            .setDurationUs(1_000_000L)
-            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
-            .build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
-    Composition composition = new Composition.Builder(sequence).build();
-
-    player.setComposition(composition);
-    player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    assertThat(player.getDuration()).isEqualTo(400);
-
-    player.release();
-  }
-
-  @Test
-  public void getDuration_withDurationAdjustingEffectsAndClippedEnd_returnsCorrectDuration()
-      throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
-    ImmutableList<AudioProcessor> audioProcessors =
-        ImmutableList.of(
-            new SpeedChangingAudioProcessor(
-                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {2f})));
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setEndPositionUs(600_000).build())
-            .build();
-    // Video must be removed because Composition presentation time assumes there is audio and video.
-    EditedMediaItem editedMediaItem1 =
-        new EditedMediaItem.Builder(mediaItem)
-            .setRemoveVideo(true)
-            .setDurationUs(1_000_000L)
-            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
-            .build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
-    Composition composition = new Composition.Builder(sequence).build();
-
-    player.setComposition(composition);
-    player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    assertThat(player.getDuration()).isEqualTo(300);
-
-    player.release();
-  }
-
-  @Test
-  public void getDuration_withDurationAdjustingEffectsAndClippedStartEnd_returnsCorrectDuration()
-      throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
-    ImmutableList<AudioProcessor> audioProcessors =
-        ImmutableList.of(
-            new SpeedChangingAudioProcessor(
-                TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {0.5f})));
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionUs(100_000)
-                    .setEndPositionUs(550_000)
-                    .build())
-            .build();
-    EditedMediaItem editedMediaItem1 =
-        new EditedMediaItem.Builder(mediaItem)
-            .setDurationUs(1_000_000L)
-            .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
-            .build();
-    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
-    Composition composition = new Composition.Builder(sequence).build();
-
-    player.setComposition(composition);
-    player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    assertThat(player.getDuration()).isEqualTo(900);
-
-    player.release();
+    assertThat(player.getDuration()).isEqualTo(input.expectedDurationMs);
   }
 
   @Test
   public void addListener_callsSupportedCallbacks() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Composition composition = buildComposition();
     Player.Listener listener = mock(Player.Listener.class);
     InOrder inOrder = Mockito.inOrder(listener);
@@ -710,7 +825,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void addListener_callsOnEventsWithSupportedEvents() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Composition composition = buildComposition();
     Player.Listener mockListener = mock(Player.Listener.class);
     ArgumentCaptor<Player.Events> eventsCaptor = ArgumentCaptor.forClass(Player.Events.class);
@@ -741,7 +856,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void play_withCorrectTimelineUpdated() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Composition composition = buildComposition();
     Player.Listener mockListener = mock(Player.Listener.class);
     ArgumentCaptor<Timeline> timelineCaptor = ArgumentCaptor.forClass(Timeline.class);
@@ -770,8 +885,7 @@ public class CompositionPlayerTest {
   @Test
   public void play_audioSinkPlayNotCalledUntilReady() throws Exception {
     AudioSink mockAudioSink = mock(AudioSink.class);
-    CompositionPlayer player =
-        createTestCompositionPlayerBuilder().setAudioSink(mockAudioSink).build();
+    player = createTestCompositionPlayerBuilder().setAudioSink(mockAudioSink).build();
     player.setComposition(buildComposition());
     player.prepare();
     player.play();
@@ -786,14 +900,12 @@ public class CompositionPlayerTest {
     advance(player).untilPendingCommandsAreFullyHandled();
 
     verify(mockAudioSink).play();
-
-    player.release();
   }
 
   @Test
   public void playSequence_withRepeatModeOff_doesNotReportRepeatMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setComposition(buildComposition());
@@ -811,7 +923,7 @@ public class CompositionPlayerTest {
   @Test
   public void playSequence_withRepeatModeAll_reportsRepeatReasonForMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
@@ -837,7 +949,7 @@ public class CompositionPlayerTest {
   @Test
   public void playComposition_withRepeatModeOff_doesNotReportRepeatMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setRepeatMode(Player.REPEAT_MODE_OFF);
@@ -877,9 +989,34 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void scrub_pastEndOfSecondarySequence_doesNotHang() throws Exception {
+    MediaItem item = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(item).setDurationUs(1_000_000L).build();
+
+    Composition composition =
+        new Composition.Builder(
+                withAudioFrom(ImmutableList.of(editedMediaItem, editedMediaItem)),
+                withAudioFrom(ImmutableList.of(editedMediaItem)))
+            .build();
+    player = createTestCompositionPlayer();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 1500);
+    player.setScrubbingModeEnabled(false);
+
+    advance(player).untilState(STATE_ENDED);
+  }
+
+  @Test
   public void playComposition_withRepeatModeAll_reportsRepeatReasonForMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
@@ -926,7 +1063,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void seekPastDuration_ends() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     EditedMediaItem editedMediaItem =
@@ -943,12 +1080,11 @@ public class CompositionPlayerTest {
     player.seekTo(/* positionMs= */ 1100);
     assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
     advance(player).untilState(STATE_ENDED);
-    player.release();
   }
 
   @Test
   public void seekPastDuration_withClippedStart_ends() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -968,12 +1104,11 @@ public class CompositionPlayerTest {
     player.play();
 
     advance(player).untilState(STATE_ENDED);
-    player.release();
   }
 
   @Test
   public void seekPastDuration_withClippedEnd_ends() throws Exception {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -993,19 +1128,18 @@ public class CompositionPlayerTest {
     player.play();
 
     advance(player).untilState(STATE_ENDED);
-    player.release();
   }
 
   @Test
   public void isScrubbingModeEnabled_defaultsFalse() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     assertThat(player.isScrubbingModeEnabled()).isFalse();
   }
 
   @Test
   public void setScrubbingModeEnabled_updatesIsScrubbingModeEnabled() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
 
     player.setScrubbingModeEnabled(true);
 
@@ -1017,20 +1151,18 @@ public class CompositionPlayerTest {
     CustomLoadControl customLoadControl = new CustomLoadControl();
     CompositionPlayer.Builder playerBuilder = createTestCompositionPlayerBuilder();
     playerBuilder.setLoadControl(customLoadControl);
-    CompositionPlayer player = playerBuilder.build();
+    player = playerBuilder.build();
 
     player.setComposition(buildComposition());
     player.prepare();
     TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(customLoadControl.prepared).isTrue();
-
-    player.release();
   }
 
   @Test
   public void setComposition_withCompositionLevelSpeedChangingAudioProcessor_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Effects effects =
         new Effects(
             ImmutableList.of(new SpeedChangingAudioProcessor(TEST_SPEED_PROVIDER)),
@@ -1042,7 +1174,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void setComposition_withCompositionLevelTimestampAdjustment_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Effects effects =
         new Effects(
             ImmutableList.of(),
@@ -1055,8 +1187,37 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void scrubbing_seekPastOneSequenceDuration_transitionsToReady() throws Exception {
+    player = createTestCompositionPlayer();
+    player.setScrubbingModeEnabled(true);
+    EditedMediaItemSequence normalSequence =
+        withAudioFrom(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .build()));
+    MediaItem clippedMediaItem =
+        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionUs(500_000L).build())
+            .build();
+    EditedMediaItemSequence clippedSequence =
+        withAudioFrom(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(clippedMediaItem).setDurationUs(1_000_000L).build()));
+    player.setComposition(new Composition.Builder(normalSequence, clippedSequence).build());
+
+    player.prepare();
+    player.seekTo(800);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+  }
+
+  @Test
   public void setComposition_withNonFirstSpeedChangingAudioProcessor_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Effects effects =
         new Effects(
             ImmutableList.of(
@@ -1075,7 +1236,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void setComposition_withNonFirstTimestampAdjustment_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Effects effects =
         new Effects(
             ImmutableList.of(),
@@ -1096,7 +1257,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void setComposition_withSpeedChangeEffectInFirstPosition_throws() {
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     Effects effects = new Effects(ImmutableList.of(), ImmutableList.of(new SpeedChangeEffect(1f)));
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.EMPTY)
@@ -1110,10 +1271,29 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void setComposition_withPlaceholderInMediaItemUri_doesNotThrowWhenLoggingTrace() {
+    player = createTestCompositionPlayer();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri("asset:///media.%D"))
+            .setDurationUs(1_000_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
+    boolean oldEnableDebugTrace = DebugTraceUtil.enableTracing;
+    DebugTraceUtil.enableTracing = true;
+
+    try {
+      player.setComposition(composition);
+    } finally {
+      DebugTraceUtil.enableTracing = oldEnableDebugTrace;
+    }
+  }
+
+  @Test
   public void setSpeed_onSecondarySequence_outputsExpectedNumberOfSamples() throws Exception {
     AtomicInteger bytes = new AtomicInteger();
     AudioProcessor processor = createByteCountingAudioProcessor(bytes);
-    CompositionPlayer player = createTestCompositionPlayer();
+    player = createTestCompositionPlayer();
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
             .setDurationUs(1_000_000L)
@@ -1122,9 +1302,8 @@ public class CompositionPlayerTest {
         item.buildUpon()
             .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {0.5f}))
             .build();
-    EditedMediaItemSequence primarySequence = new EditedMediaItemSequence.Builder(item).build();
-    EditedMediaItemSequence secondarySequence =
-        new EditedMediaItemSequence.Builder(speedAdjustedItem).build();
+    EditedMediaItemSequence primarySequence = withAudioFrom(ImmutableList.of(item));
+    EditedMediaItemSequence secondarySequence = withAudioFrom(ImmutableList.of(speedAdjustedItem));
     player.setComposition(
         new Composition.Builder(primarySequence, secondarySequence)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
@@ -1134,6 +1313,1546 @@ public class CompositionPlayerTest {
     play(player).untilState(STATE_ENDED);
 
     assertThat(bytes.get() / 2).isEqualTo(88200);
+  }
+
+  @Test
+  public void frameProcessor_setComposition_rendersFirstFrameBeforeStarted()
+      throws PlaybackException, TimeoutException {
+    Composition composition1 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition2 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition3 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition1);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    assertThat(frameProcessor.getQueuedContentTimesUs()).containsExactly(ImmutableList.of(0L, 0L));
+
+    player.setComposition(composition2);
+    advance(player).untilState(STATE_READY);
+    runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(0L, 0L, 0L));
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(0L, 0L, 0L))
+        .inOrder();
+
+    player.setComposition(composition3);
+    advance(player).untilState(STATE_READY);
+    runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(0L));
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L), ImmutableList.of(0L, 0L, 0L), ImmutableList.of(0L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_setCompositionAfterSeek_rendersFrameAtSeekPositionBeforeStarted()
+      throws PlaybackException, TimeoutException {
+    Composition composition1 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition2 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition1);
+    player.prepare();
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(500_000L, 500_500L));
+
+    player.setComposition(composition2, player.getCurrentPosition());
+    advance(player).untilState(STATE_READY);
+    runMainLooperUntilContentTimesUs(
+        frameProcessor, ImmutableList.of(500_000L, 500_000L, 500_500L));
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(500_000L, 500_500L), ImmutableList.of(500_000L, 500_000L, 500_500L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_playbackAt5xSpeedAt30Fps_dropsFramesAtRegularIntervals()
+      throws PlaybackException, TimeoutException {
+    TestSpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {5.0f});
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .setSpeed(speedProvider)
+                            .setFrameRate(30)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    // Output should be a 2s long, 30fps video, because the frameRate is set on the EditedMediaItem.
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(33_367L),
+            ImmutableList.of(66_733L),
+            ImmutableList.of(100_100L),
+            ImmutableList.of(133_467L),
+            ImmutableList.of(166_833L),
+            ImmutableList.of(193_527L),
+            ImmutableList.of(C.TIME_UNSET))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_playbackAt5xSpeedUnsetFrameRate_doesNotDropFrames()
+      throws PlaybackException, TimeoutException {
+    TestSpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {5.0f});
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .setSpeed(speedProvider)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    // Output should be a 2s long, 30fps video, because the frameRate is set on the EditedMediaItem.
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(6_673L),
+            ImmutableList.of(13_347L),
+            ImmutableList.of(20_020L),
+            ImmutableList.of(26_693L),
+            ImmutableList.of(33_367L),
+            ImmutableList.of(40_040L),
+            ImmutableList.of(46_713L),
+            ImmutableList.of(53_387L),
+            ImmutableList.of(60_060L),
+            ImmutableList.of(66_733L),
+            ImmutableList.of(73_407L),
+            ImmutableList.of(80_080L),
+            ImmutableList.of(86_753L),
+            ImmutableList.of(93_427L),
+            ImmutableList.of(100_100L),
+            ImmutableList.of(106_773L),
+            ImmutableList.of(113_447L),
+            ImmutableList.of(120_120L),
+            ImmutableList.of(126_793L),
+            ImmutableList.of(133_467L),
+            ImmutableList.of(140_140L),
+            ImmutableList.of(146_813L),
+            ImmutableList.of(153_487L),
+            ImmutableList.of(160_160L),
+            ImmutableList.of(166_833L),
+            ImmutableList.of(173_507L),
+            ImmutableList.of(180_180L),
+            ImmutableList.of(186_853L),
+            ImmutableList.of(193_527L),
+            ImmutableList.of(C.TIME_UNSET))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_startPlaybackAfterZero_dropsFirstFrame() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    // Seek to 1ms (1000 us) before preparing. This should cause the frame at 0L to be dropped.
+    player.seekTo(/* positionMs= */ 1);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // The frame at 0L should be dropped because the start position is 1000L.
+    assertThat(frameProcessor.getQueuedContentTimesUs().get(0)).containsExactly(33_366L);
+  }
+
+  @Test
+  public void frameProcessor_setCompositionWithNewPosition_rendersFrameAtSeekPositionBeforeStarted()
+      throws PlaybackException, TimeoutException {
+    Composition composition1 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition2 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build(),
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition1);
+    player.prepare();
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(500_000L, 500_500L));
+
+    player.setComposition(composition2, /* startPositionMs= */ 1_200);
+    advance(player).untilState(STATE_READY);
+    runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(1_223_466L));
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(500_000L, 500_500L), ImmutableList.of(1_223_466L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_playback_audio_endsSuccessfully() throws Exception {
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    EditedMediaItem audioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(audioItem))).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+  }
+
+  @Test
+  public void frameProcessor_playback_image_endsWithExpectedNumberOfFrames() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    // The image sequence is 1_000_000 us (1 sec) long at 30 fps, so it should generate exactly 30
+    // frames.
+    ImmutableList.Builder<ImmutableList<Long>> expectedTimestampsUs = new ImmutableList.Builder<>();
+    for (int i = 0; i < 30; i++) {
+      expectedTimestampsUs.add(ImmutableList.of(Math.round(i * 1_000_000.0 / 30)));
+    }
+    expectedTimestampsUs.add(ImmutableList.of(C.TIME_UNSET));
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactlyElementsIn(expectedTimestampsUs.build())
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_playback_imageAndAudio_endsWithExpectedNumberOfFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+                            .setDurationUs(1_000_000)
+                            .build())))
+            .build();
+    // The image sequence is 1_000_000 us (1 sec) long at 30 fps, so it should generate exactly 30
+    // frames.
+    ImmutableList.Builder<ImmutableList<Long>> expectedTimestampsUs = new ImmutableList.Builder<>();
+    for (int i = 0; i < 30; i++) {
+      expectedTimestampsUs.add(ImmutableList.of(Math.round(i * 1_000_000.0 / 30)));
+    }
+    expectedTimestampsUs.add(ImmutableList.of(C.TIME_UNSET));
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactlyElementsIn(expectedTimestampsUs.build())
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_playback_videoAndAudio_endsWithExpectedTimestamps() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    ImmutableList<ImmutableList<Long>> expectedTimestamps =
+        new ImmutableList.Builder<ImmutableList<Long>>()
+            .addAll(
+                MP4_SIMPLE_ASSET.videoTimestampsUs.stream()
+                    .map(ImmutableList::of)
+                    .collect(toImmutableList()))
+            .add(ImmutableList.of(C.TIME_UNSET))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactlyElementsIn(expectedTimestamps)
+        .inOrder();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 26)
+  public void frameProcessor_playback_populatesRequiredMetadataFields() throws Exception {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(new AlphaScale(0.5f))))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(new AlphaScale(0.8f))))
+            .setVideoCompositorSettings(VideoCompositorSettings.DEFAULT)
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    FakeFrameProcessor.FramesEvent framesEvent =
+        (FakeFrameProcessor.FramesEvent) frameProcessor.getQueuedEvents().get(0);
+    Frame frame = framesEvent.frames.get(0).frame;
+    ImmutableMap<String, Object> metadata = frame.getMetadata();
+
+    assertThat(metadata.get(Composition.KEY_COMPOSITION).toString())
+        .isEqualTo(composition.toString());
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX)).isEqualTo(0);
+    assertThat(metadata.get(Composition.KEY_COMPOSITION_ITEM_INDEX)).isEqualTo(0);
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_ITEM_EFFECTS))
+        .isEqualTo(editedMediaItem.effects.videoEffects);
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS))
+        .isEqualTo(composition.videoCompositorSettings);
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS))
+        .isEqualTo(composition.effects.videoEffects);
+  }
+
+  @Test
+  public void frameProcessor_imagePlayback_seekToMiddle_completesWithExpectedNumberOfFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    player.setPlayWhenReady(false);
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(/* positionMs= */ 500);
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+    // 1 initial frame + 15 frames from 500ms + 1 EOS.
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(1 + 15 + 1);
+  }
+
+  @Test
+  public void frameProcessor_oneImageSequence_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L), ImmutableList.of(500_000L));
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 200);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L), ImmutableList.of(500_000L), ImmutableList.of(200_000L));
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(500_000L),
+            ImmutableList.of(200_000L),
+            ImmutableList.of(750_000L));
+  }
+
+  @Test
+  public void frameProcessor_twoImageSequences_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(500_000L, 500_000L));
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 200);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(500_000L, 500_000L),
+            ImmutableList.of(200_000L, 200_000L));
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(500_000L, 500_000L),
+            ImmutableList.of(200_000L, 200_000L),
+            ImmutableList.of(750_000L, 750_000L));
+  }
+
+  @Test
+  public void frameProcessor_oneImageSequence_rapidSeeking_debouncesSeeks() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L), ImmutableList.of(100_000L), ImmutableList.of(500_000L));
+
+    // Seek backwards
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(100_000L),
+            ImmutableList.of(500_000L),
+            ImmutableList.of(400_000L),
+            ImmutableList.of(100_000L));
+  }
+
+  @Test
+  public void frameProcessor_twoImageSequences_rapidSeeking_debouncesSeeks() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(100_000L, 100_000L),
+            ImmutableList.of(500_000L, 500_000L));
+
+    // Seek backwards
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(100_000L, 100_000L),
+            ImmutableList.of(500_000L, 500_000L),
+            ImmutableList.of(400_000L, 400_000L),
+            ImmutableList.of(100_000L, 100_000L));
+  }
+
+  @Test
+  public void frameProcessor_oneImageSequence_scrubbing_debouncesSeeks() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L), ImmutableList.of(500_000L));
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L), ImmutableList.of(500_000L), ImmutableList.of(100_000L));
+  }
+
+  @Test
+  public void frameProcessor_twoImageSequences_scrubbing_debouncesSeeks() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(500_000L, 500_000L));
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(500_000L, 500_000L),
+            ImmutableList.of(100_000L, 100_000L));
+  }
+
+  @Test
+  public void frameProcessor_oneImageSequence_scrubThenWait_debouncesSeeks() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L), ImmutableList.of(100_000L), ImmutableList.of(500_000L));
+
+    // Seek backwards
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(100_000L),
+            ImmutableList.of(500_000L),
+            ImmutableList.of(100_000L));
+  }
+
+  @Test
+  public void frameProcessor_twoImageSequences_scrubThenWait_debouncesSeeks() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(100_000L, 100_000L),
+            ImmutableList.of(500_000L, 500_000L));
+
+    // Seek backwards
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(100_000L, 100_000L),
+            ImmutableList.of(500_000L, 500_000L),
+            ImmutableList.of(100_000L, 100_000L));
+  }
+
+  @Test
+  public void frameProcessor_oneImageSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L), ImmutableList.of(750_000L));
+
+    play(player).untilState(STATE_ENDED);
+
+    // 2 seeked frames + 7 played frames + 1 EOS.
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(2 + 7 + 1);
+    assertThat(frameProcessor.isEnded()).isTrue();
+  }
+
+  @Test
+  public void frameProcessor_twoImageSequences_seekThenPlay_outputsPacketAndEnds()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(750_000L, 750_000L));
+
+    play(player).untilState(STATE_ENDED);
+
+    // 2 seeked frames + 7 played frames + 1 EOS.
+    assertThat(frameProcessor.getQueuedEvents()).hasSize(2 + 7 + 1);
+    assertThat(frameProcessor.isEnded()).isTrue();
+  }
+
+  @Test
+  public void frameProcessor_oneVideoSequence_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 200);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(500_500L),
+            ImmutableList.of(200_200L),
+            ImmutableList.of(767_433L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_twoVideoSequences_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 200);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(500_500L, 500_500L),
+            ImmutableList.of(200_200L, 200_200L),
+            ImmutableList.of(767_433L, 767_433L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_oneVideoSequence_scrubForwardsAndBackwards_debouncesFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L), ImmutableList.of(500_500L), ImmutableList.of(100_100L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_twoVideoSequences_scrubForwardsAndBackwards_debouncesFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 100);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 400);
+    player.seekTo(/* positionMs= */ 300);
+    player.seekTo(/* positionMs= */ 200);
+    player.seekTo(/* positionMs= */ 150);
+    player.seekTo(/* positionMs= */ 100);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(500_500L, 500_500L),
+            ImmutableList.of(100_100L, 100_100L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_oneVideoSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L),
+            ImmutableList.of(767_433L),
+            ImmutableList.of(800_800L),
+            ImmutableList.of(834_166L),
+            ImmutableList.of(867_533L),
+            ImmutableList.of(900_900L),
+            ImmutableList.of(934_266L),
+            ImmutableList.of(967_633L),
+            ImmutableList.of(C.TIME_UNSET))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_twoVideoSequences_seekThenPlay_outputsPacketAndEnds()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(
+            ImmutableList.of(0L, 0L),
+            ImmutableList.of(767_433L, 767_433L),
+            ImmutableList.of(800_800L, 800_800L),
+            ImmutableList.of(834_166L, 834_166L),
+            ImmutableList.of(867_533L, 867_533L),
+            ImmutableList.of(900_900L, 900_900L),
+            ImmutableList.of(934_266L, 934_266L),
+            ImmutableList.of(967_633L, 967_633L),
+            ImmutableList.of(C.TIME_UNSET))
+        .inOrder();
+  }
+
+  @Test
+  public void
+      frameProcessor_twoVideoSequencesMismatchedFrameRates_seek_decodesExtraSecondaryFrames()
+          throws Exception {
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_12_5FPS.uri))
+                            .setDurationUs(MP4_12_5FPS.videoDurationUs)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_15FPS.uri))
+                            .setDurationUs(MP4_15FPS.videoDurationUs)
+                            .build())))
+            .build();
+
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    // Seek to 466ms, primary will resolve to 480_000, secondary will resolve to 466_667, then
+    // decode an extra frame and output 533_333.
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(466);
+    player.setScrubbingModeEnabled(false);
+
+    // Because extra frames need to be decoded, advancing until the player is ready is not enough,
+    // we need to wait until the FrameProcessor receives the new frames.
+    advance(player).untilState(STATE_READY);
+    runMainLooperUntilContentTimesUs(frameProcessor, ImmutableList.of(480_000L, 533_333L));
+
+    assertThat(frameProcessor.getQueuedContentTimesUs())
+        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(480_000L, 533_333L))
+        .inOrder();
+  }
+
+  @Test
+  public void frameProcessor_interactedWithOnPlaybackThreadExclusively() throws Exception {
+    AtomicReference<Looper> playbackLooper = new AtomicReference<>();
+    AtomicInteger threadViolations = new AtomicInteger();
+    AtomicInteger createCalls = new AtomicInteger();
+    AtomicInteger queueCalls = new AtomicInteger();
+    AtomicInteger signalEndOfStreamCalls = new AtomicInteger();
+    AtomicInteger closeCalls = new AtomicInteger();
+    AtomicInteger onFrameProcessedCalls = new AtomicInteger();
+    AtomicInteger verifyThreadCalls = new AtomicInteger();
+
+    FrameProcessor.Factory threadVerifyingFactory =
+        new FrameProcessor.Factory() {
+          @Override
+          public FrameProcessor create(
+              FrameWriter output, Executor listenerExecutor, FrameProcessor.Listener listener) {
+            createCalls.incrementAndGet();
+            return new ThreadVerifyingFrameProcessor(
+                output,
+                listenerExecutor,
+                listener,
+                playbackLooper,
+                threadViolations,
+                queueCalls,
+                signalEndOfStreamCalls,
+                closeCalls,
+                onFrameProcessedCalls,
+                verifyThreadCalls);
+          }
+        };
+
+    player = createTestHardwareBufferCompositionPlayerBuilder(threadVerifyingFactory).build();
+    playbackLooper.set(player.getPlaybackLooper());
+    assertThat(playbackLooper.get()).isNotNull();
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    Thread playbackThread = player.getPlaybackLooper().getThread();
+    player.release();
+    playbackThread.join(/* millis= */ 10_000);
+
+    assertThat(threadViolations.get()).isEqualTo(0);
+    assertThat(createCalls.get()).isGreaterThan(0);
+    assertThat(queueCalls.get()).isGreaterThan(0);
+    assertThat(signalEndOfStreamCalls.get()).isGreaterThan(0);
+    assertThat(closeCalls.get()).isGreaterThan(0);
+    assertThat(onFrameProcessedCalls.get()).isGreaterThan(0);
+    assertThat(verifyThreadCalls.get()).isGreaterThan(0);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_onFirstFramePaused_queuesFrameAgain() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    // First frame is rendered on prepare (playback is paused).
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(1);
+    long firstFrameTimeUs = queuedContentTimes.get(0).get(0);
+
+    player.experimentalRedrawLastFrame();
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > 1);
+
+    queuedContentTimes = frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(2);
+    assertThat(queuedContentTimes.get(1).get(0)).isEqualTo(firstFrameTimeUs);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_afterPlayEnds_queuesLastFrame() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    assertThat(frameProcessor).isNotNull();
+
+    int videoFrameCount = MP4_SIMPLE_ASSET.videoFrameCount;
+    long lastFrameTimeUs = getLast(MP4_SIMPLE_ASSET.videoTimestampsUs);
+
+    player.experimentalRedrawLastFrame();
+    // FakeFrameProcessor counts EOS as one frame, so we'll end up having two more frames, one EOS
+    // and one redraw.
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > videoFrameCount + 1);
+
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(videoFrameCount + 2);
+    assertThat(getLast(queuedContentTimes).get(0)).isEqualTo(lastFrameTimeUs);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_afterSeek_queuesLastFrame() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    player.seekTo(500);
+    advance(player).untilState(STATE_READY);
+
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    int initialQueuedCount = queuedContentTimes.size();
+    long lastFrameTimeUs = getLast(queuedContentTimes).get(0);
+
+    player.experimentalRedrawLastFrame();
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > initialQueuedCount);
+
+    queuedContentTimes = frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(initialQueuedCount + 1);
+    assertThat(queuedContentTimes.get(initialQueuedCount).get(0)).isEqualTo(lastFrameTimeUs);
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_whenPlaying_isIgnored() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+    player.play();
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() >= 3);
+    player.experimentalRedrawLastFrame();
+
+    play(player).untilState(STATE_ENDED);
+
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    for (int i = 0; i < queuedContentTimes.size() - 1; i++) {
+      // Skip the last one timestamp that is TIME_UNSET, to signal EOS.
+      assertThat(queuedContentTimes.get(i).get(0))
+          .isEqualTo(MP4_SIMPLE_ASSET.videoTimestampsUs.get(i));
+    }
+  }
+
+  @Test
+  public void
+      experimentalRedrawLastFrame_withMultipleVideoImageSequences_queuesFramesFromAllSequences()
+          throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_15FPS.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(JPG_ASSET.uri))
+                            .setDurationUs(1_000_000L)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
+    ImmutableList<ImmutableList<Long>> queuedContentTimes =
+        frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(1);
+    assertThat(queuedContentTimes.get(0)).hasSize(3);
+    long firstFrameTimeSeq0 = queuedContentTimes.get(0).get(0);
+    long firstFrameTimeSeq1 = queuedContentTimes.get(0).get(1);
+    long firstFrameTimeSeq2 = queuedContentTimes.get(0).get(2);
+
+    player.experimentalRedrawLastFrame();
+    runMainLooperUntil(() -> frameProcessor.getQueuedContentTimesUs().size() > 1);
+
+    queuedContentTimes = frameProcessor.getQueuedContentTimesUs();
+    assertThat(queuedContentTimes).hasSize(2);
+    assertThat(queuedContentTimes.get(1))
+        .containsExactly(firstFrameTimeSeq0, firstFrameTimeSeq1, firstFrameTimeSeq2)
+        .inOrder();
+    assertThat(queuedContentTimes.get(1).get(0)).isEqualTo(firstFrameTimeSeq0);
+    assertThat(queuedContentTimes.get(1).get(1)).isEqualTo(firstFrameTimeSeq1);
+    assertThat(queuedContentTimes.get(1).get(2)).isEqualTo(firstFrameTimeSeq2);
+  }
+
+  @Test
+  public void seek_doesNotCloseInFlightHardwareBuffer() throws Exception {
+    FakeFrameProcessor.Factory fakeFrameProcessorFactory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
+    player = createTestHardwareBufferCompositionPlayerBuilder(fakeFrameProcessorFactory).build();
+
+    player.setComposition(
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build());
+    player.prepare();
+
+    // Advance to READY. The first frame should be queued but not completed.
+    advance(player).untilState(STATE_READY);
+
+    FakeFrameProcessor frameProcessor = fakeFrameProcessorFactory.createdProcessor;
+    ImmutableList<FakeFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    FakeFrameProcessor.FramesEvent framesEvent = (FakeFrameProcessor.FramesEvent) events.get(0);
+    AsyncFrame preSeekFrame = framesEvent.frames.get(0);
+
+    assertThat(preSeekFrame.frame).isInstanceOf(HardwareBufferFrame.class);
+    HardwareBufferFrame commonFrame = (HardwareBufferFrame) preSeekFrame.frame;
+    HardwareBuffer preSeekBuffer = commonFrame.getHardwareBuffer();
+    assertThat(preSeekBuffer.isClosed()).isFalse();
+
+    // Trigger seek to flush the player.
+    player.seekTo(1000); // Seek to 1s
+
+    // Advance player to handle seek.
+    advance(player).untilState(STATE_READY);
+
+    AsyncFrame postSeekFrame = frameProcessor.lastFrames.get(0);
+    assertThat((int) postSeekFrame.frame.getMetadata().get(KEY_FRAME_DISCONTINUITY_NUMBER))
+        .isGreaterThan((int) preSeekFrame.frame.getMetadata().get(KEY_FRAME_DISCONTINUITY_NUMBER));
+
+    // Verify that the pre-seek buffer is still NOT closed because we haven't released it.
+    assertThat(preSeekBuffer.isClosed()).isFalse();
+    // TODO: b/518679527 - Implemnet FakeFrameProcessor.close and close the underlying
+    // HardwareBuffer instances.
+  }
+
+  private static EditedMediaItem getImageItem() {
+    return new EditedMediaItem.Builder(
+            new MediaItem.Builder()
+                .setUri(ASSET_URI_PREFIX + FILE_PNG)
+                .setImageDurationMs(usToMs(/* timeUs= */ 1_000_000L))
+                .build())
+        .setDurationUs(1_000_000L)
+        .setFrameRate(30)
+        .build();
   }
 
   private static Composition buildComposition() {
@@ -1152,6 +2871,27 @@ public class CompositionPlayerTest {
     return new Composition.Builder(sequence).build();
   }
 
+  /**
+   * Runs the main looper until frames with the given content times are received by the {@code
+   * frameProcessor}.
+   */
+  private static void runMainLooperUntilContentTimesUs(
+      FakeFrameProcessor frameProcessor, ImmutableList<Long> timestamps) throws TimeoutException {
+    runMainLooperUntil(
+        () -> {
+          List<AsyncFrame> lastFrames = frameProcessor.lastFrames;
+          if (lastFrames == null || lastFrames.size() != timestamps.size()) {
+            return false;
+          }
+          for (int i = 0; i < timestamps.size(); i++) {
+            if (lastFrames.get(i).frame.getContentTimeUs() != timestamps.get(i)) {
+              return false;
+            }
+          }
+          return true;
+        });
+  }
+
   private static final class CustomLoadControl extends DefaultLoadControl {
     public boolean prepared;
 
@@ -1159,6 +2899,146 @@ public class CompositionPlayerTest {
     public void onPrepared(PlayerId playerId) {
       prepared = true;
       super.onPrepared(playerId);
+    }
+  }
+
+  private static Effects toEffects(AudioProcessor processor) {
+    return new Effects(ImmutableList.of(processor), /* videoEffects= */ ImmutableList.of());
+  }
+
+  private static final class DurationTestCasesProvider extends TestParameterValuesProvider {
+    @Override
+    protected List<Input> provideValues(TestParameterValuesProvider.Context context) {
+      return ImmutableList.of(
+          TWO_AUDIO_ITEMS,
+          TWO_AUDIO_ITEMS_WITH_SET_SPEED,
+          AUDIO_ITEM_WITH_SET_DOUBLE_SPEED,
+          AUDIO_ITEM_WITH_CLIPPED_START,
+          AUDIO_ITEM_WITH_CLIPPED_START_GREATER_THAN_HALF_DURATION,
+          AUDIO_ITEM_WITH_CLIPPED_END,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_END,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_DOUBLE_SPEED_EFFECT,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_SET_DOUBLE_SPEED,
+          AUDIO_ITEM_WITH_CLIPPED_END_AND_DOUBLE_SPEED_EFFECT,
+          AUDIO_ITEM_WITH_CLIPPED_END_AND_SET_DOUBLE_SPEED,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_HALF_SPEED_EFFECT,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED);
+    }
+  }
+
+  private static final class Input {
+    // Use a Supplier because Robolectric mocking is not configured at this point and will make
+    // Android API calls crash.
+    private final Supplier<Composition> composition;
+    private final int expectedDurationMs;
+    private final String name;
+
+    private Input(Supplier<Composition> composition, int expectedDurationMs, String name) {
+      this.composition = composition;
+      this.expectedDurationMs = expectedDurationMs;
+      this.name = name;
+    }
+
+    @Override
+    public String toString() {
+      return name;
+    }
+  }
+
+  private static final class ThreadVerifyingFrameProcessor implements FrameProcessor {
+    private final FrameProcessor.Listener listener;
+    private final FrameWriter output;
+    private final Executor listenerExecutor;
+    private final AtomicReference<Looper> playbackLooper;
+    private final AtomicInteger threadViolations;
+    private final AtomicInteger queueCalls;
+    private final AtomicInteger signalEndOfStreamCalls;
+    private final AtomicInteger closeCalls;
+    private final AtomicInteger onFrameProcessedCalls;
+    private final AtomicInteger verifyThreadCalls;
+
+    ThreadVerifyingFrameProcessor(
+        FrameWriter output,
+        Executor listenerExecutor,
+        FrameProcessor.Listener listener,
+        AtomicReference<Looper> playbackLooper,
+        AtomicInteger threadViolations,
+        AtomicInteger queueCalls,
+        AtomicInteger signalEndOfStreamCalls,
+        AtomicInteger closeCalls,
+        AtomicInteger onFrameProcessedCalls,
+        AtomicInteger verifyThreadCalls) {
+      this.output = output;
+      this.listenerExecutor = listenerExecutor;
+      this.playbackLooper = playbackLooper;
+      this.threadViolations = threadViolations;
+      this.queueCalls = queueCalls;
+      this.signalEndOfStreamCalls = signalEndOfStreamCalls;
+      this.closeCalls = closeCalls;
+      this.onFrameProcessedCalls = onFrameProcessedCalls;
+      this.verifyThreadCalls = verifyThreadCalls;
+
+      this.listener =
+          new FrameProcessor.Listener() {
+            @Override
+            public void onWakeup() {
+              verifyThread();
+              listener.onWakeup();
+            }
+
+            @Override
+            public void onError(VideoFrameProcessingException exception) {
+              verifyThread();
+              listener.onError(exception);
+            }
+
+            @Override
+            public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+              verifyThread();
+              ThreadVerifyingFrameProcessor.this.onFrameProcessedCalls.incrementAndGet();
+              listener.onFrameProcessed(frame, onCompleteFence);
+            }
+
+            private void verifyThread() {
+              ThreadVerifyingFrameProcessor.this.verifyThreadCalls.incrementAndGet();
+              if (Looper.myLooper() != ThreadVerifyingFrameProcessor.this.playbackLooper.get()) {
+                ThreadVerifyingFrameProcessor.this.threadViolations.incrementAndGet();
+              }
+            }
+          };
+    }
+
+    @Override
+    public boolean queue(List<AsyncFrame> frames) {
+      verifyThread();
+      queueCalls.incrementAndGet();
+      listenerExecutor.execute(
+          () -> {
+            for (AsyncFrame asyncFrame : frames) {
+              listener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null);
+            }
+          });
+      return true;
+    }
+
+    @Override
+    public void signalEndOfStream() {
+      verifyThread();
+      signalEndOfStreamCalls.incrementAndGet();
+      output.signalEndOfStream();
+    }
+
+    @Override
+    public void close() {
+      // close() is currently called on the application thread (TODO: b/498547782).
+      closeCalls.incrementAndGet();
+    }
+
+    private void verifyThread() {
+      verifyThreadCalls.incrementAndGet();
+      if (Looper.myLooper() != playbackLooper.get()) {
+        threadViolations.incrementAndGet();
+      }
     }
   }
 }

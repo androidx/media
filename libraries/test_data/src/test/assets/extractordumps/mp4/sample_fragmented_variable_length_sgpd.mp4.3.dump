@@ -1,0 +1,320 @@
+seekMap:
+  isSeekable = true
+  duration = 34560000
+  getPosition(0) = [[timeUs=0, position=1194]]
+  getPosition(1) = [[timeUs=0, position=1194], [timeUs=1920000, position=17989]]
+  getPosition(17280000) = [[timeUs=17280000, position=116222]]
+  getPosition(34560000) = [[timeUs=32640000, position=215382]]
+numberOfTracks = 1
+track 0:
+  total output bytes = 13023
+  sample count = 48
+  track duration = 34560000
+  format 0:
+    averageBitrate = 400000
+    peakBitrate = 90624
+    id = 1
+    containerMimeType = video/mp4
+    sampleMimeType = video/avc
+    codecs = avc1.42C014
+    maxNumReorderSamples = 0
+    width = 192
+    height = 108
+    colorInfo:
+      lumaBitdepth = 8
+      chromaBitdepth = 8
+    language = und
+    drmInitData = -1579421722
+    metadata = entries=[Mp4Timestamp: creation time=0, modification time=0, timescale=600]
+    initializationData:
+      data = length 27, hash 765A93E2
+      data = length 8, hash 9481182C
+  sample 0:
+    time = 32640000
+    flags = 1073741825
+    data = length 5992, hash AF7C8EFB
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 1:
+    time = 32680000
+    flags = 1073741824
+    data = length 115, hash 6E8E1A3E
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 2:
+    time = 32720000
+    flags = 1073741824
+    data = length 79, hash A7652E24
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 3:
+    time = 32760000
+    flags = 1073741824
+    data = length 132, hash 9F0D52AB
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 4:
+    time = 32800000
+    flags = 1073741824
+    data = length 697, hash D0B8221C
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 5:
+    time = 32840000
+    flags = 1073741824
+    data = length 138, hash 9D337E22
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 6:
+    time = 32880000
+    flags = 1073741824
+    data = length 613, hash F38E74D8
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 7:
+    time = 32920000
+    flags = 1073741824
+    data = length 121, hash 981CEA93
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 8:
+    time = 32960000
+    flags = 1073741824
+    data = length 101, hash 8B0BC6EE
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 9:
+    time = 33000000
+    flags = 1073741824
+    data = length 107, hash 617B197D
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 10:
+    time = 33040000
+    flags = 1073741824
+    data = length 84, hash 87D0017D
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 11:
+    time = 33080000
+    flags = 1073741824
+    data = length 105, hash 149D05DF
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 12:
+    time = 33120000
+    flags = 1073741824
+    data = length 104, hash F70AE55
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 13:
+    time = 33160000
+    flags = 1073741824
+    data = length 88, hash C1FE22FC
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 14:
+    time = 33200000
+    flags = 1073741824
+    data = length 101, hash 332475BD
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 15:
+    time = 33240000
+    flags = 1073741824
+    data = length 101, hash 8780C5F8
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 16:
+    time = 33280000
+    flags = 1073741824
+    data = length 99, hash A2AC4D28
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 17:
+    time = 33320000
+    flags = 1073741824
+    data = length 89, hash 1C0FC1D
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 18:
+    time = 33360000
+    flags = 1073741824
+    data = length 102, hash 563733A3
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 19:
+    time = 33400000
+    flags = 1073741824
+    data = length 107, hash 72397056
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 20:
+    time = 33440000
+    flags = 1073741824
+    data = length 84, hash D212D05D
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 21:
+    time = 33480000
+    flags = 1073741824
+    data = length 105, hash 80E49052
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 22:
+    time = 33520000
+    flags = 1073741824
+    data = length 103, hash A03EEFF
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 23:
+    time = 33560000
+    flags = 1073741824
+    data = length 86, hash 493FF4AB
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 24:
+    time = 33600000
+    flags = 1073741824
+    data = length 101, hash 4C09E978
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 25:
+    time = 33640000
+    flags = 1073741824
+    data = length 101, hash 9988FBB1
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 26:
+    time = 33680000
+    flags = 1073741824
+    data = length 99, hash D0658BE1
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 27:
+    time = 33720000
+    flags = 1073741824
+    data = length 92, hash 1219F6C
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 28:
+    time = 33760000
+    flags = 1073741824
+    data = length 330, hash CB42FF9D
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 29:
+    time = 33800000
+    flags = 1073741824
+    data = length 147, hash 7A5AB665
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 30:
+    time = 33840000
+    flags = 1073741824
+    data = length 666, hash 138B61F4
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 31:
+    time = 33880000
+    flags = 1073741824
+    data = length 448, hash A9E647B3
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 32:
+    time = 33920000
+    flags = 1073741824
+    data = length 111, hash A1027C1B
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 33:
+    time = 33960000
+    flags = 1073741824
+    data = length 101, hash 3E18359B
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 34:
+    time = 34000000
+    flags = 1073741824
+    data = length 106, hash AF9006AF
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 35:
+    time = 34040000
+    flags = 1073741824
+    data = length 84, hash 9E5756BB
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 36:
+    time = 34080000
+    flags = 1073741824
+    data = length 105, hash 71ABFFE2
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 37:
+    time = 34120000
+    flags = 1073741824
+    data = length 104, hash D4F1CF40
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 38:
+    time = 34160000
+    flags = 1073741824
+    data = length 87, hash 5FC2F5D0
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 39:
+    time = 34200000
+    flags = 1073741824
+    data = length 100, hash 271E721
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 40:
+    time = 34240000
+    flags = 1073741824
+    data = length 101, hash A286A4A
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 41:
+    time = 34280000
+    flags = 1073741824
+    data = length 98, hash 8D5682E6
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 42:
+    time = 34320000
+    flags = 1073741824
+    data = length 89, hash E1FB4906
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 43:
+    time = 34360000
+    flags = 1073741824
+    data = length 102, hash A493E114
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 44:
+    time = 34400000
+    flags = 1073741824
+    data = length 107, hash 55BCC29
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 45:
+    time = 34440000
+    flags = 1073741824
+    data = length 84, hash C5661B64
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 46:
+    time = 34480000
+    flags = 1073741824
+    data = length 104, hash 2A22A7C
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+  sample 47:
+    time = 34520000
+    flags = 1073741824
+    data = length 103, hash 81020252
+    crypto mode = 2
+    encryption key = length 16, hash 5EB05F9
+tracksEnded = true

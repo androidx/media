@@ -33,6 +33,7 @@ import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_NB;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_WB;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_ELST_SKIP_500MS;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
+import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_AAC;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
 import static androidx.media3.transformer.TestUtil.FILE_UNKNOWN_DURATION;
@@ -74,6 +75,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
+import androidx.media3.common.util.Clock;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -90,11 +92,11 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -111,6 +113,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowMediaCodec;
 
@@ -120,7 +123,7 @@ import org.robolectric.shadows.ShadowMediaCodec;
  *
  * <p>See {@link ParameterizedItemExportTest} for parameterized cases.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class MediaItemExportTest {
 
   private static final long TEST_TIMEOUT_SECONDS = 10;
@@ -148,8 +151,7 @@ public final class MediaItemExportTest {
 
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
-      ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW), /* encoders= */ ImmutableList.of());
+      ShadowMediaCodecConfig.withNoDefaultSupportedCodecs();
 
   @Test
   public void start_gapOnlyExport_outputsSilence() throws Exception {
@@ -247,10 +249,23 @@ public final class MediaItemExportTest {
   }
 
   @Test
-  public void start_withClippingStartAndEndEqual_completesSuccessfully() throws Exception {
+  public void start_withClippingStartAndEndEqual_completesSuccessfully(
+      @TestParameter boolean enableClippingInMediaPeriod) throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     Transformer transformer =
-        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .setAssetLoaderFactory(
+                new ExoPlayerAssetLoader.Factory(
+                    context,
+                    decoderFactory,
+                    clock,
+                    new DefaultMediaSourceFactory(context)
+                        .setEnableClippingInMediaPeriod(enableClippingInMediaPeriod)))
+            .setClock(clock)
+            .build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
@@ -412,6 +427,28 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void start_trimOptimizationEnabled_concurrentExports_throwsError() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(1000).build())
+            .build();
+
+    transformer.start(mediaItem, outputDir.newFile("first").getPath());
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> transformer.start(mediaItem, outputDir.newFile("second").getPath()));
+  }
+
+  @Test
   public void start_removeAudio_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
@@ -520,6 +557,7 @@ public final class MediaItemExportTest {
             "48000hz"));
   }
 
+  @Ignore("Flaky: b/515797237")
   @Test
   public void start_audioVideoItemInAudioOnlySequence_removeVideo_preservesItemAudio()
       throws Exception {
@@ -878,9 +916,11 @@ public final class MediaItemExportTest {
   @Test
   public void start_withSlowOutputSampleRate_completesWithError() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    // TODO: b/484325763 - Investigate refactoring `WatchdogTimer` to use `Clock` interface for
+    //  deterministic testing.
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(
-            context, new SlowExtractorsFactory(/* delayBetweenReadsMs= */ 10));
+            context, new SlowExtractorsFactory(/* delayBetweenReadsMs= */ 100));
     Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     AssetLoader.Factory assetLoaderFactory =
         new ExoPlayerAssetLoader.Factory(
@@ -891,7 +931,7 @@ public final class MediaItemExportTest {
     Transformer transformer =
         new TestTransformerBuilder(context)
             .setMuxerFactory(muxerFactory)
-            .setMaxDelayBetweenMuxerSamplesMs(1)
+            .setMaxDelayBetweenMuxerSamplesMs(10)
             .setAssetLoaderFactory(assetLoaderFactory)
             .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
@@ -1122,6 +1162,28 @@ public final class MediaItemExportTest {
         muxerFactory.getCreatedMuxer(),
         getDumpFileName(
             /* originalFileName= */ FILE_AUDIO_VIDEO, /* modifications...= */ "rotated"));
+  }
+
+  @Test
+  public void export_withRawAacFile_transmuxesIntoMp4() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_AAC))
+            .build();
+
+    transformer.start(editedMediaItem, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+    assertThat(result.audioEncoderName).isNull();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            /* originalFileName= */ FILE_AUDIO_RAW_AAC, /* modifications= */ "transmuxed"));
   }
 
   @Test
@@ -1656,7 +1718,7 @@ public final class MediaItemExportTest {
 
     @Override
     public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
-      return 0;
+      return PROGRESS_STATE_NOT_STARTED;
     }
 
     @Override

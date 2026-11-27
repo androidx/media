@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -22,7 +23,6 @@ import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -31,6 +31,7 @@ import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.opengl.GLES20;
+import android.os.IBinder;
 import android.view.Surface;
 import androidx.annotation.IntDef;
 import androidx.media3.common.util.UnstableApi;
@@ -104,6 +105,17 @@ public final class C {
   /** The {@link Uri#getScheme() URI scheme} used for content with server side ad insertion. */
   @UnstableApi public static final String SSAI_SCHEME = "ssai";
 
+  /** The {@link Uri#getScheme() URI scheme} used for content with client side ad insertion. */
+  @UnstableApi public static final String CSAI_SCHEME = "csai";
+
+  /**
+   * The suggested maximum size in bytes of data to be transferred for inter-process communication
+   * using the {@link IBinder} interface.
+   */
+  @UnstableApi
+  public static final int SUGGESTED_MAX_IPC_SIZE =
+      SDK_INT >= 30 ? IBinder.getSuggestedMaxIpcSizeBytes() : 64 * 1024;
+
   /**
    * Types of crypto implementation. May be one of {@link #CRYPTO_TYPE_NONE}, {@link
    * #CRYPTO_TYPE_UNSUPPORTED} or {@link #CRYPTO_TYPE_FRAMEWORK}. May also be an app-defined value
@@ -168,10 +180,12 @@ public final class C {
    * {@link #ENCODING_INVALID}, {@link #ENCODING_PCM_8BIT}, {@link #ENCODING_PCM_16BIT}, {@link
    * #ENCODING_PCM_16BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_24BIT}, {@link
    * #ENCODING_PCM_24BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_32BIT}, {@link
-   * #ENCODING_PCM_32BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_FLOAT}, {@link #ENCODING_MP3}, {@link
-   * #ENCODING_AC3}, {@link #ENCODING_E_AC3}, {@link #ENCODING_E_AC3_JOC}, {@link #ENCODING_AC4},
-   * {@link #ENCODING_DTS}, {@link #ENCODING_DTS_HD}, {@link #ENCODING_DOLBY_TRUEHD} or {@link
-   * #ENCODING_OPUS}.
+   * #ENCODING_PCM_32BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_FLOAT}, {@link
+   * #ENCODING_PCM_FLOAT_BIG_ENDIAN}, {@link #ENCODING_PCM_DOUBLE}, {@link
+   * #ENCODING_PCM_DOUBLE_BIG_ENDIAN}, {@link #ENCODING_MP3}, {@link #ENCODING_AC3}, {@link
+   * #ENCODING_E_AC3}, {@link #ENCODING_E_AC3_JOC}, {@link #ENCODING_AC4}, {@link #ENCODING_DTS},
+   * {@link #ENCODING_DTS_HD}, {@link #ENCODING_DOLBY_TRUEHD}, {@link #ENCODING_OPUS} or {@link
+   * #ENCODING_DSD}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -187,6 +201,9 @@ public final class C {
     ENCODING_PCM_32BIT,
     ENCODING_PCM_32BIT_BIG_ENDIAN,
     ENCODING_PCM_FLOAT,
+    ENCODING_PCM_FLOAT_BIG_ENDIAN,
+    ENCODING_PCM_DOUBLE,
+    ENCODING_PCM_DOUBLE_BIG_ENDIAN,
     ENCODING_MP3,
     ENCODING_AAC_LC,
     ENCODING_AAC_HE_V1,
@@ -203,6 +220,7 @@ public final class C {
     ENCODING_DOLBY_TRUEHD,
     ENCODING_OPUS,
     ENCODING_DTS_UHD_P2,
+    ENCODING_DSD,
   })
   public @interface Encoding {}
 
@@ -211,9 +229,10 @@ public final class C {
    * {@link #ENCODING_INVALID}, {@link #ENCODING_PCM_8BIT}, {@link #ENCODING_PCM_16BIT}, {@link
    * #ENCODING_PCM_16BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_24BIT}, {@link
    * #ENCODING_PCM_24BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_32BIT}, {@link
-   * #ENCODING_PCM_32BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_FLOAT}.
+   * #ENCODING_PCM_32BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_FLOAT}, {@link
+   * #ENCODING_PCM_FLOAT_BIG_ENDIAN}, {@link #ENCODING_PCM_DOUBLE}, {@link
+   * #ENCODING_PCM_DOUBLE_BIG_ENDIAN}.
    */
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -227,7 +246,10 @@ public final class C {
     ENCODING_PCM_24BIT_BIG_ENDIAN,
     ENCODING_PCM_32BIT,
     ENCODING_PCM_32BIT_BIG_ENDIAN,
-    ENCODING_PCM_FLOAT
+    ENCODING_PCM_FLOAT,
+    ENCODING_PCM_FLOAT_BIG_ENDIAN,
+    ENCODING_PCM_DOUBLE,
+    ENCODING_PCM_DOUBLE_BIG_ENDIAN
   })
   public @interface PcmEncoding {}
 
@@ -257,6 +279,15 @@ public final class C {
 
   /** See {@link AudioFormat#ENCODING_PCM_FLOAT}. */
   public static final int ENCODING_PCM_FLOAT = AudioFormat.ENCODING_PCM_FLOAT;
+
+  /** Like {@link #ENCODING_PCM_FLOAT} but with the bytes in big endian order. */
+  @UnstableApi public static final int ENCODING_PCM_FLOAT_BIG_ENDIAN = 0x71000000;
+
+  /** PCM encoding with double-precision floating point samples. */
+  @UnstableApi public static final int ENCODING_PCM_DOUBLE = 0x70000000;
+
+  /** Like {@link #ENCODING_PCM_DOUBLE} but with the bytes in big endian order. */
+  @UnstableApi public static final int ENCODING_PCM_DOUBLE_BIG_ENDIAN = 0x72000000;
 
   /** See {@link AudioFormat#ENCODING_MP3}. */
   public static final int ENCODING_MP3 = AudioFormat.ENCODING_MP3;
@@ -306,6 +337,9 @@ public final class C {
   /** See {@link AudioFormat#ENCODING_OPUS}. */
   public static final int ENCODING_OPUS = AudioFormat.ENCODING_OPUS;
 
+  /** See {@link AudioFormat#ENCODING_DSD}. */
+  @UnstableApi public static final int ENCODING_DSD = AudioFormat.ENCODING_DSD;
+
   /**
    * Represents the behavior affecting whether spatialization will be used. One of {@link
    * #SPATIALIZATION_BEHAVIOR_AUTO} or {@link #SPATIALIZATION_BEHAVIOR_NEVER}.
@@ -333,7 +367,6 @@ public final class C {
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
   @SuppressLint("UniqueConstants") // Intentional duplication to set STREAM_TYPE_DEFAULT.
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
@@ -351,32 +384,31 @@ public final class C {
   public @interface StreamType {}
 
   /** See {@link AudioManager#STREAM_ALARM}. */
-  @UnstableApi public static final int STREAM_TYPE_ALARM = AudioManager.STREAM_ALARM;
+  public static final int STREAM_TYPE_ALARM = AudioManager.STREAM_ALARM;
 
   /** See {@link AudioManager#STREAM_DTMF}. */
-  @UnstableApi public static final int STREAM_TYPE_DTMF = AudioManager.STREAM_DTMF;
+  public static final int STREAM_TYPE_DTMF = AudioManager.STREAM_DTMF;
 
   /** See {@link AudioManager#STREAM_MUSIC}. */
-  @UnstableApi public static final int STREAM_TYPE_MUSIC = AudioManager.STREAM_MUSIC;
+  public static final int STREAM_TYPE_MUSIC = AudioManager.STREAM_MUSIC;
 
   /** See {@link AudioManager#STREAM_NOTIFICATION}. */
-  @UnstableApi public static final int STREAM_TYPE_NOTIFICATION = AudioManager.STREAM_NOTIFICATION;
+  public static final int STREAM_TYPE_NOTIFICATION = AudioManager.STREAM_NOTIFICATION;
 
   /** See {@link AudioManager#STREAM_RING}. */
-  @UnstableApi public static final int STREAM_TYPE_RING = AudioManager.STREAM_RING;
+  public static final int STREAM_TYPE_RING = AudioManager.STREAM_RING;
 
   /** See {@link AudioManager#STREAM_SYSTEM}. */
-  @UnstableApi public static final int STREAM_TYPE_SYSTEM = AudioManager.STREAM_SYSTEM;
+  public static final int STREAM_TYPE_SYSTEM = AudioManager.STREAM_SYSTEM;
 
   /** See {@link AudioManager#STREAM_VOICE_CALL}. */
-  @UnstableApi public static final int STREAM_TYPE_VOICE_CALL = AudioManager.STREAM_VOICE_CALL;
+  public static final int STREAM_TYPE_VOICE_CALL = AudioManager.STREAM_VOICE_CALL;
 
   /** See {@link AudioManager#STREAM_ACCESSIBILITY}. */
-  @UnstableApi
   public static final int STREAM_TYPE_ACCESSIBILITY = AudioManager.STREAM_ACCESSIBILITY;
 
   /** The default stream type used by audio renderers. Equal to {@link #STREAM_TYPE_MUSIC}. */
-  @UnstableApi public static final int STREAM_TYPE_DEFAULT = STREAM_TYPE_MUSIC;
+  public static final int STREAM_TYPE_DEFAULT = STREAM_TYPE_MUSIC;
 
   /**
    * Volume flags to be used when setting or adjusting device volume. The value can be either 0 or a
@@ -981,6 +1013,9 @@ public final class C {
    */
   @UnstableApi public static final int DATA_TYPE_MEDIA_PROGRESSIVE_LIVE = 7;
 
+  /** A data type constant for a steering manifest file. */
+  @UnstableApi public static final int DATA_TYPE_STEERING_MANIFEST = 8;
+
   /**
    * Applications or extensions may define custom {@code DATA_TYPE_*} constants greater than or
    * equal to this value.
@@ -1281,9 +1316,9 @@ public final class C {
   // LINT.ThenChange(
   //   util/MediaFormatUtil.java:color_transfer,
   //   ColorInfo.java:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_sdr_external_es2.glsl:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_external_yuv_es3.glsl:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_oetf_es3.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_external_es2.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_external_yuv_es3.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_oetf_es3.glsl:color_transfer,
   // )
 
   // LINT.IfChange(color_range)
@@ -1819,18 +1854,6 @@ public final class C {
   @Deprecated
   public static long msToUs(long timeMs) {
     return Util.msToUs(timeMs);
-  }
-
-  /**
-   * @deprecated Use {@link Util#generateAudioSessionIdV21(Context)}.
-   */
-  @UnstableApi
-  @InlineMe(
-      replacement = "Util.generateAudioSessionIdV21(context)",
-      imports = {"androidx.media3.common.util.Util"})
-  @Deprecated
-  public static int generateAudioSessionIdV21(Context context) {
-    return Util.generateAudioSessionIdV21(context);
   }
 
   /**

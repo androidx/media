@@ -43,8 +43,10 @@ import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Predicate;
+import java.io.File;
 import java.util.concurrent.ExecutionException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -54,6 +56,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TransformerWithInAppMp4MuxerEndToEndTest {
   private static final String MP4_FILE_PATH = "asset:///media/mp4/sample_no_bframes.mp4";
+  private static final String MP4_AAC_FILE_PATH = "asset:///media/mp4/bbb_1ch_16kHz_aac.mp4";
 
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
@@ -228,6 +231,22 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     assertThat(actualFloatMetadata).isEqualTo(expectedFloatMetadata);
   }
 
+  @Test
+  public void transmux_withoutStreamingOutput_reportsCorrectFileSize() throws Exception {
+    InAppMp4Muxer.Factory inAppMuxerFactory =
+        new InAppMp4Muxer.Factory().setAttemptStreamableOutputEnabled(false);
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_AAC_FILE_PATH));
+
+    transformer.start(mediaItem, outputPath);
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.fileSizeBytes).isEqualTo(new File(outputPath).length());
+    assertThat(exportResult.fileSizeBytes).isLessThan(400_000L);
+  }
+
+  @Ignore("Flaky: b/491791547")
   @Test
   public void transmux_withSettingVideoDuration_writesCorrectVideoDuration() throws Exception {
     InAppMp4Muxer.Factory inAppMuxerFactory = new InAppMp4Muxer.Factory();

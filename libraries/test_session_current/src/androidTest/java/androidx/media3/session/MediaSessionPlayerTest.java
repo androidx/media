@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.content.Context;
 import android.net.Uri;
@@ -94,6 +95,9 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .setChangePlayerStateWithTransportControl(true)
             .build();
+    // Set player remote to allow tests with device volume changes.
+    player.deviceInfo =
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
     asyncHandlerThread = new HandlerThread("AsyncHandlerThread");
     asyncHandlerThread.start();
     Handler asyncHandler = new Handler(asyncHandlerThread.getLooper());
@@ -102,17 +106,18 @@ public class MediaSessionPlayerTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (SUPPORT_APP_PACKAGE_NAME.equals(controller.getPackageName())) {
-                      return MediaSession.ConnectionResult.accept(
-                          MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
-                              .buildUpon()
-                              .add(customCommand)
-                              .build(),
-                          MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
+                      return immediateFuture(
+                          MediaSession.ConnectionResult.accept(
+                              MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                                  .buildUpon()
+                                  .add(customCommand)
+                                  .build(),
+                              MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS));
                     }
-                    return MediaSession.ConnectionResult.reject();
+                    return immediateFuture(MediaSession.ConnectionResult.reject());
                   }
 
                   @Override
@@ -120,7 +125,7 @@ public class MediaSessionPlayerTest {
                       MediaSession mediaSession, ControllerInfo controller, Rating rating) {
                     onSetRatingParameter.set(rating);
                     onSetRatingCalledCondition.open();
-                    return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+                    return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
                   }
 
                   @Override
@@ -131,7 +136,7 @@ public class MediaSessionPlayerTest {
                       Bundle args) {
                     onCustomCommandParameter.set(customCommand);
                     onCustomCommandCalledCondition.open();
-                    return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+                    return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
                   }
 
                   @Override
@@ -227,7 +232,7 @@ public class MediaSessionPlayerTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     SessionCommands sessionCommands =
                         new SessionCommands.Builder().addAllSessionCommands().build();
@@ -236,7 +241,8 @@ public class MediaSessionPlayerTest {
                             .addAllCommands()
                             .remove(Player.COMMAND_GET_TIMELINE)
                             .build();
-                    return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands);
+                    return immediateFuture(
+                        MediaSession.ConnectionResult.accept(sessionCommands, playerCommands));
                   }
                 })
             .setId("seekToDefaultPosition_withMediaItemIndexWithoutGetTimelineCommand")
@@ -290,7 +296,7 @@ public class MediaSessionPlayerTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     SessionCommands sessionCommands =
                         new SessionCommands.Builder().addAllSessionCommands().build();
@@ -299,7 +305,8 @@ public class MediaSessionPlayerTest {
                             .addAllCommands()
                             .remove(Player.COMMAND_GET_TIMELINE)
                             .build();
-                    return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands);
+                    return immediateFuture(
+                        MediaSession.ConnectionResult.accept(sessionCommands, playerCommands));
                   }
                 })
             .setId("seekTo_withMediaItemIndexWithoutGetTimelineCommand")
@@ -505,7 +512,7 @@ public class MediaSessionPlayerTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     SessionCommands sessionCommands =
                         new SessionCommands.Builder().addAllSessionCommands().build();
@@ -514,7 +521,8 @@ public class MediaSessionPlayerTest {
                             .addAllCommands()
                             .remove(Player.COMMAND_GET_TIMELINE)
                             .build();
-                    return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands);
+                    return immediateFuture(
+                        MediaSession.ConnectionResult.accept(sessionCommands, playerCommands));
                   }
 
                   @Override
@@ -522,7 +530,7 @@ public class MediaSessionPlayerTest {
                       MediaSession mediaSession,
                       MediaSession.ControllerInfo controller,
                       List<MediaItem> mediaItems) {
-                    return Futures.immediateFuture(mediaItems);
+                    return immediateFuture(mediaItems);
                   }
                 })
             .setId("addMediaItem_withIndexWithoutGetTimelineCommand")
@@ -580,7 +588,7 @@ public class MediaSessionPlayerTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     SessionCommands sessionCommands =
                         new SessionCommands.Builder().addAllSessionCommands().build();
@@ -589,7 +597,8 @@ public class MediaSessionPlayerTest {
                             .addAllCommands()
                             .remove(Player.COMMAND_GET_TIMELINE)
                             .build();
-                    return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands);
+                    return immediateFuture(
+                        MediaSession.ConnectionResult.accept(sessionCommands, playerCommands));
                   }
 
                   @Override
@@ -597,7 +606,7 @@ public class MediaSessionPlayerTest {
                       MediaSession mediaSession,
                       MediaSession.ControllerInfo controller,
                       List<MediaItem> mediaItems) {
-                    return Futures.immediateFuture(mediaItems);
+                    return immediateFuture(mediaItems);
                   }
                 })
             .setId("addMediaItems_withIndexWithoutGetTimelineCommand")
@@ -641,7 +650,7 @@ public class MediaSessionPlayerTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     SessionCommands sessionCommands =
                         new SessionCommands.Builder().addAllSessionCommands().build();
@@ -650,7 +659,8 @@ public class MediaSessionPlayerTest {
                             .addAllCommands()
                             .remove(Player.COMMAND_GET_TIMELINE)
                             .build();
-                    return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands);
+                    return immediateFuture(
+                        MediaSession.ConnectionResult.accept(sessionCommands, playerCommands));
                   }
                 })
             .setId("removeMediaItem_withoutGetTimelineCommand")
@@ -694,7 +704,7 @@ public class MediaSessionPlayerTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     SessionCommands sessionCommands =
                         new SessionCommands.Builder().addAllSessionCommands().build();
@@ -703,7 +713,8 @@ public class MediaSessionPlayerTest {
                             .addAllCommands()
                             .remove(Player.COMMAND_GET_TIMELINE)
                             .build();
-                    return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands);
+                    return immediateFuture(
+                        MediaSession.ConnectionResult.accept(sessionCommands, playerCommands));
                   }
                 })
             .setId("removeMediaItems_withoutGetTimelineCommand")
@@ -844,7 +855,6 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setDeviceVolume() throws Exception {
-    changePlaybackTypeToRemote();
     int testVolume = 12;
 
     controller.setDeviceVolume(testVolume);
@@ -855,8 +865,6 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void increaseDeviceVolume() throws Exception {
-    changePlaybackTypeToRemote();
-
     controller.increaseDeviceVolume();
 
     player.awaitMethodCalled(MockPlayer.METHOD_INCREASE_DEVICE_VOLUME, TIMEOUT_MS);
@@ -864,8 +872,6 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void decreaseDeviceVolume() throws Exception {
-    changePlaybackTypeToRemote();
-
     controller.decreaseDeviceVolume();
 
     player.awaitMethodCalled(MockPlayer.METHOD_DECREASE_DEVICE_VOLUME, TIMEOUT_MS);
@@ -2129,16 +2135,5 @@ public class MediaSessionPlayerTest {
     session.release();
 
     assertThat(controllerInfoFromPlayerMethod.get().getInterfaceVersion()).isEqualTo(0);
-  }
-
-  private void changePlaybackTypeToRemote() throws Exception {
-    threadTestRule
-        .getHandler()
-        .postAndSync(
-            () -> {
-              player.deviceInfo =
-                  new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-              player.notifyDeviceInfoChanged();
-            });
   }
 }

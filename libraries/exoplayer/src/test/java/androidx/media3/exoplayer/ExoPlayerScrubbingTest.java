@@ -67,6 +67,7 @@ import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
@@ -94,6 +95,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -431,8 +433,8 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(20_000L);
     player.seekTo(30_000L);
 
-    // TODO: After implementing ignore for intermittent seeks, the 10s seek will also be completed.
-    advance(player).untilBackgroundThreadCondition(() -> renderedBitmaps.size() > 1);
+    // Wait for 10s and 30s seeks to complete.
+    advance(player).untilBackgroundThreadCondition(() -> renderedBitmaps.size() > 2);
 
     player.seekTo(40_000L);
     player.seekTo(50_000L);
@@ -444,10 +446,10 @@ public final class ExoPlayerScrubbingTest {
     player.release();
     surface.release();
 
-    // TODO: After implementing ignore for intermittent seeks, renderedBitmaps should have size 4.
-    assertThat(renderedBitmaps).hasSize(3);
-    assertThat(renderedBitmaps.get(1).first).isEqualTo(30_000_000L);
-    assertThat(renderedBitmaps.get(2).first).isEqualTo(50_000_000L);
+    assertThat(renderedBitmaps).hasSize(4);
+    assertThat(renderedBitmaps.get(1).first).isEqualTo(10_000_000L);
+    assertThat(renderedBitmaps.get(2).first).isEqualTo(30_000_000L);
+    assertThat(renderedBitmaps.get(3).first).isEqualTo(50_000_000L);
 
     // Confirm every seek request still resulted in a position discontinuity callback.
     ArgumentCaptor<PositionInfo> newPositionCaptor = ArgumentCaptor.forClass(PositionInfo.class);
@@ -460,9 +462,8 @@ public final class ExoPlayerScrubbingTest {
         .containsExactly(10_000L, 20_000L, 30_000L, 40_000L, 50_000L)
         .inOrder();
 
-    // TODO: After implementing ignore for intermittent seeks, an onDroppedSeeksWhileScrubbing event
-    // will be reported.
-    verify(mockAnalyticsListener, never()).onDroppedSeeksWhileScrubbing(any(), anyInt());
+    // Check the dropped 20000 and 40000 seeks are reported.
+    verify(mockAnalyticsListener).onDroppedSeeksWhileScrubbing(any(), eq(2));
   }
 
   @Test
@@ -757,6 +758,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
+  @Config(minSdk = 29) // TODO: b/511134574 - Get this test passing on all API levels.
   public void operatingRateOverride_propagatedToMediaCodec() throws Exception {
     AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter = new AtomicReference<>();
     DefaultRenderersFactory renderersFactory =
@@ -863,6 +865,8 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
+  @Config(minSdk = 31) // Relies on async MediaCodec mode, which is only the default on API 31+.
+  @Ignore("Flaky: b/515127273")
   public void dynamicSchedulingInScrubbingMode_renderCalledMoreFrequentlyThan10ms()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
@@ -929,6 +933,8 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
+  @Ignore("Flaky: b/515127273")
   public void dynamicSchedulingDisabledInScrubbingMode_renderCalledEvery10ms() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
@@ -1150,6 +1156,74 @@ public final class ExoPlayerScrubbingTest {
         .that(bufferCountingCodecAdapter.get().outputBufferDequeuedCount.get())
         .isWithin(2)
         .of(58);
+  }
+
+  @Test
+  public void
+      scrubbingMode_seekIntoAudioOnlyPortionOfMergingMediaSource_doesNotHangSubsequentSeeks()
+          throws Exception {
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    // Create a source where the video track ends early to provide an 'audio-only' portion.
+    FakeMediaSource audioSource =
+        createFakeMediaSource(ExoPlayerTestRunner.AUDIO_FORMAT, /* durationUs= */ 1_000_000L);
+    FakeMediaSource videoSource1 =
+        createFakeMediaSource(ExoPlayerTestRunner.VIDEO_FORMAT, /* durationUs= */ 1_000_000L);
+    FakeMediaSource videoSource2 =
+        createFakeMediaSource(ExoPlayerTestRunner.VIDEO_FORMAT, /* durationUs= */ 500_000L);
+    MergingMediaSource mergingSource1 =
+        new MergingMediaSource(
+            /* adjustPeriodTimeOffsets= */ false,
+            /* clipDurations= */ false,
+            videoSource1,
+            audioSource);
+    MergingMediaSource mergingSource2 =
+        new MergingMediaSource(
+            /* adjustPeriodTimeOffsets= */ false,
+            /* clipDurations= */ false,
+            videoSource2,
+            audioSource);
+    player.setMediaSources(ImmutableList.of(mergingSource1, mergingSource2));
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    List<Long> renderedFrames = new ArrayList<>();
+    player.setVideoFrameMetadataListener(
+        (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+            renderedFrames.add(presentationTimeUs));
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 800);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 500);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilBackgroundThreadCondition(() -> renderedFrames.contains(500_000L));
+
+    player.release();
+    surface.release();
+  }
+
+  private static FakeMediaSource createFakeMediaSource(Format format, long durationUs) {
+    return new FakeMediaSource.Builder()
+        .setTimeline(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setWindowPositionInFirstPeriodUs(0)
+                    .setDurationUs(durationUs)
+                    .build()))
+        .setFormats(format)
+        .setTrackDataFactory(
+            TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                /* initialSampleTimeUs= */ 0,
+                /* sampleRate= */ 30,
+                /* durationUs= */ durationUs,
+                /* keyFrameInterval= */ 1))
+        .build();
   }
 
   private static FakeMediaSource create30Fps2sGop10sDurationVideoSource() {

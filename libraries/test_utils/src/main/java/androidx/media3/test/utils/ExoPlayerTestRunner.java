@@ -346,6 +346,19 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
     }
 
     /**
+     * Sets whether {@link ExoPlayer} will enable per-stream media period progression.
+     *
+     * @param perStreamMediaProgressionEnabled Whether {@link ExoPlayer} will enable per-stream
+     *     media period progression.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setPerStreamMediaProgressionEnabled(boolean perStreamMediaProgressionEnabled) {
+      testPlayerBuilder.setPerStreamMediaProgressionEnabled(perStreamMediaProgressionEnabled);
+      return this;
+    }
+
+    /**
      * Sets the number of times the test runner is expected to reach the {@link Player#STATE_ENDED}
      * or {@link Player#STATE_IDLE}. The default is 1. This affects how long {@link
      * ExoPlayerTestRunner#blockUntilEnded(long)} waits.

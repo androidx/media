@@ -197,7 +197,8 @@ public class AudioFocusManagerTest {
   }
 
   @Test
-  public void updateAudioFocus_pausedToPlaying_withTransientLoss_setsPlayerCommandPlayWhenReady() {
+  public void
+      updateAudioFocus_pausedToPlayingWithTransientLossAndNoGain_setsPlayerCommandDoNotPlay() {
     Shadows.shadowOf(audioManager)
         .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
     audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
@@ -210,8 +211,87 @@ public class AudioFocusManagerTest {
 
     // Focus should be re-requested rather than staying in a state of transient focus loss. See
     // https://github.com/google/ExoPlayer/issues/7182 for context.
+    Shadows.shadowOf(audioManager)
+        .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_FAILED);
+    assertThat(audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY))
+        .isEqualTo(PLAYER_COMMAND_DO_NOT_PLAY);
+  }
+
+  @Test
+  public void
+      updateAudioFocus_pausedToPlayingWithTransientLossAndRegularGain_setsPlayerCommandPlayWhenReady() {
+    Shadows.shadowOf(audioManager)
+        .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+    audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
+
     assertThat(audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY))
         .isEqualTo(PLAYER_COMMAND_PLAY_WHEN_READY);
+
+    // Simulate transient focus loss.
+    audioFocusManager.getFocusListener().onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+
+    // Focus should be re-requested rather than staying in a state of transient focus loss. See
+    // https://github.com/google/ExoPlayer/issues/7182 for context.
+    Shadows.shadowOf(audioManager)
+        .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+    assertThat(audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY))
+        .isEqualTo(PLAYER_COMMAND_PLAY_WHEN_READY);
+  }
+
+  @Config(minSdk = 26)
+  @Test
+  public void
+      updateAudioFocus_pausedToPlayingWithTransientLossAndDelayedGain_setsPlayerCommandPlayWhenReady() {
+    Shadows.shadowOf(audioManager)
+        .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+    audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
+
+    assertThat(audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY))
+        .isEqualTo(PLAYER_COMMAND_PLAY_WHEN_READY);
+
+    // Simulate transient focus loss.
+    audioFocusManager.getFocusListener().onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+
+    // Focus should be re-requested rather than staying in a state of transient focus loss. See
+    // https://github.com/google/ExoPlayer/issues/7182 for context.
+    Shadows.shadowOf(audioManager)
+        .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_DELAYED);
+    assertThat(audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY))
+        .isEqualTo(PLAYER_COMMAND_PLAY_WHEN_READY);
+
+    // Simulate fully gaining the focus later.
+    audioFocusManager.getFocusListener().onAudioFocusChange(AudioManager.AUDIOFOCUS_GAIN);
+    shadowOf(Looper.getMainLooper()).idle();
+    assertThat(testPlayerControl.lastPlayerCommand).isEqualTo(PLAYER_COMMAND_PLAY_WHEN_READY);
+  }
+
+  @Config(minSdk = 26)
+  @Test
+  public void
+      updateAudioFocus_pausedToPlayingWithTransientLossAndDelayedGainWithLaterLoss_sendsDoNotPlayAndAbandonsFocus() {
+    Shadows.shadowOf(audioManager)
+        .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+    audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
+
+    assertThat(audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY))
+        .isEqualTo(PLAYER_COMMAND_PLAY_WHEN_READY);
+
+    // Simulate transient focus loss.
+    audioFocusManager.getFocusListener().onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
+
+    // Focus should be re-requested rather than staying in a state of transient focus loss. See
+    // https://github.com/google/ExoPlayer/issues/7182 for context.
+    Shadows.shadowOf(audioManager)
+        .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_DELAYED);
+    assertThat(audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY))
+        .isEqualTo(PLAYER_COMMAND_PLAY_WHEN_READY);
+
+    // Simulate losing the delayed focus later.
+    audioFocusManager.getFocusListener().onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS);
+    shadowOf(Looper.getMainLooper()).idle();
+    assertThat(testPlayerControl.lastPlayerCommand).isEqualTo(PLAYER_COMMAND_DO_NOT_PLAY);
+    assertThat(Shadows.shadowOf(audioManager).getLastAbandonedAudioFocusRequest())
+        .isEqualTo(Shadows.shadowOf(audioManager).getLastAudioFocusRequest().audioFocusRequest);
   }
 
   @Test

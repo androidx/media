@@ -62,6 +62,7 @@ public class FakeDataSourceContractTest extends DataSourceContractTest {
             .setName("unknown length")
             .setUri(unknownLengthUri)
             .setExpectedBytes(unknownLengthData)
+            .setMayResolveToUnknownLength(true)
             .build());
   }
 

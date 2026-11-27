@@ -61,6 +61,7 @@ import java.util.Objects;
           .build();
 
   public static final String XMP_SAMPLE_DATA = "media/xmp/sample_datetime_xmp.xmp";
+  public static final String MP4 = "mp4";
 
   private static final byte[] FAKE_AUDIO_SAMPLE =
       createByteArray(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a);
@@ -76,6 +77,14 @@ import java.util.Objects;
 
   public static String getExpectedDumpFilePath(String originalFileName) {
     return DUMP_FILE_OUTPUT_DIRECTORY + '/' + originalFileName + '.' + DUMP_FILE_EXTENSION;
+  }
+
+  public static String getSubstitutedPath(String originalAssetPath, String newSubDir) {
+    return originalAssetPath.replaceFirst("[^/]+/", newSubDir + "/");
+  }
+
+  public static String getExpectedMp4DumpFilePath(String mp4FileName) {
+    return getExpectedDumpFilePath(MP4 + '/' + mp4FileName);
   }
 
   public static Pair<ByteBuffer, BufferInfo> getFakeSampleAndSampleInfo(

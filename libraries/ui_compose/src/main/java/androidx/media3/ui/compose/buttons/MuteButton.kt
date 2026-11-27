@@ -33,6 +33,6 @@ import androidx.media3.ui.compose.state.rememberMuteButtonState
  */
 @UnstableApi
 @Composable
-fun MuteButton(player: Player, content: @Composable MuteButtonState.() -> Unit) {
+fun MuteButton(player: Player?, content: @Composable MuteButtonState.() -> Unit) {
   rememberMuteButtonState(player).content()
 }

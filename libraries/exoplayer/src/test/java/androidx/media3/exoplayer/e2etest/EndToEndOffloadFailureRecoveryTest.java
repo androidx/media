@@ -193,7 +193,8 @@ public class EndToEndOffloadFailureRecoveryTest {
 
     /**
      * If offload mode should be not supported until next {@linkplain
-     * DumpingAudioSink#configure(Format, int, int[]) configure} call.
+     * DumpingAudioSink#configure(androidx.media3.exoplayer.audio.AudioSink.AudioSinkConfig)
+     * configure} call.
      */
     protected boolean offloadDisabledUntilNextConfiguration;
 
@@ -211,12 +212,11 @@ public class EndToEndOffloadFailureRecoveryTest {
     }
 
     @Override
-    public void configure(
-        Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels) {
+    public void configure(AudioSinkConfig audioSinkConfig) {
       // Bypass configure of base DefaultAudioSink
-      isOffloadMode = !Objects.equals(inputFormat.sampleMimeType, MimeTypes.AUDIO_RAW);
+      isOffloadMode = !Objects.equals(audioSinkConfig.format.sampleMimeType, MimeTypes.AUDIO_RAW);
       offloadDisabledUntilNextConfiguration = false;
-      this.inputFormat = inputFormat;
+      this.inputFormat = audioSinkConfig.format;
     }
 
     @Override

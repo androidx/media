@@ -29,26 +29,47 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A fake {@link ExoTrackSelection} that only returns 1 fixed track, and allows querying the number
- * of calls to its methods.
+ * A fake {@link ExoTrackSelection} that supports selecting a subset of tracks within a {@link
+ * TrackGroup}, returns 1 fixed track, and tracks the number of calls to its methods.
  */
 @UnstableApi
 public class FakeTrackSelection extends BaseTrackSelection {
 
-  private final TrackGroup rendererTrackGroup;
   private final int selectedIndex;
 
   public int enableCount;
   public int releaseCount;
   public boolean isEnabled;
 
+  /**
+   * Creates an instance that selects all tracks in the group and defaults the selected index to
+   * {@code 0}.
+   *
+   * @param rendererTrackGroup The {@link TrackGroup} to select from.
+   */
   public FakeTrackSelection(TrackGroup rendererTrackGroup) {
     this(rendererTrackGroup, /* selectedIndex= */ 0);
   }
 
+  /**
+   * Creates an instance that selects all tracks in the group and sets the selected index.
+   *
+   * @param rendererTrackGroup The {@link TrackGroup} to select from.
+   * @param selectedIndex The index of the selected track within the group.
+   */
   public FakeTrackSelection(TrackGroup rendererTrackGroup, int selectedIndex) {
-    super(rendererTrackGroup, getAllTrackIndices(rendererTrackGroup));
-    this.rendererTrackGroup = rendererTrackGroup;
+    this(rendererTrackGroup, getAllTrackIndices(rendererTrackGroup), selectedIndex);
+  }
+
+  /**
+   * Creates an instance that selects the specified tracks in the group and sets the selected index.
+   *
+   * @param rendererTrackGroup The {@link TrackGroup} to select from.
+   * @param tracks The indices of the selected tracks in the group.
+   * @param selectedIndex The index of the selected track within the {@code tracks} array.
+   */
+  public FakeTrackSelection(TrackGroup rendererTrackGroup, int[] tracks, int selectedIndex) {
+    super(rendererTrackGroup, tracks);
     this.selectedIndex = selectedIndex;
   }
 
@@ -105,13 +126,13 @@ public class FakeTrackSelection extends BaseTrackSelection {
   @Override
   public boolean excludeTrack(int index, long exclusionDurationMs) {
     assertThat(isEnabled).isTrue();
-    return false;
+    return super.excludeTrack(index, exclusionDurationMs);
   }
 
   @Override
   public boolean isTrackExcluded(int index, long nowMs) {
     assertThat(isEnabled).isTrue();
-    return false;
+    return super.isTrackExcluded(index, nowMs);
   }
 
   @Override
@@ -119,20 +140,19 @@ public class FakeTrackSelection extends BaseTrackSelection {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof FakeTrackSelection)) {
+    if (!(o instanceof FakeTrackSelection) || !super.equals(o)) {
       return false;
     }
     FakeTrackSelection that = (FakeTrackSelection) o;
     return enableCount == that.enableCount
         && releaseCount == that.releaseCount
         && isEnabled == that.isEnabled
-        && selectedIndex == that.selectedIndex
-        && Objects.equals(rendererTrackGroup, that.rendererTrackGroup);
+        && selectedIndex == that.selectedIndex;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(rendererTrackGroup, enableCount, releaseCount, isEnabled, selectedIndex);
+    return Objects.hash(super.hashCode(), enableCount, releaseCount, isEnabled, selectedIndex);
   }
 
   private static int[] getAllTrackIndices(TrackGroup trackGroup) {

@@ -2,8 +2,9 @@ format audio:
   averageBitrate = 131072
   sampleMimeType = audio/raw
   channelCount = 1
+  channelMask = 0x00000004
   sampleRate = 44100
-  pcmEncoding = 2
+  pcmEncoding = pcm-16
 sample:
   trackType = audio
   dataHashCode = -858457440

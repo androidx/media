@@ -35,6 +35,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
@@ -1617,14 +1618,16 @@ public final class CommandButton {
         parameter);
   }
 
-  private CommandButton convertToPredefinedCustomCommandButton(@Slot int slot) {
+  private CommandButton convertToPredefinedCustomCommandButton(
+      @Slot int slot, int interfaceVersion) {
     if (sessionCommand != null && sessionCommand.commandCode == COMMAND_CODE_CUSTOM) {
       return copyWithSlots(ImmutableIntArray.of(slot));
     }
     Bundle customCommandExtras = Bundle.EMPTY;
     if (parameter != null) {
       customCommandExtras = new Bundle();
-      writeParameterToBundle(customCommandExtras, CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY);
+      writeParameterToBundle(
+          customCommandExtras, CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY, interfaceVersion);
     }
     String customCommandName;
     if (sessionCommand != null) {
@@ -1693,8 +1696,24 @@ public final class CommandButton {
   private static final String FIELD_SLOTS = Util.intToStringMaxRadix(8);
   private static final String FIELD_PARAMETER = Util.intToStringMaxRadix(9);
 
+  /**
+   * @deprecated Use {@link #toBundle(int)} instead.
+   */
+  @Deprecated
   @UnstableApi
   public Bundle toBundle() {
+    return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
+   * Writes this command button to a {@link Bundle}.
+   *
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+   *     process.
+   * @return The {@link Bundle} containing the data of this instance.
+   */
+  @UnstableApi
+  public Bundle toBundle(int interfaceVersion) {
     Bundle bundle = new Bundle();
     if (sessionCommand != null) {
       bundle.putBundle(FIELD_SESSION_COMMAND, sessionCommand.toBundle());
@@ -1724,7 +1743,7 @@ public final class CommandButton {
       bundle.putIntArray(FIELD_SLOTS, slots.toArray());
     }
     if (parameter != null) {
-      writeParameterToBundle(bundle, FIELD_PARAMETER);
+      writeParameterToBundle(bundle, FIELD_PARAMETER, interfaceVersion);
     }
     return bundle;
   }
@@ -1735,12 +1754,12 @@ public final class CommandButton {
   @Deprecated
   @UnstableApi
   public static CommandButton fromBundle(Bundle bundle) {
-    return fromBundle(bundle, MediaSessionStub.VERSION_INT);
+    return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   /** Restores a {@code CommandButton} from a {@link Bundle}. */
   @UnstableApi
-  public static CommandButton fromBundle(Bundle bundle, int sessionInterfaceVersion) {
+  public static CommandButton fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable Bundle sessionCommandBundle = bundle.getBundle(FIELD_SESSION_COMMAND);
     @Nullable
     SessionCommand sessionCommand =
@@ -1754,7 +1773,7 @@ public final class CommandButton {
     // Before interfaceVersion == 3, the session expected this value to be meaningless and we
     // can only assume it was meant to be true.
     boolean enabled =
-        sessionInterfaceVersion < 3 || bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ true);
+        interfaceVersion < 3 || bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ true);
     @Nullable Uri iconUri = bundle.getParcelable(FIELD_ICON_URI);
     @Icon int icon = bundle.getInt(FIELD_ICON, /* defaultValue= */ ICON_UNDEFINED);
     @Nullable
@@ -1767,14 +1786,18 @@ public final class CommandButton {
           getParameterFromBundle(
               bundle,
               FIELD_PARAMETER,
-              getParameterTypeForSessionCommand(sessionCommand.commandCode));
+              getParameterTypeForSessionCommand(sessionCommand.commandCode),
+              interfaceVersion);
       builder.setSessionCommand(sessionCommand, parameter);
     }
     if (playerCommand != Player.COMMAND_INVALID) {
       @Nullable
       Object parameter =
           getParameterFromBundle(
-              bundle, FIELD_PARAMETER, getParameterTypeForPlayerCommand(playerCommand));
+              bundle,
+              FIELD_PARAMETER,
+              getParameterTypeForPlayerCommand(playerCommand),
+              interfaceVersion);
       builder.setPlayerCommand(playerCommand, parameter);
     }
     if (iconUri != null
@@ -1998,13 +2021,16 @@ public final class CommandButton {
    * @param backSlotAllowed Whether the custom layout can put a button into {@link #SLOT_BACK}.
    * @param forwardSlotAllowed Whether the custom layout can put a button into {@link
    *     #SLOT_FORWARD}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the process that will
+   *     consume the extras of the generated custom command buttons.
    * @return A list of buttons compatible with the placement rules of custom layouts. The buttons
    *     will have their intended slots assigned as the only option.
    */
   /* package */ static ImmutableList<CommandButton> getCustomLayoutFromMediaButtonPreferences(
       List<CommandButton> mediaButtonPreferences,
       boolean backSlotAllowed,
-      boolean forwardSlotAllowed) {
+      boolean forwardSlotAllowed,
+      int interfaceVersion) {
     if (mediaButtonPreferences.isEmpty()) {
       return ImmutableList.of();
     }
@@ -2036,13 +2062,13 @@ public final class CommandButton {
       customLayout.add(
           mediaButtonPreferences
               .get(backButtonIndex)
-              .convertToPredefinedCustomCommandButton(SLOT_BACK));
+              .convertToPredefinedCustomCommandButton(SLOT_BACK, interfaceVersion));
     }
     if (forwardButtonIndex != C.INDEX_UNSET) {
       customLayout.add(
           mediaButtonPreferences
               .get(forwardButtonIndex)
-              .convertToPredefinedCustomCommandButton(SLOT_FORWARD));
+              .convertToPredefinedCustomCommandButton(SLOT_FORWARD, interfaceVersion));
     }
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
@@ -2050,7 +2076,8 @@ public final class CommandButton {
         continue;
       }
       if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
-        customLayout.add(button.convertToPredefinedCustomCommandButton(SLOT_OVERFLOW));
+        customLayout.add(
+            button.convertToPredefinedCustomCommandButton(SLOT_OVERFLOW, interfaceVersion));
       }
     }
     return customLayout.build();
@@ -2144,7 +2171,8 @@ public final class CommandButton {
           getParameterFromBundle(
               customCommand.customExtras,
               CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,
-              getParameterTypeForPlayerCommand(playerCommand));
+              getParameterTypeForPlayerCommand(playerCommand),
+              MediaLibraryInfo.INTERFACE_VERSION);
       return new CommandButton.Builder(ICON_UNDEFINED)
           .setPlayerCommand(playerCommand, parameter)
           .build();
@@ -2158,7 +2186,8 @@ public final class CommandButton {
           getParameterFromBundle(
               customCommand.customExtras,
               CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,
-              getParameterTypeForSessionCommand(sessionCommand));
+              getParameterTypeForSessionCommand(sessionCommand),
+              MediaLibraryInfo.INTERFACE_VERSION);
       return new CommandButton.Builder(ICON_UNDEFINED)
           .setSessionCommand(new SessionCommand(sessionCommand), parameter)
           .build();
@@ -2254,7 +2283,7 @@ public final class CommandButton {
   }
 
   @RequiresNonNull("parameter")
-  private void writeParameterToBundle(Bundle bundle, String bundleKey) {
+  private void writeParameterToBundle(Bundle bundle, String bundleKey, int interfaceVersion) {
     @ParameterType
     int parameterType =
         sessionCommand != null
@@ -2277,10 +2306,10 @@ public final class CommandButton {
         bundle.putBundle(bundleKey, ((Rating) parameter).toBundle());
         break;
       case PARAMETER_TYPE_MEDIA_ITEM:
-        bundle.putBundle(bundleKey, ((MediaItem) parameter).toBundle());
+        bundle.putBundle(bundleKey, ((MediaItem) parameter).toBundle(interfaceVersion));
         break;
       case PARAMETER_TYPE_MEDIA_METADATA:
-        bundle.putBundle(bundleKey, ((MediaMetadata) parameter).toBundle());
+        bundle.putBundle(bundleKey, ((MediaMetadata) parameter).toBundle(interfaceVersion));
         break;
       case PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS:
         bundle.putBundle(bundleKey, ((TrackSelectionParameters) parameter).toBundle());
@@ -2293,7 +2322,7 @@ public final class CommandButton {
 
   @Nullable
   private static Object getParameterFromBundle(
-      Bundle bundle, String bundleKey, @ParameterType int parameterType) {
+      Bundle bundle, String bundleKey, @ParameterType int parameterType, int interfaceVersion) {
     if (!bundle.containsKey(bundleKey)) {
       return null;
     }
@@ -2309,9 +2338,10 @@ public final class CommandButton {
       case PARAMETER_TYPE_RATING:
         return Rating.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
       case PARAMETER_TYPE_MEDIA_ITEM:
-        return MediaItem.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
+        return MediaItem.fromBundle(checkNotNull(bundle.getBundle(bundleKey)), interfaceVersion);
       case PARAMETER_TYPE_MEDIA_METADATA:
-        return MediaMetadata.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
+        return MediaMetadata.fromBundle(
+            checkNotNull(bundle.getBundle(bundleKey)), interfaceVersion);
       case PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS:
         return TrackSelectionParameters.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
       case PARAMETER_TYPE_NULL:

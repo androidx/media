@@ -16,6 +16,9 @@
 package androidx.media3.cast;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.cast.CastTrackSelector.TRACK_SELECTION_REQUEST_REASON_INVALIDATION;
+import static androidx.media3.cast.CastTrackSelector.TRACK_SELECTION_REQUEST_REASON_PARAMETER_CHANGE;
+import static androidx.media3.cast.CastTrackSelector.TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE;
 import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -39,6 +42,9 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.cast.CastTrackSelector.CastTrackSelectorRequest;
+import androidx.media3.cast.CastTrackSelector.CastTrackSelectorResult;
+import androidx.media3.cast.CastTrackSelector.TrackSelectionRequestReason;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
@@ -61,7 +67,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaLoadRequestData;
@@ -71,8 +76,6 @@ import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
-import com.google.android.gms.cast.framework.ModuleUnavailableException;
-import com.google.android.gms.cast.framework.SessionManager;
 import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
@@ -80,9 +83,12 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChanne
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Longs;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -101,6 +107,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  *
  * <p>Methods should be called on the application's main thread.
  */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public final class RemoteCastPlayer extends BasePlayer {
 
@@ -114,6 +121,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     private final Context context;
     private MediaItemConverter mediaItemConverter;
+    @Nullable private CastTrackSelector trackSelector;
     private long seekBackIncrementMs;
     private long seekForwardIncrementMs;
     private long maxSeekToPreviousPositionMs;
@@ -126,6 +134,11 @@ public final class RemoteCastPlayer extends BasePlayer {
      *
      * <ul>
      *   <li>{@link MediaItemConverter}: {@link DefaultMediaItemConverter}.
+     *   <li>{@link CastTrackSelector}: By default, {@link #COMMAND_SET_TRACK_SELECTION_PARAMETERS}
+     *       is not supported, and therefore {@link #setTrackSelectionParameters} is a no-op.
+     *       Calling {@link #setTrackSelector} makes {@link #COMMAND_SET_TRACK_SELECTION_PARAMETERS}
+     *       allowed on the created {@link RemoteCastPlayer}, but the application responsible for
+     *       implementing {@link CastTrackSelector#evaluate}.
      *   <li>{@link #setSeekBackIncrementMs}: {@link C#DEFAULT_SEEK_BACK_INCREMENT_MS}.
      *   <li>{@link #setSeekForwardIncrementMs}: {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}.
      *   <li>{@link #setMaxSeekToPreviousPositionMs}: {@link
@@ -137,6 +150,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     public Builder(Context context) {
       this.context = context;
       mediaItemConverter = new DefaultMediaItemConverter();
+      trackSelector = null;
       seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
       seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
       maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
@@ -154,6 +168,27 @@ public final class RemoteCastPlayer extends BasePlayer {
     public Builder setMediaItemConverter(MediaItemConverter mediaItemConverter) {
       checkState(!buildCalled);
       this.mediaItemConverter = checkNotNull(mediaItemConverter);
+      return this;
+    }
+
+    /**
+     * Sets the {@link CastTrackSelector} that will be used by the player to handle {@link
+     * TrackSelectionParameters}.
+     *
+     * <p>Calling this setter enables {@link #COMMAND_SET_TRACK_SELECTION_PARAMETERS} for the
+     * created {@link RemoteCastPlayer}.
+     *
+     * <p>The provided {@link CastTrackSelector} must take care of all options in {@link
+     * TrackSelectionParameters} that the application uses.
+     *
+     * @param trackSelector A {@link CastTrackSelector}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTrackSelector(CastTrackSelector trackSelector) {
+      checkState(!buildCalled);
+      this.trackSelector = checkNotNull(trackSelector);
       return this;
     }
 
@@ -210,7 +245,12 @@ public final class RemoteCastPlayer extends BasePlayer {
     /**
      * Builds and returns a {@link RemoteCastPlayer} instance.
      *
-     * @throws IllegalStateException If this method has already been called.
+     * @throws IllegalStateException If any of the following condition occurs:
+     *     <ul>
+     *       <li>This method has already been called.
+     *       <li>The {@link Cast} has not been initialized via {@link Cast#initialize()} before this
+     *           method is called.
+     *     </ul>
      */
     public RemoteCastPlayer build() {
       checkState(!buildCalled);
@@ -242,6 +282,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     MediaLibraryInfo.registerModule("media3.cast");
   }
 
+  // Deprecated commands are still available, e.g. COMMAND_ADJUST_DEVICE_VOLUME
+  @SuppressWarnings("deprecation")
   @VisibleForTesting
   /* package */ static final Commands PERMANENT_AVAILABLE_COMMANDS =
       new Commands.Builder()
@@ -276,8 +318,10 @@ public final class RemoteCastPlayer extends BasePlayer {
   private static final long PROGRESS_REPORT_PERIOD_MS = 1000;
   private static final long[] EMPTY_TRACK_ID_ARRAY = new long[0];
 
-  @Nullable private final CastContext castContext;
+  private final Cast cast;
   private final MediaItemConverter mediaItemConverter;
+  @Nullable private final CastTrackSelector trackSelector;
+  @Nullable private CastTrackSelectorRequest lastSelectionRequest;
   private final long seekBackIncrementMs;
   private final long seekForwardIncrementMs;
   private final long maxSeekToPreviousPositionMs;
@@ -287,7 +331,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Nullable private final Api30Impl api30Impl;
 
   // Result callbacks.
-  private final Cast.Listener castListener;
+  private final com.google.android.gms.cast.Cast.Listener castListener;
 
   private final StatusListener statusListener;
   private final MediaQueue.Callback mediaQueueCallback;
@@ -308,10 +352,10 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Nullable private CastSession castSession;
   @Nullable private RemoteMediaClient remoteMediaClient;
   private CastTimeline currentTimeline;
-  private Tracks currentTracks;
+  private final StateHolder<Tracks> currentTracks;
+  private final StateHolder<TrackSelectionParameters> trackSelectionParameters;
   private Commands availableCommands;
   private @Player.State int playbackState;
-  @Nullable private final PlaybackException playbackException;
   private int currentWindowIndex;
   private long lastReportedPositionMs;
   private int pendingSeekCount;
@@ -322,11 +366,13 @@ public final class RemoteCastPlayer extends BasePlayer {
   private MediaMetadata playlistMetadata;
   private DeviceInfo deviceInfo;
 
+  /** Creates a new instance. */
   private RemoteCastPlayer(Builder builder) {
     this(
         builder.context,
-        getSharedInstantSafely(builder.context),
+        Cast.getSingletonInstance(builder.context),
         builder.mediaItemConverter,
+        builder.trackSelector,
         builder.seekBackIncrementMs,
         builder.seekForwardIncrementMs,
         builder.maxSeekToPreviousPositionMs);
@@ -340,26 +386,26 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   /* package */ RemoteCastPlayer(
       @Nullable Context context,
-      @Nullable CastContext castContext,
+      Cast cast,
       MediaItemConverter mediaItemConverter,
+      @Nullable CastTrackSelector trackSelector,
       @IntRange(from = 1) long seekBackIncrementMs,
       @IntRange(from = 1) long seekForwardIncrementMs,
       @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
     checkArgument(seekBackIncrementMs > 0 && seekForwardIncrementMs > 0);
     checkArgument(maxSeekToPreviousPositionMs >= 0L);
-    if (castContext != null) {
-      Log.i(
-          TAG,
-          "Init "
-              + Integer.toHexString(System.identityHashCode(this))
-              + " ["
-              + MediaLibraryInfo.VERSION_SLASHY
-              + "] ["
-              + Util.DEVICE_DEBUG_INFO
-              + "]");
-    }
-    this.castContext = castContext;
+    Log.i(
+        TAG,
+        "Init "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
+    this.cast = cast;
     this.mediaItemConverter = mediaItemConverter;
+    this.trackSelector = trackSelector;
     this.seekBackIncrementMs = seekBackIncrementMs;
     this.seekForwardIncrementMs = seekForwardIncrementMs;
     this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
@@ -380,30 +426,24 @@ public final class RemoteCastPlayer extends BasePlayer {
     volume = new StateHolder<>(1f);
     playbackParameters = new StateHolder<>(PlaybackParameters.DEFAULT);
     playbackState = STATE_IDLE;
-    playbackException =
-        castContext == null
-            ? new PlaybackException(
-                "Failed to initialize Cast. This may be due to Google Play services not being"
-                    + " available, see https://support.google.com/googleplay/answer/9037938",
-                new ModuleUnavailableException(new Exception("Module Unavailable")),
-                PlaybackException.ERROR_CODE_REMOTE_ERROR)
-            : null;
     currentTimeline = CastTimeline.EMPTY_CAST_TIMELINE;
     mediaMetadata = MediaMetadata.EMPTY;
     playlistMetadata = MediaMetadata.EMPTY;
-    currentTracks = Tracks.EMPTY;
+    currentTracks = new StateHolder<>(Tracks.EMPTY);
     availableCommands =
-        castContext == null
-            ? new Commands.Builder().build()
-            : new Commands.Builder().addAll(PERMANENT_AVAILABLE_COMMANDS).build();
+        new Commands.Builder()
+            .addAll(PERMANENT_AVAILABLE_COMMANDS)
+            .addIf(COMMAND_SET_TRACK_SELECTION_PARAMETERS, trackSelector != null)
+            .build();
+    trackSelectionParameters = new StateHolder<>(TrackSelectionParameters.DEFAULT);
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
 
-    if (castContext != null) {
-      SessionManager sessionManager = castContext.getSessionManager();
-      sessionManager.addSessionManagerListener(statusListener, CastSession.class);
-      setCastSession(sessionManager.getCurrentCastSession());
+    if (context != null) {
+      cast.ensureInitialized(context);
     }
+    cast.addSessionManagerListener(statusListener);
+    setCastSession(cast.getCurrentCastSession());
     updateInternalStateAndNotifyIfChanged();
     if (SDK_INT >= 30 && context != null) {
       api30Impl = new Api30Impl(context);
@@ -413,6 +453,19 @@ public final class RemoteCastPlayer extends BasePlayer {
       api30Impl = null;
       deviceInfo = DEVICE_INFO_REMOTE_EMPTY;
     }
+    if (trackSelector != null) {
+      trackSelector.init(this::onTrackSelectionInvalidated);
+    }
+  }
+
+  /**
+   * Called by the {@link CastTrackSelector} to trigger a new call to {@link
+   * CastTrackSelector#evaluate}.
+   */
+  private void onTrackSelectionInvalidated() {
+    updateTracksAndNotifyIfChanged(
+        /* resultCallback= */ null, TRACK_SELECTION_REQUEST_REASON_INVALIDATION);
+    listeners.flushEvents();
   }
 
   /**
@@ -550,12 +603,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void prepare() {
-    if (playbackException != null) {
-      listeners.sendEvent(
-          Player.EVENT_PLAYER_ERROR, listener -> listener.onPlayerErrorChanged(playbackException));
-      listeners.sendEvent(
-          Player.EVENT_PLAYER_ERROR, listener -> listener.onPlayerError(playbackException));
-    }
+    // Do nothing.
   }
 
   @Override
@@ -575,7 +623,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Override
   @Nullable
   public PlaybackException getPlayerError() {
-    return playbackException;
+    return null;
   }
 
   @Override
@@ -725,11 +773,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (SDK_INT >= 30 && api30Impl != null) {
       api30Impl.release();
     }
-    if (castContext != null) {
-      SessionManager sessionManager = castContext.getSessionManager();
-      sessionManager.removeSessionManagerListener(statusListener, CastSession.class);
-      sessionManager.endCurrentSession(false);
-    }
+    cast.removeSessionManagerListener(statusListener);
+    cast.endCurrentSession(false);
   }
 
   @Override
@@ -801,16 +846,24 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public Tracks getCurrentTracks() {
-    return currentTracks;
+    return currentTracks.value;
   }
 
   @Override
   public TrackSelectionParameters getTrackSelectionParameters() {
-    return TrackSelectionParameters.DEFAULT;
+    return trackSelectionParameters.value;
   }
 
   @Override
-  public void setTrackSelectionParameters(TrackSelectionParameters parameters) {}
+  public void setTrackSelectionParameters(TrackSelectionParameters parameters) {
+    if (trackSelector == null) {
+      return;
+    }
+    setTrackSelectionParametersAndNotifyIfChanged(parameters);
+    updateTracksAndNotifyIfChanged(
+        /* resultCallback= */ null, TRACK_SELECTION_REQUEST_REASON_PARAMETER_CHANGE);
+    listeners.flushEvents();
+  }
 
   @Override
   public MediaMetadata getMediaMetadata() {
@@ -1071,7 +1124,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   /**
-   * @deprecated Use {@link #decreaseDeviceVolume(int)} (int)} instead.
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
    */
   @InlineMe(replacement = "this.decreaseDeviceVolume(0)")
   @Deprecated
@@ -1188,10 +1241,8 @@ public final class RemoteCastPlayer extends BasePlayer {
               listener.onMediaItemTransition(
                   getCurrentMediaItem(), MEDIA_ITEM_TRANSITION_REASON_AUTO));
     }
-    if (updateTracksAndSelectionsAndNotifyIfChanged()) {
-      listeners.queueEvent(
-          Player.EVENT_TRACKS_CHANGED, listener -> listener.onTracksChanged(currentTracks));
-    }
+    updateTracksAndNotifyIfChanged(
+        /* resultCallback= */ null, TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
     if (!oldMediaMetadata.equals(mediaMetadata)) {
       listeners.queueEvent(
           Player.EVENT_MEDIA_METADATA_CHANGED,
@@ -1279,6 +1330,10 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   @SuppressWarnings("deprecation") // Calling deprecated listener method.
   private boolean updateTimelineAndNotifyIfChanged() {
+    if (remoteMediaClient == null) {
+      // There is no session. We leave the state of the player as it is now.
+      return false;
+    }
     Timeline oldTimeline = currentTimeline;
     int oldWindowIndex = currentWindowIndex;
     boolean playingPeriodChanged = false;
@@ -1366,56 +1421,136 @@ public final class RemoteCastPlayer extends BasePlayer {
     return timelineChanged;
   }
 
-  /** Updates the internal tracks and selection and returns whether they have changed. */
-  private boolean updateTracksAndSelectionsAndNotifyIfChanged() {
+  /**
+   * Updates the internal tracks and queues a listener event if tracks have changed.
+   *
+   * <p>This method does nothing if {@link #currentTracks} is masking a track selection operation
+   * (as defined by {@link StateHolder#acceptsUpdate}), the invocation of this method is not the
+   * result of the completion of the masked operation, and the invocation is not the result of a
+   * {@link CastTrackSelector#invalidate()} call.
+   *
+   * @param resultCallback The result callback that triggered this call, if any.
+   * @param selectionRequestReason The reason for this invocation.
+   */
+  private void updateTracksAndNotifyIfChanged(
+      @Nullable ResultCallback<MediaChannelResult> resultCallback,
+      @TrackSelectionRequestReason int selectionRequestReason) {
     if (remoteMediaClient == null) {
       // There is no session. We leave the state of the player as it is now.
-      return false;
+      return;
     }
-
+    if (currentTracks.acceptsUpdate(resultCallback)) {
+      currentTracks.clearPendingResultCallback();
+    } else if (selectionRequestReason == TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE) {
+      // We are masking a track selection and the masked operation hasn't completed.
+      return;
+    }
     @Nullable MediaStatus mediaStatus = getMediaStatus();
     @Nullable MediaInfo mediaInfo = mediaStatus != null ? mediaStatus.getMediaInfo() : null;
     @Nullable
     List<MediaTrack> castMediaTracks = mediaInfo != null ? mediaInfo.getMediaTracks() : null;
     if (castMediaTracks == null || castMediaTracks.isEmpty()) {
-      boolean hasChanged = !Tracks.EMPTY.equals(currentTracks);
-      currentTracks = Tracks.EMPTY;
-      return hasChanged;
+      setTracksAndNotifyIfChanged(Tracks.EMPTY);
+      return;
     }
     @Nullable long[] activeTrackIds = mediaStatus.getActiveTrackIds();
     if (activeTrackIds == null) {
       activeTrackIds = EMPTY_TRACK_ID_ARRAY;
     }
-
-    Tracks.Group[] trackGroups = new Tracks.Group[castMediaTracks.size()];
+    ImmutableSet<Long> immutableActiveTrackIds = ImmutableSet.copyOf(Longs.asList(activeTrackIds));
+    ImmutableList<MediaTrack> immutableCastMediaTracks = ImmutableList.copyOf(castMediaTracks);
+    int currentItemId = mediaStatus.getCurrentItemId();
+    ImmutableSet.Builder<TrackGroup> currentlyActiveTrackGroupsBuilder =
+        new ImmutableSet.Builder<>();
+    ImmutableList.Builder<TrackGroup> trackGroupListBuilder = new ImmutableList.Builder<>();
     for (int i = 0; i < castMediaTracks.size(); i++) {
-      MediaTrack mediaTrack = castMediaTracks.get(i);
-      TrackGroup trackGroup =
-          CastUtils.mediaTrackToTrackGroup(/* trackGroupId= */ String.valueOf(i), mediaTrack);
+      MediaTrack mediaTrack = immutableCastMediaTracks.get(i);
+      TrackGroup trackGroup = CastUtils.mediaTrackToTrackGroup(currentItemId, mediaTrack);
+      trackGroupListBuilder.add(trackGroup);
+      if (immutableActiveTrackIds.contains(mediaTrack.getId())) {
+        currentlyActiveTrackGroupsBuilder.add(trackGroup);
+      }
+    }
+    ImmutableList<TrackGroup> trackGroupList = trackGroupListBuilder.build();
+    ImmutableSet<TrackGroup> currentlyActiveTrackGroups = currentlyActiveTrackGroupsBuilder.build();
+
+    CastTrackSelectorResult result;
+    if (trackSelector != null) {
+      CastTrackSelectorRequest selectionRequest =
+          new CastTrackSelectorRequest(
+              currentItemId,
+              trackSelectionParameters.value,
+              trackGroupList,
+              immutableCastMediaTracks,
+              currentlyActiveTrackGroups,
+              selectionRequestReason);
+      if (selectionRequestReason != TRACK_SELECTION_REQUEST_REASON_INVALIDATION
+          && selectionRequest.equals(lastSelectionRequest)) {
+        // Nothing has changed. No point in continuing.
+        return;
+      }
+      lastSelectionRequest = selectionRequest;
+      result = trackSelector.evaluate(selectionRequest);
+    } else {
+      result =
+          new CastTrackSelectorResult(currentlyActiveTrackGroups, trackSelectionParameters.value);
+    }
+    if (!result.trackSelectionParameters.equals(trackSelectionParameters.value)) {
+      setTrackSelectionParametersAndNotifyIfChanged(result.trackSelectionParameters);
+    }
+    ImmutableSet<TrackGroup> newSelectedTrackGroups = result.selections;
+    if (!currentlyActiveTrackGroups.equals(newSelectedTrackGroups)) {
+      currentTracks.pendingResultCallback =
+          new ResultCallback<MediaChannelResult>() {
+            @Override
+            public void onResult(MediaChannelResult result) {
+              if (remoteMediaClient != null) {
+                updateTracksAndNotifyIfChanged(
+                    this, TRACK_SELECTION_REQUEST_REASON_RECEIVER_UPDATE);
+                listeners.flushEvents();
+              }
+            }
+          };
+      ArrayList<Long> newActiveTracksIds =
+          new ArrayList<>(/* capacity= */ newSelectedTrackGroups.size());
+      for (TrackGroup trackGroup : newSelectedTrackGroups) {
+        int index = trackGroupList.indexOf(trackGroup);
+        if (index != -1) {
+          newActiveTracksIds.add(immutableCastMediaTracks.get(index).getId());
+        } else {
+          throw new IllegalStateException(
+              "CastTrackSelector produced a TrackGroup that was not in the list of available track"
+                  + " groups: "
+                  + trackGroup);
+        }
+      }
+      remoteMediaClient
+          .setActiveMediaTracks(Longs.toArray(newActiveTracksIds))
+          .setResultCallback(currentTracks.pendingResultCallback);
+    }
+
+    Tracks.Group[] tracksGroups = new Tracks.Group[trackGroupList.size()];
+    for (int i = 0; i < tracksGroups.length; i++) {
+      TrackGroup trackGroup = trackGroupList.get(i);
       @C.FormatSupport int[] trackSupport = new int[] {C.FORMAT_HANDLED};
-      boolean[] trackSelected = new boolean[] {isTrackActive(mediaTrack.getId(), activeTrackIds)};
-      trackGroups[i] =
-          new Tracks.Group(trackGroup, /* adaptiveSupported= */ false, trackSupport, trackSelected);
+      boolean trackIsSelected = newSelectedTrackGroups.contains(trackGroup);
+      boolean[] trackSelectedArray = new boolean[] {trackIsSelected};
+      tracksGroups[i] =
+          new Tracks.Group(
+              trackGroup, /* adaptiveSupported= */ false, trackSupport, trackSelectedArray);
     }
-    Tracks newTracks = new Tracks(ImmutableList.copyOf(trackGroups));
-    if (!newTracks.equals(currentTracks)) {
-      currentTracks = newTracks;
-      return true;
-    }
-    return false;
+    Tracks newTracks = new Tracks(ImmutableList.copyOf(tracksGroups));
+    setTracksAndNotifyIfChanged(newTracks);
   }
 
   private void updateAvailableCommandsAndNotifyIfChanged() {
-    if (castContext == null) {
-      return;
-    }
-
     Commands previousAvailableCommands = availableCommands;
     availableCommands =
         Util.getAvailableCommands(/* player= */ this, PERMANENT_AVAILABLE_COMMANDS)
             .buildUpon()
             .addIf(COMMAND_GET_VOLUME, isSetVolumeCommandAvailable())
             .addIf(COMMAND_SET_VOLUME, isSetVolumeCommandAvailable())
+            .addIf(COMMAND_SET_TRACK_SELECTION_PARAMETERS, trackSelector != null)
             .build();
     if (!availableCommands.equals(previousAvailableCommands)) {
       listeners.queueEvent(
@@ -1576,6 +1711,17 @@ public final class RemoteCastPlayer extends BasePlayer {
     updateAvailableCommandsAndNotifyIfChanged();
   }
 
+  private void setTrackSelectionParametersAndNotifyIfChanged(
+      TrackSelectionParameters newTrackSelectionParameters) {
+    if (this.trackSelectionParameters.value.equals(newTrackSelectionParameters)) {
+      return;
+    }
+    this.trackSelectionParameters.value = newTrackSelectionParameters;
+    listeners.queueEvent(
+        Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+        listener -> listener.onTrackSelectionParametersChanged(newTrackSelectionParameters));
+  }
+
   @SuppressWarnings("deprecation")
   private void setPlayerStateAndNotifyIfChanged(
       boolean playWhenReady,
@@ -1608,6 +1754,15 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
   }
 
+  private void setTracksAndNotifyIfChanged(Tracks tracks) {
+    if (!tracks.equals(currentTracks.value)) {
+      currentTracks.value = tracks;
+      listeners.queueEvent(
+          Player.EVENT_TRACKS_CHANGED, listener -> listener.onTracksChanged(tracks));
+      updateAvailableCommandsAndNotifyIfChanged();
+    }
+  }
+
   private void setCastSession(@Nullable CastSession castSession) {
     if (this.castSession != null) {
       this.castSession.removeCastListener(castListener);
@@ -1628,6 +1783,8 @@ public final class RemoteCastPlayer extends BasePlayer {
       this.remoteMediaClient.getMediaQueue().unregisterCallback(mediaQueueCallback);
     }
     this.remoteMediaClient = remoteMediaClient;
+    resetMaskingAndCacheState();
+
     if (remoteMediaClient != null) {
       if (sessionAvailabilityListener != null) {
         sessionAvailabilityListener.onCastSessionAvailable();
@@ -1649,26 +1806,30 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
   }
 
-  @Nullable
-  private MediaStatus getMediaStatus() {
-    return remoteMediaClient != null ? remoteMediaClient.getMediaStatus() : null;
+  /**
+   * Resets all masking state, pending result callbacks, and caches to their default values.
+   *
+   * <p>This cleanup is crucial during session transitions (such as disconnections, reconnections,
+   * or session swaps) to avoid state leakage from the previous session and to prevent stale masking
+   * locks from blocking incoming updates in the new session.
+   */
+  private void resetMaskingAndCacheState() {
+    lastSelectionRequest = null;
+    playWhenReady.clearPendingResultCallback();
+    repeatMode.clearPendingResultCallback();
+    volume.clearPendingResultCallback();
+    playbackParameters.clearPendingResultCallback();
+    currentTracks.clearPendingResultCallback();
+    trackSelectionParameters.clearPendingResultCallback();
+    pendingSeekCount = 0;
+    pendingSeekWindowIndex = C.INDEX_UNSET;
+    pendingSeekPositionMs = C.TIME_UNSET;
+    pendingMediaItemRemovalPosition = null;
   }
 
   @Nullable
-  private static CastContext getSharedInstantSafely(Context context) {
-    try {
-      return CastContext.getSharedInstance(context);
-    } catch (RuntimeException e) {
-      if (e instanceof IllegalStateException) {
-        throw e;
-      }
-      Log.e(
-          TAG,
-          "Failed to initialize Cast. This may be due to Google Play services not being available,"
-              + " see https://support.google.com/googleplay/answer/9037938",
-          e);
-    }
-    return null;
+  private MediaStatus getMediaStatus() {
+    return remoteMediaClient != null ? remoteMediaClient.getMediaStatus() : null;
   }
 
   /**
@@ -1739,15 +1900,6 @@ public final class RemoteCastPlayer extends BasePlayer {
       currentWindowIndex = 0;
     }
     return currentWindowIndex;
-  }
-
-  private static boolean isTrackActive(long id, long[] activeTrackIds) {
-    for (long activeTrackId : activeTrackIds) {
-      if (activeTrackId == id) {
-        return true;
-      }
-    }
-    return false;
   }
 
   @SuppressWarnings("VisibleForTests")
@@ -1858,7 +2010,12 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     @Override
     public void onSessionEnding(CastSession castSession) {
-      // Do nothing.
+      // We don't wait until the onSessionEnded event because the media queue callback will send
+      // updates before that (but after onSessionEnding) indicating the queue is being cleared. This
+      // complicates playback state transfer to local. As a result, we clear the active cast session
+      // here so that the player keeps reflecting the state at this point in time, before the queue
+      // is cleared. See [internal: b/479112029].
+      setCastSession(null);
     }
 
     @Override
@@ -2024,7 +2181,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
   }
 
-  private final class CastListener extends Cast.Listener {
+  private final class CastListener extends com.google.android.gms.cast.Cast.Listener {
 
     @Override
     public void onVolumeChanged() {

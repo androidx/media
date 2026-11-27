@@ -71,12 +71,14 @@ import org.chromium.net.UrlRequest;
 import org.chromium.net.UrlResponseInfo;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link CronetDataSource}. */
@@ -91,6 +93,8 @@ public final class CronetDataSourceTest {
   private static final long TEST_CONTENT_LENGTH = 16000L;
   private static final int TEST_CONNECTION_STATUS = 5;
   private static final int TEST_INVALID_CONNECTION_STATUS = -1;
+
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   private DataSpec testDataSpec;
   private DataSpec testPostDataSpec;
@@ -109,8 +113,6 @@ public final class CronetDataSourceTest {
 
   @Before
   public void setUp() {
-    MockitoAnnotations.initMocks(this);
-
     executorService = Executors.newSingleThreadExecutor();
     dataSourceUnderTest = (CronetDataSource) createCronetDataSourceFactory().createDataSource();
     dataSourceUnderTest.addTransferListener(mockTransferListener);

@@ -85,6 +85,22 @@ public final class MediaMuxerCompatTest {
     assertThat(actualCaptureFps).isEqualTo(expectedCaptureFps);
   }
 
+  @Test
+  public void addTrack_withZeroFrameRateInMediaFormat_succeeds() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_MP4);
+    MediaFormat videoFormat =
+        MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 1280, 720);
+    videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 0);
+
+    try {
+      int trackIndex = mediaMuxerCompat.addTrack(videoFormat);
+      assertThat(trackIndex).isAtLeast(0);
+    } finally {
+      mediaMuxerCompat.release();
+    }
+  }
+
   private static MdtaMetadataEntry findCaptureFpsMetadata(Format format) {
     if (format.metadata == null) {
       return null;

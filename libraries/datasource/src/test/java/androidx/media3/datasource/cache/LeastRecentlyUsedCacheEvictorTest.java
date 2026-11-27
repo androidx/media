@@ -16,20 +16,13 @@
 package androidx.media3.datasource.cache;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link LeastRecentlyUsedCacheEvictor}. */
 @RunWith(AndroidJUnit4.class)
 public class LeastRecentlyUsedCacheEvictorTest {
-
-  @Before
-  public void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
-  }
 
   @Test
   public void contentBiggerThanMaxSizeDoesNotThrowException() throws Exception {

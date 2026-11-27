@@ -45,6 +45,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link DefaultDownloadIndex}. */
 @RunWith(AndroidJUnit4.class)
@@ -221,6 +222,7 @@ public class DefaultDownloadIndexTest {
   }
 
   @Test
+  @Config(minSdk = 24) // Fails with FileNotFoundException opening exoplayer_internal.db on API 23.
   public void downloadIndex_upgradesFromVersion2() throws IOException {
     Context context = ApplicationProvider.getApplicationContext();
     File databaseFile = context.getDatabasePath(StandaloneDatabaseProvider.DATABASE_NAME);

@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
   override fun onCreateOptionsMenu(menu: Menu): Boolean {
     super.onCreateOptionsMenu(menu)
     getMenuInflater().inflate(R.menu.menu, menu)
-    val unused = MediaRouteButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
+    MediaRouteButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
     return true
   }
 

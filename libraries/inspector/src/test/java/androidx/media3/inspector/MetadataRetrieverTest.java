@@ -562,4 +562,28 @@ public class MetadataRetrieverTest {
       assertThat(trackGroups2.length).isEqualTo(1);
     }
   }
+
+  @Test
+  public void retrieveMetadata_mediaSourceThrowsRuntimeException_failsFuture() {
+    MediaSource.Factory mockFactory = mock(MediaSource.Factory.class);
+    RuntimeException runtimeException = new RuntimeException();
+    when(mockFactory.createMediaSource(any(MediaItem.class))).thenThrow(runtimeException);
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, mediaItem)
+            .setClock(clock)
+            .setMediaSourceFactory(mockFactory)
+            .build()) {
+
+      ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
+
+      ExecutionException thrown =
+          assertThrows(
+              ExecutionException.class,
+              () -> trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS));
+      assertThat(thrown).hasCauseThat().isSameInstanceAs(runtimeException);
+    }
+  }
 }

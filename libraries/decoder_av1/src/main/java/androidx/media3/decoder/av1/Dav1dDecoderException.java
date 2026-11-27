@@ -22,13 +22,33 @@ import androidx.media3.decoder.DecoderException;
 @UnstableApi
 public final class Dav1dDecoderException extends DecoderException {
 
+  /** The error code returned when the decoder error is unknown. */
+  public static final int ERROR_CODE_UNKNOWN = -1;
+
+  /**
+   * The libdav1d error code associated with the decoder error, or {@link #ERROR_CODE_UNKNOWN} if
+   * unknown.
+   */
+  public final int errorCode;
+
+  /**
+   * Constructs a {@code Dav1dDecoderException} with the specified message and error code.
+   *
+   * @param message The error message.
+   * @param errorCode The libdav1d error code.
+   */
+  public Dav1dDecoderException(String message, int errorCode) {
+    super(message);
+    this.errorCode = errorCode;
+  }
+
   /**
    * Constructs a {@code Dav1dDecoderException} with the specified message.
    *
    * @param message The error message.
    */
   public Dav1dDecoderException(String message) {
-    super(message);
+    this(message, ERROR_CODE_UNKNOWN);
   }
 
   /**
@@ -39,5 +59,6 @@ public final class Dav1dDecoderException extends DecoderException {
    */
   public Dav1dDecoderException(String message, Throwable cause) {
     super(message, cause);
+    this.errorCode = ERROR_CODE_UNKNOWN;
   }
 }

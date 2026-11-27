@@ -46,6 +46,7 @@ import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
 /** Implementation of MediaBrowser with the {@link MediaBrowserCompat} for legacy support. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaBrowserImplLegacy extends MediaControllerImplLegacy
     implements MediaBrowser.MediaBrowserImpl {
 
@@ -472,9 +473,14 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       } else {
         Bundle extras = browserCompat.getExtras();
         if (extras != null) {
-          ArrayList<Bundle> parcelableArrayList =
-              extras.getParcelableArrayList(
-                  BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST);
+          ArrayList<Bundle> parcelableArrayList = null;
+          try {
+            parcelableArrayList =
+                extras.getParcelableArrayList(
+                    BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST);
+          } catch (RuntimeException e) {
+            Log.w(TAG, "Failed to get custom browser action root list", e);
+          }
           if (parcelableArrayList != null) {
             @Nullable
             ImmutableMap.Builder<String, CommandButton> commandButtonsForMediaItemsBuilder = null;

@@ -41,28 +41,12 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class FragmentedMp4ExtractorParameterizedTest {
 
-  @Parameters(name = "{0},subtitlesParsedDuringExtraction={1},readWithinGopSampleDependencies={2}")
+  @Parameters(name = "{0},subtitlesParsedDuringExtraction={1}")
   public static List<Object[]> params() {
     List<Object[]> parameterList = new ArrayList<>();
     for (ExtractorAsserts.SimulationConfig config : ExtractorAsserts.configs()) {
-      parameterList.add(
-          new Object[] {
-            config,
-            /* subtitlesParsedDuringExtraction */ true,
-            /* readWithinGopSampleDependencies */ false
-          });
-      parameterList.add(
-          new Object[] {
-            config,
-            /* subtitlesParsedDuringExtraction */ false,
-            /* readWithinGopSampleDependencies */ false
-          });
-      parameterList.add(
-          new Object[] {
-            config,
-            /* subtitlesParsedDuringExtraction */ true,
-            /* readWithinGopSampleDependencies */ true
-          });
+      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ true});
+      parameterList.add(new Object[] {config, /* subtitlesParsedDuringExtraction */ false});
     }
     return parameterList;
   }
@@ -72,9 +56,6 @@ public final class FragmentedMp4ExtractorParameterizedTest {
 
   @Parameter(1)
   public boolean subtitlesParsedDuringExtraction;
-
-  @Parameter(2)
-  public boolean readWithinGopSampleDependencies;
 
   @Test
   public void sample() throws Exception {
@@ -99,17 +80,14 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         () ->
             new FragmentedMp4Extractor(
                 /* subtitleParserFactory= */ new DefaultSubtitleParserFactory(),
-                /* flags= */ 0,
+                /* flags= */ FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP,
                 /* timestampAdjuster= */ null,
                 /* sideloadedTrack= */ null,
                 /* closedCaptionFormats= */ ImmutableList.of(),
                 /* additionalEmsgTrackOutput= */ null),
         file,
         /* peekLimit= */ 700,
-        new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix(
-                file.replaceFirst("media", "extractordumps") + ".no-merge-fragmented-sidx")
-            .build(),
+        new ExtractorAsserts.AssertionConfig.Builder().build(),
         simulationConfig);
   }
 
@@ -120,17 +98,15 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         () ->
             new FragmentedMp4Extractor(
                 /* subtitleParserFactory= */ new DefaultSubtitleParserFactory(),
-                /* flags= */ FragmentedMp4Extractor.FLAG_MERGE_FRAGMENTED_SIDX,
+                /* flags= */ FragmentedMp4Extractor.FLAG_MERGE_FRAGMENTED_SIDX
+                    | FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP,
                 /* timestampAdjuster= */ null,
                 /* sideloadedTrack= */ null,
                 /* closedCaptionFormats= */ ImmutableList.of(),
                 /* additionalEmsgTrackOutput= */ null),
         file,
         /* peekLimit= */ 700,
-        new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix(
-                file.replaceFirst("media", "extractordumps") + ".merge-fragmented-sidx")
-            .build(),
+        new ExtractorAsserts.AssertionConfig.Builder().build(),
         simulationConfig);
   }
 
@@ -213,6 +189,22 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void sampleWithDtsExpress() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_dts_express.mp4",
+        /* peekLimit= */ 4096);
+  }
+
+  @Test
+  public void sampleWithDtsHdMa() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_dts_hd_ma.mp4",
+        /* peekLimit= */ 4096);
+  }
+
+  @Test
   public void samplePartiallyFragmented() throws Exception {
     assertExtractorBehavior(
         /* closedCaptionFormats= */ ImmutableList.of(),
@@ -280,42 +272,78 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         closedCaptions, "media/mp4/fragmented_captions_h265.mp4", /* peekLimit= */ 3100);
   }
 
+  @Test
+  public void sampleWithUuidBoxBeforeMoov() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_uuid.mp4",
+        /* peekLimit= */ 9276);
+  }
+
+  @Test
+  public void sampleWithSgpdV2() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_sgpd_v2.mp4",
+        /* peekLimit= */ 894,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The sgpd box is in the moof box in this sample (rather than the moov box), which
+            // means a second Format gets emitted when parsing the moof box.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
+  @Test
+  public void sampleWithVariableLengthSgpdInMoof() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_variable_length_sgpd.mp4",
+        /* peekLimit= */ 894,
+        new ExtractorAsserts.AssertionConfig.Builder()
+            // The sgpd box is in the moof box in this sample (rather than the moov box), which
+            // means a second Format gets emitted when parsing the moof box.
+            .setDeduplicateConsecutiveFormats(true)
+            .build());
+  }
+
   private void assertExtractorBehavior(
       List<Format> closedCaptionFormats, String file, int peekLimit) throws IOException {
-    ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
-        new ExtractorAsserts.AssertionConfig.Builder();
-    if (readWithinGopSampleDependencies) {
-      String dumpFilesPrefix =
-          file.replaceFirst("media", "extractordumps") + ".reading_within_gop_sample_dependencies";
-      assertionConfigBuilder.setDumpFilesPrefix(dumpFilesPrefix);
-    }
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(
-            closedCaptionFormats, subtitlesParsedDuringExtraction, readWithinGopSampleDependencies),
+    assertExtractorBehavior(
+        closedCaptionFormats,
         file,
         peekLimit,
-        assertionConfigBuilder.build(),
+        new ExtractorAsserts.AssertionConfig.Builder().build());
+  }
+
+  private void assertExtractorBehavior(
+      List<Format> closedCaptionFormats,
+      String file,
+      int peekLimit,
+      ExtractorAsserts.AssertionConfig assertionConfig)
+      throws IOException {
+    ;
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(closedCaptionFormats, subtitlesParsedDuringExtraction),
+        file,
+        peekLimit,
+        assertionConfig,
         simulationConfig);
   }
 
   private static ExtractorFactory getExtractorFactory(
-      List<Format> closedCaptionFormats,
-      boolean subtitlesParsedDuringExtraction,
-      boolean readWithinGopSampleDependencies) {
+      List<Format> closedCaptionFormats, boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;
-    @FragmentedMp4Extractor.Flags int flags;
+    @FragmentedMp4Extractor.Flags
+    int flags =
+        FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP
+            | FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES
+            | FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
     if (subtitlesParsedDuringExtraction) {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
-      flags = 0;
     } else {
       subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
-      flags = FLAG_EMIT_RAW_SUBTITLE_DATA;
+      flags |= FLAG_EMIT_RAW_SUBTITLE_DATA;
     }
-    if (readWithinGopSampleDependencies) {
-      flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
-      flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
-    }
-
     @FragmentedMp4Extractor.Flags int finalFlags = flags;
     return () ->
         new FragmentedMp4Extractor(

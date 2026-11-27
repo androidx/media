@@ -25,6 +25,7 @@ import android.media.MediaParser;
 import android.media.MediaParser.SeekPoint;
 import android.net.Uri;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
@@ -172,5 +173,13 @@ public final class MediaParserExtractorAdapter implements ProgressiveMediaExtrac
         : positionHolder.position != C.INDEX_UNSET
             ? Extractor.RESULT_SEEK
             : Extractor.RESULT_CONTINUE;
+  }
+
+  @Override
+  @Nullable
+  public String getUnderlyingImplementationName() {
+    return mediaParser.getParserName().equals(MediaParser.PARSER_NAME_UNKNOWN)
+        ? null
+        : mediaParser.getParserName();
   }
 }

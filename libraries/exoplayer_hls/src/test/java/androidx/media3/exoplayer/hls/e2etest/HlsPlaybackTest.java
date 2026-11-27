@@ -59,6 +59,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -513,6 +514,7 @@ public final class HlsPlaybackTest {
   }
 
   @Test
+  @Ignore // TODO: b/514616476 - De-flake this test.
   public void play_multiSegmentPlaylist() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);

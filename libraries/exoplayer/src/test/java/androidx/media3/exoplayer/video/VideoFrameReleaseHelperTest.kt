@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.video
 
 import android.content.Context
 import android.view.Choreographer
+import android.view.Display
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.Log
@@ -29,15 +30,40 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import java.util.Random
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowDisplayManager
+import org.robolectric.shadows.ShadowLooper
 
 /** Unit tests for {@link VideoFrameReleaseHelper}. */
 @RunWith(AndroidJUnit4::class)
 class VideoFrameReleaseHelperTest {
 
   private val context: Context = ApplicationProvider.getApplicationContext()
+
+  @Test
+  fun onStarted_subsequentCalls_doesNotRecreateVsyncSampler() {
+    val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
+    val samplersSeen = mutableListOf<Any>()
+    videoFrameReleaseHelper.setVSyncSamplerListener { sampler -> samplersSeen.add(sampler) }
+    videoFrameReleaseHelper.onStarted()
+    ShadowLooper.idleMainLooper()
+    assertThat(samplersSeen).hasSize(1)
+    val firstSampler = samplersSeen[0]
+
+    samplersSeen.clear()
+
+    videoFrameReleaseHelper.onStarted()
+    ShadowLooper.idleMainLooper()
+
+    assertThat(samplersSeen).isNotEmpty()
+    for (sampler in samplersSeen) {
+      assertThat(sampler).isSameInstanceAs(firstSampler)
+    }
+  }
 
   @Test
   fun adjustReleaseTime_60Fps60Hz_releasesFramesSmoothly() {
@@ -600,6 +626,52 @@ class VideoFrameReleaseHelperTest {
     assertThat(throwableFromChoreographer.get()).isNull()
   }
 
+  @Test
+  @Config(maxSdk = 32)
+  fun onDisplayChanged_apiPriorTo33_doesNotDuplicateFrameCallbacksOverTime() {
+    val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
+    var callbackCount = 0
+    videoFrameReleaseHelper.setVSyncSamplerListener { callbackCount++ }
+    videoFrameReleaseHelper.onStarted()
+
+    ShadowLooper.idleMainLooper()
+    callbackCount = 0
+
+    for (i in 1..3) {
+      ShadowDisplayManager.changeDisplay(
+        Display.DEFAULT_DISPLAY,
+        /* qualifiersStr= */ if (i % 2 == 0) "+land" else "+port",
+      )
+    }
+    ShadowLooper.idleMainLooper(2000, TimeUnit.MILLISECONDS)
+
+    // Expected callbacks: 1 (initial) + 3 (display changes) + 2000ms / 500ms (update period) = 8.
+    assertThat(callbackCount).isAtMost(8)
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  fun onDisplayChanged_api33OrLater_doesNotDuplicateVsyncCallbacksOverTime() {
+    val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
+    var callbackCount = 0
+    videoFrameReleaseHelper.setVSyncSamplerListener { callbackCount++ }
+    videoFrameReleaseHelper.onStarted()
+
+    ShadowLooper.idleMainLooper()
+    callbackCount = 0
+
+    for (i in 1..3) {
+      ShadowDisplayManager.changeDisplay(
+        Display.DEFAULT_DISPLAY,
+        /* qualifiersStr= */ if (i % 2 == 0) "+land" else "+port",
+      )
+    }
+    ShadowLooper.idleMainLooper(2000, TimeUnit.MILLISECONDS)
+
+    // Expected callbacks: 1 (initial) + 3 (display changes) + 2000ms / 500ms (update period) = 8.
+    assertThat(callbackCount).isAtMost(8)
+  }
+
   /**
    * Generate all 3 independent types of input data for the frame release helper:
    * <ul>
@@ -660,6 +732,7 @@ class VideoFrameReleaseHelperTest {
     testData: TestData,
     onFrameAdjusted: (Int) -> Unit = {},
   ): List<Long> = buildList {
+    val frameRateEstimator = FixedFrameRateEstimator {}
     var nextVsyncUpdateTimeNs = testData.releaseTimeNs.first()
     for (i in 0..<testData.releaseTimeNs.size) {
       if (testData.releaseTimeNs[i] >= nextVsyncUpdateTimeNs) {
@@ -669,11 +742,13 @@ class VideoFrameReleaseHelperTest {
         )
         nextVsyncUpdateTimeNs += VideoFrameReleaseHelper.VSYNC_SAMPLE_UPDATE_PERIOD_MS * 1_000_000
       }
-      videoFrameReleaseHelper.onNextFrame(testData.frameTimeUs[i])
+      frameRateEstimator.onNextFrame(testData.frameTimeUs[i] * 1000)
       add(
         videoFrameReleaseHelper.adjustReleaseTime(
           testData.releaseTimeNs[i],
           testData.frameTimeUs[i],
+          frameRateEstimator.frameDurationNs,
+          frameRateEstimator.frameIndex,
         )
       )
       onFrameAdjusted(i)

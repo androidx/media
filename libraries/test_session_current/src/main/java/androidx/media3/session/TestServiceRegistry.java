@@ -21,6 +21,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 
 /**
@@ -45,6 +46,12 @@ public class TestServiceRegistry {
 
   @GuardedBy("TestServiceRegistry.class")
   private OnGetSessionHandler onGetSessionHandler;
+
+  @GuardedBy("TestServiceRegistry.class")
+  private OnDestroyListener onDestroyListener;
+
+  @GuardedBy("TestServiceRegistry.class")
+  private OnUpdateMediaNotificationAsyncHandler onUpdateMediaNotificationAsyncHandler;
 
   /** Callback for session service's lifecyle (onCreate() / onDestroy()) */
   public interface SessionServiceCallback {
@@ -74,6 +81,18 @@ public class TestServiceRegistry {
     }
   }
 
+  public void setOnDestroyListener(OnDestroyListener onDestroyListener) {
+    synchronized (TestServiceRegistry.class) {
+      this.onDestroyListener = onDestroyListener;
+    }
+  }
+
+  public OnDestroyListener getOnDestroyListener() {
+    synchronized (TestServiceRegistry.class) {
+      return onDestroyListener;
+    }
+  }
+
   public void setSessionServiceCallback(SessionServiceCallback sessionServiceCallback) {
     synchronized (TestServiceRegistry.class) {
       this.sessionServiceCallback = sessionServiceCallback;
@@ -89,6 +108,19 @@ public class TestServiceRegistry {
   public MediaLibrarySession.Callback getSessionCallback() {
     synchronized (TestServiceRegistry.class) {
       return sessionCallback;
+    }
+  }
+
+  public void setOnUpdateMediaNotificationAsynHandler(
+      OnUpdateMediaNotificationAsyncHandler onUpdateMediaNotificationAsyncHandler) {
+    synchronized (TestServiceRegistry.class) {
+      this.onUpdateMediaNotificationAsyncHandler = onUpdateMediaNotificationAsyncHandler;
+    }
+  }
+
+  public OnUpdateMediaNotificationAsyncHandler getOnUpdateMediaNotificationAsyncHandler() {
+    synchronized (TestServiceRegistry.class) {
+      return onUpdateMediaNotificationAsyncHandler;
     }
   }
 
@@ -133,6 +165,8 @@ public class TestServiceRegistry {
         sessionServiceCallback = null;
       }
       onGetSessionHandler = null;
+      onUpdateMediaNotificationAsyncHandler = null;
+      onDestroyListener = null;
     }
   }
 
@@ -141,5 +175,17 @@ public class TestServiceRegistry {
 
     @Nullable
     MediaSession onGetSession(ControllerInfo controllerInfo);
+  }
+
+  /** Handles onUpdateMediaNotificationAsync */
+  public interface OnUpdateMediaNotificationAsyncHandler {
+    ListenableFuture<Void> onUpdateMediaNotificationAsync(
+        MediaSession session, boolean startInForegroundRequired);
+  }
+
+  /** Called when onDestroy was called. */
+  public interface OnDestroyListener {
+
+    void onDestroyCalled();
   }
 }

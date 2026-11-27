@@ -66,6 +66,8 @@ public final class DumpableFormat implements Dumper.Dumpable {
     dumper.addIfNonDefault(
         "rotationDegrees", format, DEFAULT_FORMAT, format -> format.rotationDegrees);
     dumper.addIfNonDefault(
+        "mirrorHorizontal", format, DEFAULT_FORMAT, format -> format.mirrorHorizontal);
+    dumper.addIfNonDefault(
         "pixelWidthHeightRatio", format, DEFAULT_FORMAT, format -> format.pixelWidthHeightRatio);
     dumper.addIfNonDefault("maxSubLayers", format, DEFAULT_FORMAT, format -> format.maxSubLayers);
     @Nullable ColorInfo colorInfo = format.colorInfo;
@@ -83,8 +85,17 @@ public final class DumpableFormat implements Dumper.Dumpable {
       dumper.endBlock();
     }
     dumper.addIfNonDefault("channelCount", format, DEFAULT_FORMAT, format -> format.channelCount);
+    dumper.addIfNonDefault(
+        "channelMask",
+        format,
+        DEFAULT_FORMAT,
+        format -> Util.formatInvariant("0x%08X", format.channelMask));
     dumper.addIfNonDefault("sampleRate", format, DEFAULT_FORMAT, format -> format.sampleRate);
-    dumper.addIfNonDefault("pcmEncoding", format, DEFAULT_FORMAT, format -> format.pcmEncoding);
+    dumper.addIfNonDefault(
+        "pcmEncoding",
+        format,
+        DEFAULT_FORMAT,
+        format -> Util.getEncodingString(format.pcmEncoding));
     dumper.addIfNonDefault("encoderDelay", format, DEFAULT_FORMAT, format -> format.encoderDelay);
     dumper.addIfNonDefault(
         "encoderPadding", format, DEFAULT_FORMAT, format -> format.encoderPadding);

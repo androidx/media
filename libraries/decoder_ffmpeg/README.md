@@ -49,35 +49,25 @@ HOST_PLATFORM="linux-x86_64"
 ANDROID_ABI=21
 ```
 
-*   Fetch FFmpeg and checkout an appropriate branch. We cannot guarantee
-    compatibility with all versions of FFmpeg. We currently recommend version
-    6.0:
-
-```
-cd "<preferred location for ffmpeg>" && \
-git clone git://source.ffmpeg.org/ffmpeg && \
-cd ffmpeg && \
-git checkout release/6.0 && \
-FFMPEG_PATH="$(pwd)"
-```
-
-* Configure the decoders to include. See the [Supported formats][] page for
-  details of the available decoders, and which formats they support.
+*   Configure the decoders to include. See the [Supported formats][] page for
+    details of the available decoders, and which formats they support.
 
 ```
 ENABLED_DECODERS=(vorbis opus flac)
 ```
 
-*   Add a link to the FFmpeg source code in the FFmpeg module `jni` directory.
+*   Fetch FFmpeg and checkout an appropriate branch. We cannot guarantee
+    compatibility with all versions of FFmpeg. We currently recommend version
+    6.0:
 
-```
+```shell
 cd "${FFMPEG_MODULE_PATH}/jni" && \
-ln -s "$FFMPEG_PATH" ffmpeg
+git clone git://source.ffmpeg.org/ffmpeg --branch=release/6.0 --depth=1
 ```
 
-* Execute `build_ffmpeg.sh` to build FFmpeg for `armeabi-v7a`, `arm64-v8a`,
-  `x86` and `x86_64`. The script can be edited if you need to build for
-  different architectures:
+*   Execute `build_ffmpeg.sh` to build FFmpeg for `armeabi-v7a`, `arm64-v8a`,
+    `x86` and `x86_64`. The script can be edited if you need to build for
+    different architectures:
 
 ```
 cd "${FFMPEG_MODULE_PATH}/jni" && \

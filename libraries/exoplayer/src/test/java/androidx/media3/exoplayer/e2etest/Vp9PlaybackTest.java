@@ -30,6 +30,7 @@ import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,6 +38,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 
 /** End-to-end tests using VP9 samples. */
+@Ignore("Flaky: b/521229350")
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class Vp9PlaybackTest {
   @Parameters(name = "{0}")

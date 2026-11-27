@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -145,7 +147,9 @@ public final class CachedRegionTracker implements Cache.Listener {
     boolean ceilingConnects = regionsConnect(newRegion, ceilingRegion);
 
     if (ceilingConnects) {
+      checkNotNull(ceilingRegion);
       if (floorConnects) {
+        checkNotNull(floorRegion);
         // Extend floorRegion to cover both newRegion and ceilingRegion.
         floorRegion.endOffset = ceilingRegion.endOffset;
         floorRegion.endOffsetIndex = ceilingRegion.endOffsetIndex;
@@ -157,6 +161,7 @@ public final class CachedRegionTracker implements Cache.Listener {
       }
       regions.remove(ceilingRegion);
     } else if (floorConnects) {
+      checkNotNull(floorRegion);
       // Extend floorRegion to the right to cover newRegion.
       floorRegion.endOffset = newRegion.endOffset;
       int index = floorRegion.endOffsetIndex;

@@ -27,9 +27,11 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link MediaFormatUtil}. */
 @RunWith(AndroidJUnit4.class)
@@ -57,6 +59,40 @@ public class MediaFormatUtilTest {
   }
 
   @Test
+  public void createFormatFromMediaFormat_withZeroFrameRate_setsFrameRateToNoValue() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setFloat(MediaFormat.KEY_FRAME_RATE, 0.0f);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.frameRate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void createFormatFromMediaFormat_withNegativeFrameRate_setsFrameRateToNoValue() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, -10);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.frameRate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void createFormatFromMediaFormat_withContradictoryChannelMask_dropsChannelMask() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_OUT_5POINT1);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.channelCount).isEqualTo(2);
+    assertThat(format.channelMask).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  // ColorInfo support in MediaFormat was added in API 24.
+  @Config(minSdk = 24)
   public void createFormatFromMediaFormat_withPopulatedMap_generatesExpectedFormat() {
     MediaFormat mediaFormat = new MediaFormat();
     mediaFormat.setString(MediaFormat.KEY_MIME, MimeTypes.VIDEO_H264);
@@ -77,6 +113,7 @@ public class MediaFormatUtilTest {
     mediaFormat.setByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO, ByteBuffer.wrap(new byte[] {3}));
     mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 11);
     mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_OUT_STEREO);
     mediaFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, C.ENCODING_PCM_8BIT);
     mediaFormat.setByteBuffer("csd-0", ByteBuffer.wrap(new byte[] {7}));
     mediaFormat.setByteBuffer("csd-1", ByteBuffer.wrap(new byte[] {10}));
@@ -111,6 +148,7 @@ public class MediaFormatUtilTest {
     assertThat(format.sampleRate).isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE));
     assertThat(format.channelCount)
         .isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
+    assertThat(format.channelMask).isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_MASK));
     assertThat(format.pcmEncoding).isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_PCM_ENCODING));
     assertThat(format.initializationData.get(0))
         .isEqualTo(mediaFormat.getByteBuffer("csd-0").array());
@@ -123,8 +161,8 @@ public class MediaFormatUtilTest {
     MediaFormat mediaFormat =
         MediaFormatUtil.createMediaFormatFromFormat(new Format.Builder().build());
     // Assert that no invalid keys are accidentally being populated.
-    assertThat(mediaFormat.getKeys())
-        .containsExactly(
+    ImmutableSet<String> expectedKeys =
+        ImmutableSet.of(
             MediaFormatUtil.KEY_PIXEL_WIDTH_HEIGHT_RATIO_FLOAT,
             MediaFormat.KEY_ENCODER_DELAY,
             MediaFormat.KEY_ENCODER_PADDING,
@@ -134,6 +172,15 @@ public class MediaFormatUtilTest {
             MediaFormat.KEY_IS_FORCED_SUBTITLE,
             MediaFormat.KEY_IS_AUTOSELECT,
             MediaFormat.KEY_ROTATION);
+    if (Util.SDK_INT >= 29) {
+      assertThat(mediaFormat.getKeys()).containsExactlyElementsIn(expectedKeys);
+    } else {
+      // MediaFormat.getKeys() is not available on SDK < 29.
+      // Just assert expected keys are present.
+      for (String key : expectedKeys) {
+        assertThat(mediaFormat.containsKey(key)).isTrue();
+      }
+    }
     assertThat(mediaFormat.getFloat(MediaFormatUtil.KEY_PIXEL_WIDTH_HEIGHT_RATIO_FLOAT))
         .isEqualTo(1.f);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_ENCODER_DELAY)).isEqualTo(0);
@@ -152,6 +199,7 @@ public class MediaFormatUtilTest {
         new Format.Builder()
             .setAverageBitrate(1)
             .setChannelCount(2)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
             .setColorInfo(
                 new ColorInfo.Builder()
                     .setColorSpace(C.COLOR_SPACE_BT601)

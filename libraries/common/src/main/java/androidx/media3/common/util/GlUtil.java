@@ -112,6 +112,10 @@ public final class GlUtil {
         EGL14.EGL_NONE
       };
 
+  /** Marker value for when no fence sync is set. */
+  // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+  @ExperimentalApi public static final long GL_FENCE_SYNC_UNSET = -1;
+
   // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glFenceSync.xhtml
   private static final long GL_FENCE_SYNC_FAILED = 0;
   // https://www.khronos.org/registry/EGL/extensions/EXT/EGL_EXT_protected_content.txt
@@ -286,7 +290,7 @@ public final class GlUtil {
             /* unusedMinor */ new int[1],
             /* minorOffset= */ 0),
         "Error in eglInitialize.");
-    checkGlError();
+    checkEglException("Error in getDefaultEglDisplay");
     return eglDisplay;
   }
 
@@ -338,7 +342,7 @@ public final class GlUtil {
               + " version "
               + openGlVersion);
     }
-    checkGlError();
+    checkEglException("Error in createEglContext");
     return eglContext;
   }
 
@@ -506,15 +510,21 @@ public final class GlUtil {
 
   /** Releases the GL sync object if set, suppressing any error. */
   public static void deleteSyncObjectQuietly(long syncObject) {
+    if (syncObject == GL_FENCE_SYNC_UNSET) {
+      return;
+    }
     GLES30.glDeleteSync(syncObject);
   }
 
   /**
    * Ensures that following commands on the current OpenGL context will not be executed until the
-   * sync point has been reached. If {@code syncObject} equals {@code 0}, this does not block the
-   * CPU, and only affects the current OpenGL context. Otherwise, this will block the CPU.
+   * sync point has been reached. If {@code syncObject} equals {@code #GL_FENCE_SYNC_UNSET}, this is
+   * a no-op. This method does not block the CPU.
    */
   public static void awaitSyncObject(long syncObject) throws GlException {
+    if (syncObject == GL_FENCE_SYNC_UNSET) {
+      return;
+    }
     if (syncObject == GL_FENCE_SYNC_FAILED) {
       // Fallback to using glFinish for synchronization when fence creation failed.
       GLES20.glFinish();
@@ -556,6 +566,19 @@ public final class GlUtil {
   }
 
   /**
+   * Collects EGL errors that occurred in the last called EGL function and throws a {@link
+   * GlException} with the combined error code.
+   */
+  public static void checkEglException(String errorMessage) throws GlException {
+    int error = EGL14.eglGetError();
+    if (error != EGL14.EGL_SUCCESS) {
+      throw new GlException(
+          errorMessage + ", error code: 0x" + Integer.toHexString(error),
+          /* errorCodes= */ ImmutableList.of(error));
+    }
+  }
+
+  /**
    * Asserts the texture size is valid.
    *
    * @param width The width for a texture.
@@ -592,10 +615,18 @@ public final class GlUtil {
    * #createFocusedPlaceholderEglSurface}.
    */
   public static void clearFocusedBuffers() throws GlException {
-    GLES20.glClearColor(/* red= */ 0, /* green= */ 0, /* blue= */ 0, /* alpha= */ 0);
-    GLES20.glClearDepthf(1.0f);
-    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-    GlUtil.checkGlError();
+    clearFocusedBuffersInternal(/* r= */ 0, /* g= */ 0, /* b= */ 0, /* a= */ 0);
+  }
+
+  /**
+   * Fills the pixels in the current output render target buffers with (r=0, g=0, b=0, a=1).
+   *
+   * <p>Buffers can be focused using {@link #focusEglSurface} and {@link
+   * #focusFramebufferUsingCurrentContext}, {@link #focusFramebuffer}, and {@link
+   * #createFocusedPlaceholderEglSurface}.
+   */
+  public static void clearFocusedBuffersOpaque() throws GlException {
+    clearFocusedBuffersInternal(/* r= */ 0, /* g= */ 0, /* b= */ 0, /* a= */ 1);
   }
 
   /**
@@ -1115,14 +1146,25 @@ public final class GlUtil {
     EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
     checkEglException("Error making context current");
     focusFramebufferUsingCurrentContext(framebuffer, width, height);
+    // When transitioning from a surfaceless context (EGL_NO_SURFACE) to a context with a valid
+    // surface, the GL_DRAW_BUFFER and GL_READ_BUFFER states may still be GL_NONE (per EGL spec for
+    // surfaceless contexts). Explicitly set them to GL_BACK for the default framebuffer to ensure
+    // rendering goes to the bound surface. See https://github.com/androidx/media/issues/2982.
+    if (!eglSurface.equals(EGL14.EGL_NO_SURFACE)
+        && framebuffer == 0
+        && getContextMajorVersion() >= 3) {
+      GLES30.glDrawBuffers(1, new int[] {GLES30.GL_BACK}, 0);
+      checkGlError();
+      GLES30.glReadBuffer(GLES30.GL_BACK);
+      checkGlError();
+    }
   }
 
-  private static void checkEglException(String errorMessage) throws GlException {
-    int error = EGL14.eglGetError();
-    if (error != EGL14.EGL_SUCCESS) {
-      throw new GlException(
-          errorMessage + ", error code: 0x" + Integer.toHexString(error),
-          /* errorCodes= */ ImmutableList.of(error));
-    }
+  private static void clearFocusedBuffersInternal(float r, float g, float b, float a)
+      throws GlException {
+    GLES20.glClearColor(r, g, b, a);
+    GLES20.glClearDepthf(1.0f);
+    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+    GlUtil.checkGlError();
   }
 }

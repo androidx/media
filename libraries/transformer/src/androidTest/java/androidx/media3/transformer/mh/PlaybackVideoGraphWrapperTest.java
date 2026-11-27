@@ -38,12 +38,14 @@ import androidx.media3.transformer.AndroidTestUtil.TestVideoGraphFactory;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link PlaybackVideoGraphWrapper}. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class PlaybackVideoGraphWrapperTest {
 
