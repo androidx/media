@@ -1009,7 +1009,14 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_EDITION_ENTRY:
         for (int i = 0; i < tracks.size(); i++) {
-          updateTrackFormatWithMetadata(tracks.valueAt(i));
+          Track track = tracks.valueAt(i);
+          @Nullable Format previousFormat = track.format;
+          updateTrackFormatWithMetadata(track);
+          if (sentSeekMap && !track.waitingForDtsAnalysis && track.format != previousFormat) {
+            // The first chapter metadata can arrive after the initial format was sent.
+            track.assertOutputInitialized();
+            track.output.format(checkNotNull(track.format));
+          }
         }
         break;
       case ID_BLOCK_GROUP:
