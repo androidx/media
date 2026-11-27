@@ -301,6 +301,7 @@ public final class GlTextureFrameProcessorChainTest {
         context,
         new DefaultGlObjectsProvider(),
         glExecutorService,
+        /* errorConsumerExecutor= */ directExecutor(),
         /* errorConsumer= */ e -> {},
         downstreamFrameConsumer,
         KEY_ITEM_EFFECTS,

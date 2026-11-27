@@ -15,44 +15,36 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.GlShaderProgram.InputListener;
 import androidx.media3.effect.GlShaderProgram.OutputListener;
-import androidx.media3.effect.GlTextureFrameConsumer.GlTextureFrameProcessor;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.Initialized;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Bridges a legacy {@link GlShaderProgram} to {@link GlTextureFrameProcessor}.
+ * Bridges a legacy {@link GlShaderProgram} to {@link
+ * GlTextureFrameConsumer.GlTextureFrameProcessor}.
  *
  * <p>Methods must be called on the dedicated OpenGL thread.
  *
  * <p>The underlying {@link GlShaderProgram} must not alter frame presentation times.
  */
-@ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
-/* package */ final class GlShaderProgramAdapter
-    implements GlTextureFrameProcessor, InputListener, OutputListener {
+/* package */ final class GlShaderProgramAdapter extends BaseGlTextureFrameProcessor
+    implements InputListener, OutputListener {
   // TODO: b/525353235 - Consider supporting async GlShaderPrograms, or deprecate them.
 
   private final GlShaderProgram glShaderProgram;
@@ -60,15 +52,10 @@ import org.jspecify.annotations.Nullable;
   private final Map<Integer, GlTextureFrame> inFlightFrames;
   private final Queue<GlTextureFrame> pendingOutputFrames;
   private final Executor glExecutor;
-  private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final ColorInfo outputColorInfo;
 
-  private @MonotonicNonNull GlTextureFrameConsumer downstreamConsumer;
   private @Nullable ImmutableMap<String, Object> lastQueuedMetadata;
-  private @Nullable Runnable pendingWakeupListener;
-  private @Nullable Executor pendingWakeupExecutor;
   private int shaderInputCapacity;
-  private int currentStreamDiscontinuityNumber;
   private @Nullable Format currentFormat;
   private boolean inputStreamEnded;
   private boolean hasSignaledEosToWrappedShader;
@@ -81,6 +68,7 @@ import org.jspecify.annotations.Nullable;
    * @param glObjectsProvider The {@link GlObjectsProvider}.
    * @param glExecutor The {@link Executor} to run GL operations on.
    * @param outputColorInfo The {@link ColorInfo} to propagate to output frames.
+   * @param errorConsumerExecutor The {@link Executor} on which {@code errorConsumer} is invoked.
    * @param errorConsumer The {@link Consumer} to report errors to.
    */
   public GlShaderProgramAdapter(
@@ -88,87 +76,21 @@ import org.jspecify.annotations.Nullable;
       GlObjectsProvider glObjectsProvider,
       Executor glExecutor,
       ColorInfo outputColorInfo,
+      Executor errorConsumerExecutor,
       Consumer<VideoFrameProcessingException> errorConsumer) {
+    super(errorConsumerExecutor, errorConsumer);
     this.glShaderProgram = glShaderProgram;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutor = glExecutor;
     this.outputColorInfo = outputColorInfo;
-    this.errorConsumer = errorConsumer;
+    inFlightFrames = new HashMap<>();
+    pendingOutputFrames = new ArrayDeque<>();
     @SuppressWarnings("nullness:assignment")
     @Initialized
     GlShaderProgramAdapter thisRef = this;
     this.glShaderProgram.setInputListener(thisRef);
     this.glShaderProgram.setOutputListener(thisRef);
-    this.glShaderProgram.setErrorListener(directExecutor(), errorConsumer::accept);
-    inFlightFrames = new HashMap<>();
-    pendingOutputFrames = new ArrayDeque<>();
-    currentStreamDiscontinuityNumber = C.INDEX_UNSET;
-  }
-
-  @Override
-  public void setOutput(GlTextureFrameConsumer downstreamConsumer) {
-    checkState(inFlightFrames.isEmpty());
-    this.downstreamConsumer = downstreamConsumer;
-  }
-
-  @Override
-  public boolean queue(GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener) {
-    checkArgument(
-        !Objects.equals(listenerExecutor, directExecutor()),
-        "wakeupListener must not be executed on a direct executor");
-
-    int frameDiscontinuityNumber =
-        (int)
-            frame
-                .getMetadata()
-                .getOrDefault(KEY_FRAME_DISCONTINUITY_NUMBER, /* defaultValue= */ C.INDEX_UNSET);
-    if (frameDiscontinuityNumber != C.INDEX_UNSET) {
-      // Previewing mode.
-      if (currentStreamDiscontinuityNumber > frameDiscontinuityNumber) {
-        // Frame from the old stream arrives, ignore it.
-        frame.release(/* releaseFence= */ null);
-        return true;
-      }
-
-      if (currentStreamDiscontinuityNumber < frameDiscontinuityNumber) {
-        // Discontinuity number changed, need to flush the internal shader.
-        flushInternal();
-        currentStreamDiscontinuityNumber = frameDiscontinuityNumber;
-      }
-    }
-
-    if (currentFormat == null) {
-      // currentFormat is set to null after the wrapped shader has processed the EOS
-      currentFormat = frame.format;
-      // Resets pending EOS signal from format transition to prevent prematurely signaling EOS to
-      // downstreamConsumer if the upstream signals EOS.
-      receivedEosSignalFromWrappedShader = false;
-      hasSignaledEosToWrappedShader = false;
-    }
-    if (!frame.format.equals(currentFormat)) {
-      pendingWakeupListener = wakeupListener;
-      pendingWakeupExecutor = listenerExecutor;
-      // TODO: b/524240959 - Don't use format change to signal EOS.
-      if (!hasSignaledEosToWrappedShader) {
-        hasSignaledEosToWrappedShader = true;
-        glShaderProgram.signalEndOfCurrentInputStream();
-      }
-      return false;
-    }
-
-    if (shaderInputCapacity > 0) {
-      shaderInputCapacity--;
-      inFlightFrames.put(frame.glTextureInfo.texId, frame);
-      lastQueuedMetadata = frame.getMetadata();
-      glShaderProgram.queueInputFrame(
-          glObjectsProvider, frame.glTextureInfo, frame.presentationTimeUs);
-      return true;
-    } else {
-      // We keep only the last wakeup, if queue() is called repetitively
-      pendingWakeupListener = wakeupListener;
-      pendingWakeupExecutor = listenerExecutor;
-      return false;
-    }
+    this.glShaderProgram.setErrorListener(directExecutor(), thisRef::onError);
   }
 
   @Override
@@ -219,7 +141,56 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  public void signalEndOfStream() {
+  protected boolean hasInFlightFrames() {
+    return !inFlightFrames.isEmpty();
+  }
+
+  @Override
+  protected void onFrameDiscontinuity() {
+    shaderInputCapacity = 0;
+    releasePendingFrames();
+    glShaderProgram.flush();
+    hasSignaledEosToWrappedShader = false;
+    receivedEosSignalFromWrappedShader = false;
+  }
+
+  @Override
+  protected boolean onQueueFrame(
+      GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener) {
+    if (currentFormat == null) {
+      // currentFormat is set to null after the wrapped shader has processed the EOS
+      currentFormat = frame.format;
+      // Resets pending EOS signal from format transition to prevent prematurely signaling EOS to
+      // downstreamConsumer if the upstream signals EOS.
+      receivedEosSignalFromWrappedShader = false;
+      hasSignaledEosToWrappedShader = false;
+    }
+    if (!frame.format.equals(currentFormat)) {
+      setPendingWakeupListener(listenerExecutor, wakeupListener);
+      // TODO: b/524240959 - Don't use format change to signal EOS.
+      if (!hasSignaledEosToWrappedShader) {
+        hasSignaledEosToWrappedShader = true;
+        glShaderProgram.signalEndOfCurrentInputStream();
+      }
+      return false;
+    }
+
+    if (shaderInputCapacity > 0) {
+      shaderInputCapacity--;
+      inFlightFrames.put(frame.glTextureInfo.texId, frame);
+      lastQueuedMetadata = frame.getMetadata();
+      glShaderProgram.queueInputFrame(
+          glObjectsProvider, frame.glTextureInfo, frame.presentationTimeUs);
+      return true;
+    } else {
+      // We keep only the last wakeup, if queue() is called repetitively
+      setPendingWakeupListener(listenerExecutor, wakeupListener);
+      return false;
+    }
+  }
+
+  @Override
+  protected void onEndOfStream() {
     if (!inputStreamEnded) {
       inputStreamEnded = true;
       if (!hasSignaledEosToWrappedShader) {
@@ -230,39 +201,13 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  public void close() throws VideoFrameProcessingException {
+  protected void onClose() throws VideoFrameProcessingException {
     try {
       glShaderProgram.release();
     } finally {
       releasePendingFrames();
       receivedEosSignalFromWrappedShader = false;
     }
-  }
-
-  private void maybeInvokePendingWakeupListener() {
-    if (pendingWakeupListener == null || pendingWakeupExecutor == null) {
-      return;
-    }
-    Runnable listener = pendingWakeupListener;
-    Executor executor = pendingWakeupExecutor;
-    pendingWakeupListener = null;
-    pendingWakeupExecutor = null;
-    executor.execute(() -> {
-      try {
-        listener.run();
-      } catch (RuntimeException e) {
-        errorConsumer.accept(VideoFrameProcessingException.from(e));
-      }
-    });
-  }
-
-  /** Called on the GL thread. */
-  private void flushInternal() {
-    shaderInputCapacity = 0;
-    releasePendingFrames();
-    glShaderProgram.flush();
-    hasSignaledEosToWrappedShader = false;
-    receivedEosSignalFromWrappedShader = false;
   }
 
   private void releasePendingFrames() {
@@ -275,8 +220,6 @@ import org.jspecify.annotations.Nullable;
     while (!pendingOutputFrames.isEmpty()) {
       pendingOutputFrames.remove().release(/* releaseFence= */ null);
     }
-    pendingWakeupListener = null;
-    pendingWakeupExecutor = null;
     currentFormat = null;
     inputStreamEnded = false;
     lastQueuedMetadata = null;
@@ -297,7 +240,7 @@ import org.jspecify.annotations.Nullable;
           break;
         }
       } catch (RuntimeException | VideoFrameProcessingException e) {
-        errorConsumer.accept(VideoFrameProcessingException.from(e));
+        onError(e);
         return;
       }
     }

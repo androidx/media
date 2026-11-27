@@ -683,7 +683,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             context,
             glObjectsProvider,
             glExecutorService,
-            errorConsumer,
+            listenerExecutor,
+            listener::onError,
             frameWriterGlTextureFrameConsumer,
             KEY_COMPOSITION_EFFECTS,
             workingColorSpace);
@@ -724,7 +725,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
                 context,
                 glObjectsProvider,
                 glExecutorService,
-                errorConsumer,
+                listenerExecutor,
+                listener::onError,
                 checkNotNull(frameAggregator).getInputConsumer(sequenceIndex),
                 KEY_ITEM_EFFECTS,
                 checkNotNull(this.workingColorSpace));

@@ -44,6 +44,7 @@ import java.util.function.Consumer;
   private final Context context;
   private final GlObjectsProvider glObjectsProvider;
   private final ListeningExecutorService glExecutorService;
+  private final Executor errorConsumerExecutor;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final List<GlTextureFrameProcessor> effectProcessorChain;
   private final List<Effect> currentEffects;
@@ -59,6 +60,7 @@ import java.util.function.Consumer;
    * @param context The {@link Context}.
    * @param glObjectsProvider The {@link GlObjectsProvider}.
    * @param glExecutorService The {@link ListeningExecutorService} to execute OpenGL commands on.
+   * @param errorConsumerExecutor The {@link Executor} on which {@code errorConsumer} is invoked.
    * @param errorConsumer The {@link Consumer} to report errors to.
    * @param downstreamFrameConsumer The {@link GlTextureFrameConsumer} to output frames to.
    * @param effectKey The {@linkplain GlTextureFrame#getMetadata() frame metadata} key holding the
@@ -69,6 +71,7 @@ import java.util.function.Consumer;
       Context context,
       GlObjectsProvider glObjectsProvider,
       ListeningExecutorService glExecutorService,
+      Executor errorConsumerExecutor,
       Consumer<VideoFrameProcessingException> errorConsumer,
       GlTextureFrameConsumer downstreamFrameConsumer,
       String effectKey,
@@ -76,6 +79,7 @@ import java.util.function.Consumer;
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
+    this.errorConsumerExecutor = errorConsumerExecutor;
     this.errorConsumer = errorConsumer;
     this.downstreamFrameConsumer = downstreamFrameConsumer;
     this.effectKey = effectKey;
@@ -185,6 +189,7 @@ import java.util.function.Consumer;
                 glObjectsProvider,
                 glExecutorService,
                 outputColorSpace,
+                errorConsumerExecutor,
                 errorConsumer));
         currentColorSpace = outputColorSpace;
       }
@@ -242,6 +247,7 @@ import java.util.function.Consumer;
         glObjectsProvider,
         glExecutorService,
         colorInfo,
+        errorConsumerExecutor,
         errorConsumer);
   }
 
