@@ -326,6 +326,9 @@ public class MatroskaExtractor implements Extractor {
   private static final int LACING_EBML = 3;
 
   private static final int FOURCC_COMPRESSION_DIVX = 0x58564944;
+  private static final int FOURCC_COMPRESSION_DX50 = 0x30355844;
+  private static final int FOURCC_COMPRESSION_XVID = 0x44495658;
+  private static final int FOURCC_COMPRESSION_FMP4 = 0x34504d46;
   private static final int FOURCC_COMPRESSION_H263 = 0x33363248;
   private static final int FOURCC_COMPRESSION_VC1 = 0x31435657;
 
@@ -3063,6 +3066,10 @@ public class MatroskaExtractor implements Extractor {
         long compression = buffer.readLittleEndianUnsignedInt();
         if (compression == FOURCC_COMPRESSION_DIVX) {
           return new Pair<>(MimeTypes.VIDEO_DIVX, null);
+        } else if (compression == FOURCC_COMPRESSION_DX50
+            || compression == FOURCC_COMPRESSION_XVID
+            || compression == FOURCC_COMPRESSION_FMP4) {
+          return new Pair<>(MimeTypes.VIDEO_MP4V, null);
         } else if (compression == FOURCC_COMPRESSION_H263) {
           return new Pair<>(MimeTypes.VIDEO_H263, null);
         } else if (compression == FOURCC_COMPRESSION_VC1) {

@@ -16,6 +16,7 @@
 package androidx.media3.extractor.mkv;
 
 import static androidx.media3.extractor.Extractor.RESULT_SEEK;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.Mockito.mock;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
@@ -36,6 +38,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.Iterables;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -44,6 +47,21 @@ import org.junit.runner.RunWith;
 /** Non-parameterized tests for {@link MatroskaExtractor}. */
 @RunWith(AndroidJUnit4.class)
 public class MatroskaExtractorNonParameterizedTest {
+
+  @Test
+  public void initializeFormat_mpeg4FourCcAliases_setsMpeg4VisualMimeType() throws Exception {
+    for (String fourCc : new String[] {"DX50", "XVID", "FMP4"}) {
+      MatroskaExtractor.Track track = new MatroskaExtractor.Track();
+      track.codecId = "V_MS/VFW/FOURCC";
+      // The compression FourCC starts at byte 16 of the 40-byte BITMAPINFOHEADER.
+      track.codecPrivate = new byte[40];
+      System.arraycopy(fourCc.getBytes(StandardCharsets.US_ASCII), 0, track.codecPrivate, 16, 4);
+
+      track.initializeFormat(/* trackId= */ 1);
+
+      assertThat(checkNotNull(track.format).sampleMimeType).isEqualTo(MimeTypes.VIDEO_MP4V);
+    }
+  }
 
   @Test
   public void seek_afterSeekMapSent_seekMapRemainsValid() throws Exception {
