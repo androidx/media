@@ -391,10 +391,6 @@ public final class TransformerActivity extends AppCompatActivity {
     Transformer.Builder transformerBuilder;
 
     if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_FRAME_PROCESSOR)) {
-      if (SDK_INT < 28) {
-        throw new UnsupportedOperationException(
-            getString(R.string.api_28_required_frame_processor));
-      }
       FrameProcessor.Factory baseGlFactory =
           new DefaultGlFrameProcessor.Factory.Builder(/* context= */ this).build();
       FrameProcessor.Factory frameProcessorFactory;

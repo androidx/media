@@ -23,7 +23,6 @@ import android.provider.OpenableColumns
 import android.util.Rational
 import androidx.annotation.GuardedBy
 import androidx.annotation.OptIn
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -112,8 +111,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     application.resources.getString(R.string.failed_load_media)
   val FAILED_GET_DURATION_MESSAGE: String =
     application.resources.getString(R.string.failed_get_duration)
-  val API_28_REQUIRED_MESSAGE: String =
-    application.resources.getString(R.string.api_28_required_frame_processor)
+  private val API_28_REQUIRED_WEBGPU_MESSAGE =
+    application.resources.getString(R.string.api_28_required_webgpu)
   private val API_33_REQUIRED_GMS_VIDEO_ENHANCEMENT_MESSAGE =
     application.resources.getString(R.string.api_33_required_gms_video_enhancement)
   internal var frameProcessorEnabled: Boolean = false
@@ -687,9 +686,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
     val transformerBuilder =
       if (settings.frameProcessorEnabled) {
-        if (SDK_INT < 28) {
-          throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
-        }
         if (settings.gmsVideoEnhancementEnabled) {
           // Google Play services only allows one active EnhancementSession at a time
           // (MAX_SESSIONS_REACHED). Release any prepared preview player before starting export.
@@ -1023,9 +1019,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val playerBuilder: CompositionPlayer.Builder
     frameProcessorEnabled = uiState.value.outputSettingsState.frameProcessorEnabled
     if (uiState.value.outputSettingsState.frameProcessorEnabled) {
-      if (SDK_INT < 28) {
-        throw UnsupportedOperationException(API_28_REQUIRED_MESSAGE)
-      }
       playerBuilder =
         CompositionPlayer.Builder(getApplication())
           .setFrameProcessorFactory(createFrameProcessorFactory())
@@ -1079,11 +1072,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     return player
   }
 
-  @RequiresApi(28)
   private fun createFrameProcessorFactory(): FrameProcessor.Factory {
     val settings = uiState.value.outputSettingsState
     val baseFactory =
       if (settings.webGpuEnabled) {
+        if (SDK_INT < 28) {
+          throw UnsupportedOperationException(API_28_REQUIRED_WEBGPU_MESSAGE)
+        }
         // Experimental: WebGPUHardwareBufferEffectsPipeline does not yet apply video effects or
         // rotation.
         WebGPUHardwareBufferEffectsPipeline.Factory()

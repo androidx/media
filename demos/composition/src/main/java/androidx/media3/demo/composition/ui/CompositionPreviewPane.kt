@@ -228,24 +228,13 @@ internal fun CompositionPreviewPane(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth(),
       ) {
-        Column {
-          Text(
-            text = stringResource(R.string.frame_processor_enabled),
-            modifier = Modifier.textPadding(),
-          )
-          if (SDK_INT < 28) {
-            Text(
-              text = stringResource(R.string.api_28_required_frame_processor),
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.outline,
-              modifier = Modifier.textPadding(),
-            )
-          }
-        }
+        Text(
+          text = stringResource(R.string.frame_processor_enabled),
+          modifier = Modifier.textPadding(),
+        )
         Switch(
           checked = uiState.outputSettingsState.frameProcessorEnabled,
           onCheckedChange = { isEnabled -> viewModel.onFrameProcessorEnabledChanged(isEnabled) },
-          enabled = SDK_INT >= 28,
         )
       }
 
@@ -257,10 +246,21 @@ internal fun CompositionPreviewPane(
           horizontalArrangement = Arrangement.SpaceBetween,
           modifier = Modifier.fillMaxWidth(),
         ) {
-          Text(text = stringResource(R.string.enable_webgpu), modifier = Modifier.textPadding())
+          Column {
+            Text(text = stringResource(R.string.enable_webgpu), modifier = Modifier.textPadding())
+            if (SDK_INT < 28) {
+              Text(
+                text = stringResource(R.string.api_28_required_webgpu),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.textPadding(),
+              )
+            }
+          }
           Switch(
             checked = uiState.outputSettingsState.webGpuEnabled,
             onCheckedChange = { isEnabled -> viewModel.onWebGpuEnabledChanged(isEnabled) },
+            enabled = SDK_INT >= 28,
           )
         }
 

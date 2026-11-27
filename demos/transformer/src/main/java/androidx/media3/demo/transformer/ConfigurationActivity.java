@@ -377,10 +377,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
       gmsVideoEnhancementRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
       updateGmsSubRowsVisibility.run();
     });
-    if (SDK_INT < 28) {
-      enableFrameProcessorCheckBox.setEnabled(false);
-      findViewById(R.id.enable_frame_processor_hint).setVisibility(View.VISIBLE);
-    }
     enableGmsVideoEnhancementCheckBox.setOnCheckedChangeListener(
         (buttonView, isChecked) -> updateGmsSubRowsVisibility.run());
     if (SDK_INT < 33) {

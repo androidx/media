@@ -70,7 +70,7 @@
   <string name="failed_load_media" translatable="false">Failed to load media item.</string>
   <string name="failed_get_duration" translatable="false">Failed to get duration.</string>
   <string name="abort_export_output_file" translatable="false">Aborting export! Unable to create output file: %s</string>
-  <string name="api_28_required_frame_processor" translatable="false">API 28+ required for using FrameProcessor</string>
+  <string name="api_28_required_webgpu" translatable="false">API 28+ required for using WebGPU</string>
   <string name="api_33_required_gms_video_enhancement" translatable="false">API 33+ required for using GMS Video Enhancement</string>
   <string name="export_error_msg" translatable="false">Export error: %s</string>
   <string name="preview_error_msg" translatable="false">Preview error: %s</string>
