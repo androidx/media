@@ -28,6 +28,7 @@ import static java.lang.Math.min;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.SparseIntArray;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.DrmInitData;
@@ -162,7 +163,7 @@ import org.jspecify.annotations.Nullable;
   private int[] sampleQueueTrackIds;
   private Set<Integer> sampleQueueMappingDoneByType;
   private SparseIntArray sampleQueueIndicesByType;
-  private @MonotonicNonNull TrackOutput emsgUnwrappingTrackOutput;
+  private @MonotonicNonNull EmsgUnwrappingTrackOutput emsgUnwrappingTrackOutput;
   private int primarySampleQueueType;
   private int primarySampleQueueIndex;
   private boolean sampleQueuesBuilt;
@@ -598,6 +599,9 @@ import org.jspecify.annotations.Nullable;
   public void onLoaderReleased() {
     for (SampleQueue sampleQueue : sampleQueues) {
       sampleQueue.release();
+    }
+    if (emsgUnwrappingTrackOutput != null) {
+      emsgUnwrappingTrackOutput.reset();
     }
   }
 
@@ -1350,6 +1354,9 @@ import org.jspecify.annotations.Nullable;
   /** Called when an {@link HlsMediaChunk} starts extracting media with a new {@link Extractor}. */
   public void onNewExtractor() {
     sampleQueueMappingDoneByType.clear();
+    if (emsgUnwrappingTrackOutput != null) {
+      emsgUnwrappingTrackOutput.reset();
+    }
   }
 
   /**
@@ -1464,6 +1471,9 @@ import org.jspecify.annotations.Nullable;
   private void resetSampleQueues() {
     for (SampleQueue sampleQueue : sampleQueues) {
       sampleQueue.reset(pendingResetUpstreamFormats);
+    }
+    if (emsgUnwrappingTrackOutput != null) {
+      emsgUnwrappingTrackOutput.reset();
     }
     pendingResetUpstreamFormats = false;
   }
@@ -1957,7 +1967,9 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  private static class EmsgUnwrappingTrackOutput implements TrackOutput {
+  @VisibleForTesting
+  /* package */ static class EmsgUnwrappingTrackOutput implements TrackOutput {
+    private static final int MAX_RETAINED_BUFFER_SIZE = 16 * 1024;
 
     // TODO: Create a Formats util class with common constants like this.
     private static final Format ID3_FORMAT =
@@ -1965,12 +1977,14 @@ import org.jspecify.annotations.Nullable;
     private static final Format EMSG_FORMAT =
         new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
 
+    @VisibleForTesting /* package */ byte[] buffer;
+
     private final EventMessageDecoder emsgDecoder;
     private final TrackOutput delegate;
     private final Format delegateFormat;
-    private @MonotonicNonNull Format format;
+    private final ParsableByteArray scratch;
 
-    private byte[] buffer;
+    private @Nullable Format format;
     private int bufferPosition;
 
     public EmsgUnwrappingTrackOutput(
@@ -1988,20 +2002,40 @@ import org.jspecify.annotations.Nullable;
           throw new IllegalArgumentException("Unknown metadataType: " + metadataType);
       }
 
-      this.buffer = new byte[0];
+      this.buffer = Util.EMPTY_BYTE_ARRAY;
       this.bufferPosition = 0;
+      this.scratch = new ParsableByteArray();
+    }
+
+    /* package */ void reset() {
+      format = null;
+      buffer = Util.EMPTY_BYTE_ARRAY;
+      bufferPosition = 0;
     }
 
     @Override
     public void format(Format format) {
+      boolean wasFormatUnset = this.format == null;
       this.format = format;
       delegate.format(delegateFormat);
+      if (Objects.equals(format.sampleMimeType, delegateFormat.sampleMimeType)) {
+        if (wasFormatUnset && bufferPosition > 0) {
+          scratch.reset(buffer, bufferPosition);
+          delegate.sampleData(scratch, bufferPosition, TrackOutput.SAMPLE_DATA_PART_MAIN);
+          scratch.reset(Util.EMPTY_BYTE_ARRAY);
+        }
+        buffer = Util.EMPTY_BYTE_ARRAY;
+        bufferPosition = 0;
+      }
     }
 
     @Override
     public int sampleData(
         DataReader input, int length, boolean allowEndOfInput, @SampleDataPart int sampleDataPart)
         throws IOException {
+      if (format != null && Objects.equals(format.sampleMimeType, delegateFormat.sampleMimeType)) {
+        return delegate.sampleData(input, length, allowEndOfInput, sampleDataPart);
+      }
       ensureBufferCapacity(bufferPosition + length);
       int numBytesRead = input.read(buffer, bufferPosition, length);
       if (numBytesRead == C.RESULT_END_OF_INPUT) {
@@ -2017,6 +2051,10 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     public void sampleData(ParsableByteArray data, int length, @SampleDataPart int sampleDataPart) {
+      if (format != null && Objects.equals(format.sampleMimeType, delegateFormat.sampleMimeType)) {
+        delegate.sampleData(data, length, sampleDataPart);
+        return;
+      }
       ensureBufferCapacity(bufferPosition + length);
       data.readBytes(this.buffer, bufferPosition, length);
       bufferPosition += length;
@@ -2029,15 +2067,25 @@ import org.jspecify.annotations.Nullable;
         int size,
         int offset,
         @Nullable CryptoData cryptoData) {
-      checkNotNull(format);
-      ParsableByteArray sample = getSampleAndTrimBuffer(size, offset);
-      ParsableByteArray sampleForDelegate;
+      Format format = checkNotNull(this.format);
       if (Objects.equals(format.sampleMimeType, delegateFormat.sampleMimeType)) {
         // Incoming format matches delegate track's format, so pass straight through.
-        sampleForDelegate = sample;
-      } else if (MimeTypes.APPLICATION_EMSG.equals(format.sampleMimeType)) {
-        // Incoming sample is EMSG, and delegate track is not expecting EMSG, so try unwrapping.
-        EventMessage emsg = emsgDecoder.decode(sample);
+        delegate.sampleMetadata(timeUs, flags, size, offset, cryptoData);
+        return;
+      }
+
+      int sampleEnd = bufferPosition - offset;
+      int sampleStart = sampleEnd - size;
+
+      try {
+        if (!Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_EMSG)) {
+          Log.w(TAG, "Ignoring sample for unsupported format: " + format.sampleMimeType);
+          return;
+        }
+
+        scratch.reset(buffer, sampleEnd);
+        scratch.setPosition(sampleStart);
+        EventMessage emsg = emsgDecoder.decode(scratch);
         if (!emsgContainsExpectedWrappedFormat(emsg)) {
           Log.w(
               TAG,
@@ -2046,16 +2094,22 @@ import org.jspecify.annotations.Nullable;
                   delegateFormat.sampleMimeType, emsg.getWrappedMetadataFormat()));
           return;
         }
-        sampleForDelegate = new ParsableByteArray(checkNotNull(emsg.getWrappedMetadataBytes()));
-      } else {
-        Log.w(TAG, "Ignoring sample for unsupported format: " + format.sampleMimeType);
-        return;
+        byte[] wrappedBytes = checkNotNull(emsg.getWrappedMetadataBytes());
+        scratch.reset(wrappedBytes);
+        int sampleSize = scratch.bytesLeft();
+        delegate.sampleData(scratch, sampleSize, TrackOutput.SAMPLE_DATA_PART_MAIN);
+        delegate.sampleMetadata(timeUs, flags, sampleSize, /* offset= */ 0, cryptoData);
+      } finally {
+        scratch.reset(Util.EMPTY_BYTE_ARRAY);
+        if (offset != 0) {
+          System.arraycopy(buffer, sampleEnd, buffer, 0, offset);
+        }
+        bufferPosition = offset;
+        if (buffer.length > MAX_RETAINED_BUFFER_SIZE
+            && bufferPosition <= MAX_RETAINED_BUFFER_SIZE) {
+          buffer = Arrays.copyOf(buffer, MAX_RETAINED_BUFFER_SIZE);
+        }
       }
-
-      int sampleSize = sampleForDelegate.bytesLeft();
-
-      delegate.sampleData(sampleForDelegate, sampleSize);
-      delegate.sampleMetadata(timeUs, flags, sampleSize, /* offset= */ 0, cryptoData);
     }
 
     private boolean emsgContainsExpectedWrappedFormat(EventMessage emsg) {
@@ -2068,26 +2122,6 @@ import org.jspecify.annotations.Nullable;
       if (buffer.length < requiredLength) {
         buffer = Arrays.copyOf(buffer, requiredLength + requiredLength / 2);
       }
-    }
-
-    /**
-     * Removes a complete sample from the {@link #buffer} field & reshuffles the tail data skipped
-     * by {@code offset} to the head of the array.
-     *
-     * @param size see {@code size} param of {@link #sampleMetadata}.
-     * @param offset see {@code offset} param of {@link #sampleMetadata}.
-     * @return A {@link ParsableByteArray} containing the sample removed from {@link #buffer}.
-     */
-    private ParsableByteArray getSampleAndTrimBuffer(int size, int offset) {
-      int sampleEnd = bufferPosition - offset;
-      int sampleStart = sampleEnd - size;
-
-      byte[] sampleBytes = Arrays.copyOfRange(buffer, sampleStart, sampleEnd);
-      ParsableByteArray sample = new ParsableByteArray(sampleBytes);
-
-      System.arraycopy(buffer, sampleEnd, buffer, 0, offset);
-      bufferPosition = offset;
-      return sample;
     }
   }
 }

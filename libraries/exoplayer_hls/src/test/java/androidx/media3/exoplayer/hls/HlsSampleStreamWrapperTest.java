@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.hls;
 import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -32,6 +33,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
@@ -53,10 +55,15 @@ import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.metadata.emsg.EventMessage;
+import androidx.media3.extractor.metadata.emsg.EventMessageEncoder;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.FakeExtractorInput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Bytes;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -1199,5 +1206,590 @@ public final class HlsSampleStreamWrapperTest {
     assertThat(mediaChunks.get()).containsExactly(replacementChunk);
     assertThat(replacementChunk.shouldSpliceIn()).isFalse();
     assertThat(replacementChunk.isLoadCompleted()).isTrue();
+  }
+
+  @Test
+  public void sampleMetadata_straightThroughFormat_passesSampleWithoutModification() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format id3Format = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+
+    trackOutput.format(id3Format);
+    trackOutput.sampleData(
+        new ParsableByteArray(sampleData), sampleData.length, TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        sampleData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(trackOutput.buffer).isEmpty();
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        sampleData,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleMetadata_straightThroughFormatWithDataReader_passesSampleWithoutModification()
+      throws Exception {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format id3Format = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+
+    trackOutput.format(id3Format);
+    int bytesWritten =
+        trackOutput.sampleData(
+            new FakeExtractorInput.Builder().setData(sampleData).build(),
+            sampleData.length,
+            /* allowEndOfInput= */ true,
+            TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        sampleData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(bytesWritten).isEqualTo(sampleData.length);
+    assertThat(trackOutput.buffer).isEmpty();
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        sampleData,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void format_switchingToStraightThroughFormat_releasesBuffer() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ true);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    Format id3Format = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
+    byte[] bufferedBytes = new byte[] {1, 2, 3, 4};
+    byte[] id3Sample = new byte[] {5, 6, 7, 8};
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(bufferedBytes),
+        bufferedBytes.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.format(id3Format);
+    trackOutput.sampleData(
+        new ParsableByteArray(id3Sample), id3Sample.length, TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        id3Sample.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(trackOutput.buffer).isEmpty();
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        id3Sample,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleData_beforeInitialStraightThroughFormat_forwardsSample() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format id3Format = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+
+    trackOutput.sampleData(
+        new ParsableByteArray(sampleData), sampleData.length, TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.format(id3Format);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        sampleData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(trackOutput.buffer).isEmpty();
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        sampleData,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void reset_afterBufferingData_releasesBuffer() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] bufferedBytes = new byte[20000];
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(bufferedBytes),
+        bufferedBytes.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.reset();
+
+    assertThat(trackOutput.buffer).isEmpty();
+  }
+
+  @Test
+  public void reset_afterStraightThroughFormat_buffersSampleBeforeEmsgFormat() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ true);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format id3Format = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] unwrappedData = new byte[] {5, 6, 7, 8};
+    byte[] emsgData =
+        new EventMessageEncoder()
+            .encode(
+                new EventMessage(
+                    EventMessage.ID3_SCHEME_ID_AOM,
+                    /* value= */ "",
+                    /* durationMs= */ 1000,
+                    /* id= */ 1,
+                    unwrappedData));
+
+    trackOutput.format(id3Format);
+    trackOutput.reset();
+    trackOutput.sampleData(
+        new ParsableByteArray(emsgData), emsgData.length, TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        emsgData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        unwrappedData,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void reset_afterEmsgFormat_flushesSampleBeforeStraightThroughFormat() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ true);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    Format id3Format = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
+    byte[] id3Data = new byte[] {1, 2, 3, 4};
+
+    trackOutput.format(emsgFormat);
+    trackOutput.reset();
+    trackOutput.sampleData(
+        new ParsableByteArray(id3Data), id3Data.length, TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.format(id3Format);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        id3Data.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(trackOutput.buffer).isEmpty();
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        id3Data,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleMetadata_emsgWrappedFormat_unwrapsAndPassesSample() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] unwrappedData = new byte[] {5, 6, 7, 8};
+    EventMessage emsg =
+        new EventMessage(
+            "https://developer.apple.com/streaming/emsg-id3",
+            /* value= */ "",
+            /* durationMs= */ 1000,
+            /* id= */ 1,
+            unwrappedData);
+    byte[] emsgData = new EventMessageEncoder().encode(emsg);
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(emsgData), emsgData.length, TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        emsgData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        unwrappedData,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleMetadata_withLargeBuffer_shrinksRetainedBuffer() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    // Create a large EMSG sample to force buffer growth beyond 16KB
+    byte[] unwrappedData = new byte[20000];
+    EventMessage emsg =
+        new EventMessage(
+            "https://developer.apple.com/streaming/emsg-id3",
+            /* value= */ "",
+            /* durationMs= */ 1000,
+            /* id= */ 1,
+            unwrappedData);
+    byte[] emsgData = new EventMessageEncoder().encode(emsg);
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(emsgData), emsgData.length, TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        emsgData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    fakeTrackOutput.assertSampleCount(1);
+    assertThat(trackOutput.buffer.length).isAtMost(16384);
+  }
+
+  @Test
+  public void sampleMetadata_withOffset_shiftsDataCorrectly() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] unwrappedData1 = new byte[] {1, 2, 3, 4};
+    byte[] unwrappedData2 = new byte[] {5, 6, 7, 8};
+    EventMessage emsg1 =
+        new EventMessage(
+            "https://developer.apple.com/streaming/emsg-id3",
+            /* value= */ "",
+            /* durationMs= */ 1000,
+            /* id= */ 1,
+            unwrappedData1);
+    EventMessage emsg2 =
+        new EventMessage(
+            "https://developer.apple.com/streaming/emsg-id3",
+            /* value= */ "",
+            /* durationMs= */ 1000,
+            /* id= */ 2,
+            unwrappedData2);
+    byte[] sampleData1 = new EventMessageEncoder().encode(emsg1);
+    byte[] sampleData2 = new EventMessageEncoder().encode(emsg2);
+    byte[] combinedData = Bytes.concat(sampleData1, sampleData2);
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(combinedData),
+        combinedData.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    // Commit first sample, offset is the size of the second sample
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ sampleData1.length,
+        /* offset= */ sampleData2.length,
+        /* cryptoData= */ null);
+    // Commit second sample, offset is 0
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 2000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ sampleData2.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    fakeTrackOutput.assertSampleCount(2);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        unwrappedData1,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+    fakeTrackOutput.assertSample(
+        /* index= */ 1,
+        unwrappedData2,
+        /* timeUs= */ 2000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleMetadata_withUncommittedPrefix_decodesSample() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] prefix = new byte[] {9, 9, 9};
+    byte[] unwrappedData = new byte[] {1, 2, 3, 4};
+    EventMessage emsg =
+        new EventMessage(
+            "https://developer.apple.com/streaming/emsg-id3",
+            /* value= */ "",
+            /* durationMs= */ 1000,
+            /* id= */ 1,
+            unwrappedData);
+    byte[] emsgData = new EventMessageEncoder().encode(emsg);
+    byte[] combinedData = Bytes.concat(prefix, emsgData);
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(combinedData),
+        combinedData.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        emsgData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        unwrappedData,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleMetadata_withMalformedEmsg_recoversForNextSample() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] malformedData = new byte[] {0, 1, 2, 3};
+    byte[] unwrappedData = new byte[] {5, 6, 7, 8};
+    EventMessage emsg =
+        new EventMessage(
+            "https://developer.apple.com/streaming/emsg-id3",
+            /* value= */ "",
+            /* durationMs= */ 1000,
+            /* id= */ 1,
+            unwrappedData);
+    byte[] emsgData = new EventMessageEncoder().encode(emsg);
+    byte[] combinedData = Bytes.concat(malformedData, emsgData);
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(combinedData),
+        combinedData.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            trackOutput.sampleMetadata(
+                /* timeUs= */ 1000,
+                C.BUFFER_FLAG_KEY_FRAME,
+                malformedData.length,
+                /* offset= */ emsgData.length,
+                /* cryptoData= */ null));
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 2000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        emsgData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    fakeTrackOutput.assertSampleCount(1);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        unwrappedData,
+        /* timeUs= */ 2000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleMetadata_largeOffset_preservesTailThenShrinksBuffer() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] unwrappedData1 = new byte[] {1, 2, 3, 4};
+    byte[] unwrappedData2 = new byte[20000];
+    unwrappedData2[19999] = 42;
+    byte[] sampleData1 =
+        new EventMessageEncoder()
+            .encode(
+                new EventMessage(
+                    EventMessage.ID3_SCHEME_ID_AOM,
+                    /* value= */ "",
+                    /* durationMs= */ 1000,
+                    /* id= */ 1,
+                    unwrappedData1));
+    byte[] sampleData2 =
+        new EventMessageEncoder()
+            .encode(
+                new EventMessage(
+                    EventMessage.ID3_SCHEME_ID_AOM,
+                    /* value= */ "",
+                    /* durationMs= */ 1000,
+                    /* id= */ 2,
+                    unwrappedData2));
+    byte[] combinedData = Bytes.concat(sampleData1, sampleData2);
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(combinedData),
+        combinedData.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ sampleData1.length,
+        /* offset= */ sampleData2.length,
+        /* cryptoData= */ null);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 2000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* size= */ sampleData2.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(trackOutput.buffer.length).isAtMost(16384);
+    fakeTrackOutput.assertSampleCount(2);
+    fakeTrackOutput.assertSample(
+        /* index= */ 0,
+        unwrappedData1,
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+    fakeTrackOutput.assertSample(
+        /* index= */ 1,
+        unwrappedData2,
+        /* timeUs= */ 2000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        /* cryptoData= */ null);
+  }
+
+  @Test
+  public void sampleMetadata_unexpectedWrappedEmsg_discardsAndShrinksBuffer() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format emsgFormat = new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG).build();
+    byte[] scte35EmsgData =
+        new EventMessageEncoder()
+            .encode(
+                new EventMessage(
+                    EventMessage.SCTE35_SCHEME_ID,
+                    /* value= */ "",
+                    /* durationMs= */ 1000,
+                    /* id= */ 1,
+                    new byte[20000]));
+
+    trackOutput.format(emsgFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(scte35EmsgData),
+        scte35EmsgData.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        scte35EmsgData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(trackOutput.buffer.length).isAtMost(16384);
+    fakeTrackOutput.assertSampleCount(0);
+  }
+
+  @Test
+  public void sampleMetadata_withUnsupportedFormat_discardsSampleAndTrimsBuffer() {
+    FakeTrackOutput fakeTrackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_METADATA, /* deduplicateConsecutiveFormats= */ false);
+    HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput trackOutput =
+        new HlsSampleStreamWrapper.EmsgUnwrappingTrackOutput(
+            fakeTrackOutput, HlsMediaSource.METADATA_TYPE_ID3);
+    Format unsupportedFormat =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_SCTE35).build();
+    byte[] unwrappedData = new byte[20000];
+    EventMessage emsg =
+        new EventMessage(
+            "https://developer.apple.com/streaming/emsg-id3",
+            /* value= */ "",
+            /* durationMs= */ 1000,
+            /* id= */ 1,
+            unwrappedData);
+    byte[] unsupportedData = new EventMessageEncoder().encode(emsg);
+
+    trackOutput.format(unsupportedFormat);
+    trackOutput.sampleData(
+        new ParsableByteArray(unsupportedData),
+        unsupportedData.length,
+        TrackOutput.SAMPLE_DATA_PART_MAIN);
+    trackOutput.sampleMetadata(
+        /* timeUs= */ 1000,
+        C.BUFFER_FLAG_KEY_FRAME,
+        unsupportedData.length,
+        /* offset= */ 0,
+        /* cryptoData= */ null);
+
+    assertThat(trackOutput.buffer.length).isAtMost(16384);
+    fakeTrackOutput.assertSampleCount(0);
   }
 }
