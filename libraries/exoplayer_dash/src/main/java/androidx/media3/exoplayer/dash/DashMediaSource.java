@@ -828,6 +828,15 @@ public final class DashMediaSource extends BaseMediaSource {
     manifestEventDispatcher.loadCompleted(loadEventInfo, loadable.type);
     DashManifest newManifest = loadable.getResult();
 
+    if (newManifest == null && manifest == null) {
+      manifestLoadPending = false;
+      manifestFatalError =
+          ParserException.createForMalformedManifest(
+              "Initial DASH manifest load returned null",
+              /* cause= */ null);
+      return;
+    }
+
     if (newManifest != null) {
       int oldPeriodCount = manifest == null ? 0 : manifest.getPeriodCount();
       int removedPeriodCount = getRemovedPeriodCount(manifest, newManifest);
