@@ -1030,22 +1030,6 @@ internal class ClippingSliderState(
   val playbackProgress: Float?
     get() = if (durationMs > 0) positionProgressState.currentPositionProgress else null
 
-  /**
-   * The current position of the [player] as a fraction of the total duration (0 to 1), or null if
-   * unknown.
-   */
-  private val playerProgress: Float?
-    get() {
-      if (
-        player == null ||
-          durationMs <= 0 ||
-          !player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
-      ) {
-        return null
-      }
-      return (player.currentPosition.toFloat() / durationMs).coerceIn(0f, 1f)
-    }
-
   // The presses and drags in progress on each handle. Deriving the interaction flags from these,
   // rather than latching a boolean on gesture start and clearing it in onValueChangeFinished, keeps
   // them correct for interrupted gestures, for which onValueChangeFinished isn't delivered.
@@ -1072,21 +1056,6 @@ internal class ClippingSliderState(
   val durationMs: Long
     get() = positionProgressState.durationMs
 
-  /**
-   * The intended playback state, tracked synchronously to prevent race conditions during UI
-   * interactions.
-   */
-  private var playWhenReady by mutableStateOf(player?.playWhenReady ?: false)
-
-  private var isPlaying by mutableStateOf(false)
-
-  private val playerStateObserver: PlayerStateObserver? =
-    player?.observeState(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED) {
-      player ->
-      isPlaying = player.isPlaying
-      playWhenReady = player.playWhenReady
-    }
-
   init {
     // Show the initial range right away if the duration is already known, for example when the
     // slider re-enters the composition with a prepared player. Keeping the player position within
@@ -1096,54 +1065,6 @@ internal class ClippingSliderState(
         calculateClippingRangeProgress(initialClippingRangeMs, minClippedDurationMs).first
       )
     }
-  }
-
-  // Only update playWhenReady if the player can change it, as otherwise no event would correct it.
-  private fun pause() {
-    if (!playWhenReady || player?.isCommandAvailable(Player.COMMAND_PLAY_PAUSE) != true) return
-    playWhenReady = false
-    player.pause()
-  }
-
-  private fun play() {
-    if (playWhenReady || player?.isCommandAvailable(Player.COMMAND_PLAY_PAUSE) != true) return
-    playWhenReady = true
-    player.play()
-  }
-
-  /** Whether scrubbing mode was requested for the current interaction. */
-  private var isScrubbingRequested = false
-
-  /**
-   * Whether the player is in scrubbing mode for the current interaction. Stays `false` for players
-   * that don't support scrubbing mode.
-   */
-  private var isScrubbing = false
-
-  /**
-   * Pauses the player and puts it in scrubbing mode, if supported, to make the seeks of a drag
-   * cheaper. Only the first call of an interaction has an effect.
-   *
-   * The player is paused before scrubbing mode is enabled because some players (for example
-   * `CompositionPlayer`) record the play-when-ready state when scrubbing mode is enabled and
-   * restore it when it's disabled, which would resume playback at the end of the drag.
-   */
-  private fun startScrubbing() {
-    if (isScrubbingRequested) return
-    isScrubbingRequested = true
-    pause()
-    player.setScrubbingModeEnabled(true)
-    isScrubbing = player.isScrubbingModeEnabled()
-  }
-
-  /**
-   * Takes the player out of scrubbing mode. This immediately executes the latest seek that
-   * scrubbing mode held back, if any.
-   */
-  private fun stopScrubbing() {
-    player.setScrubbingModeEnabled(false)
-    isScrubbingRequested = false
-    isScrubbing = false
   }
 
   fun seekTo(progress: Float) {
@@ -1211,14 +1132,6 @@ internal class ClippingSliderState(
       rangeSliderState.endValue = sliderRange.endInclusive
     }
     updateProgressSliderRange(range)
-  }
-
-  /**
-   * Seeks to the given progress if the player is in scrubbing mode, which makes frequent seeks
-   * cheap. Otherwise, the seek is deferred to the end of the interaction.
-   */
-  private fun scrubTo(progress: Float) {
-    if (isScrubbing) seekTo(progress)
   }
 
   /**
@@ -1308,6 +1221,46 @@ internal class ClippingSliderState(
     }
   }
 
+  /**
+   * The intended playback state, tracked synchronously to prevent race conditions during UI
+   * interactions.
+   */
+  private var playWhenReady by mutableStateOf(player?.playWhenReady ?: false)
+
+  private var isPlaying by mutableStateOf(false)
+
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED) {
+      player ->
+      isPlaying = player.isPlaying
+      playWhenReady = player.playWhenReady
+    }
+
+  /** Whether scrubbing mode was requested for the current interaction. */
+  private var isScrubbingRequested = false
+
+  /**
+   * Whether the player is in scrubbing mode for the current interaction. Stays `false` for players
+   * that don't support scrubbing mode.
+   */
+  private var isScrubbing = false
+
+  /**
+   * The current position of the [player] as a fraction of the total duration (0 to 1), or null if
+   * unknown.
+   */
+  private val playerProgress: Float?
+    get() {
+      if (
+        player == null ||
+          durationMs <= 0 ||
+          !player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+      ) {
+        return null
+      }
+      return (player.currentPosition.toFloat() / durationMs).coerceIn(0f, 1f)
+    }
+
   private suspend fun observePlayer(): Nothing {
     coroutineScope {
       // Observe Player events (isPlaying, playWhenReady) to keep playback states synchronized.
@@ -1348,5 +1301,52 @@ internal class ClippingSliderState(
 
       awaitCancellation()
     }
+  }
+
+  // Only update playWhenReady if the player can change it, as otherwise no event would correct it.
+  private fun pause() {
+    if (!playWhenReady || player?.isCommandAvailable(Player.COMMAND_PLAY_PAUSE) != true) return
+    playWhenReady = false
+    player.pause()
+  }
+
+  private fun play() {
+    if (playWhenReady || player?.isCommandAvailable(Player.COMMAND_PLAY_PAUSE) != true) return
+    playWhenReady = true
+    player.play()
+  }
+
+  /**
+   * Pauses the player and puts it in scrubbing mode, if supported, to make the seeks of a drag
+   * cheaper. Only the first call of an interaction has an effect.
+   *
+   * The player is paused before scrubbing mode is enabled because some players (for example
+   * `CompositionPlayer`) record the play-when-ready state when scrubbing mode is enabled and
+   * restore it when it's disabled, which would resume playback at the end of the drag.
+   */
+  private fun startScrubbing() {
+    if (isScrubbingRequested) return
+    isScrubbingRequested = true
+    pause()
+    player.setScrubbingModeEnabled(true)
+    isScrubbing = player.isScrubbingModeEnabled()
+  }
+
+  /**
+   * Takes the player out of scrubbing mode. This immediately executes the latest seek that
+   * scrubbing mode held back, if any.
+   */
+  private fun stopScrubbing() {
+    player.setScrubbingModeEnabled(false)
+    isScrubbingRequested = false
+    isScrubbing = false
+  }
+
+  /**
+   * Seeks to the given progress if the player is in scrubbing mode, which makes frequent seeks
+   * cheap. Otherwise, the seek is deferred to the end of the interaction.
+   */
+  private fun scrubTo(progress: Float) {
+    if (isScrubbing) seekTo(progress)
   }
 }
