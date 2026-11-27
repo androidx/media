@@ -966,8 +966,7 @@ public class MatroskaExtractor implements Extractor {
             Track track = tracks.valueAt(i);
             if (!track.waitingForDtsAnalysis) {
               updateTrackFormatWithMetadata(track);
-              track.assertOutputInitialized();
-              track.output.format(checkNotNull(track.format));
+              track.outputFormat();
             }
           }
           maybeEndTracks();
@@ -1010,12 +1009,10 @@ public class MatroskaExtractor implements Extractor {
       case ID_EDITION_ENTRY:
         for (int i = 0; i < tracks.size(); i++) {
           Track track = tracks.valueAt(i);
-          @Nullable Format previousFormat = track.format;
           updateTrackFormatWithMetadata(track);
-          if (sentSeekMap && !track.waitingForDtsAnalysis && track.format != previousFormat) {
+          if (track.lastOutputFormat != null && !track.lastOutputFormat.equals(track.format)) {
             // The first chapter metadata can arrive after the initial format was sent.
-            track.assertOutputInitialized();
-            track.output.format(checkNotNull(track.format));
+            track.outputFormat();
           }
         }
         break;
@@ -1128,8 +1125,7 @@ public class MatroskaExtractor implements Extractor {
           if (maybeSendFormatsEarly) {
             if (!trackItem.waitingForDtsAnalysis) {
               updateTrackFormatWithMetadata(trackItem);
-              trackItem.assertOutputInitialized();
-              trackItem.output.format(checkNotNull(trackItem.format));
+              trackItem.outputFormat();
             }
           }
         }
@@ -1886,7 +1882,7 @@ public class MatroskaExtractor implements Extractor {
     if (track.waitingForDtsAnalysis) {
       checkNotNull(track.format);
       track.format = DtsUtil.updateFormatWithDtsHdInfo(input, size, track.format);
-      track.output.format(track.format);
+      track.outputFormat();
       track.waitingForDtsAnalysis = false;
       maybeEndTracks();
     }
@@ -2496,6 +2492,8 @@ public class MatroskaExtractor implements Extractor {
     public @MonotonicNonNull TrackOutput output;
     public @MonotonicNonNull Format format;
     public int nalUnitLengthFieldLength;
+
+    private @Nullable Format lastOutputFormat;
 
     /** Builds the {@link Format} for the track. */
     @RequiresNonNull("codecId")
@@ -3193,6 +3191,13 @@ public class MatroskaExtractor implements Extractor {
     @EnsuresNonNull("output")
     private void assertOutputInitialized() {
       checkNotNull(output);
+    }
+
+    private void outputFormat() {
+      assertOutputInitialized();
+      Format format = checkNotNull(this.format);
+      output.format(format);
+      lastOutputFormat = format;
     }
 
     @EnsuresNonNull("codecPrivate")
