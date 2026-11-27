@@ -389,7 +389,7 @@ private fun Modifier.playerGestures(
           val event = awaitPointerEvent()
           val isAnyPressed = event.changes.any { it.pressed }
           onPointerDownChange(isAnyPressed)
-          if (event.type == PointerEventType.Move) {
+          if (event.type == PointerEventType.Move && !isAnyPressed) {
             onPointerMove()
           }
         }
