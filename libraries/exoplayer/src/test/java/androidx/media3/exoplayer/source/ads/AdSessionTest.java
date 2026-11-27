@@ -30,7 +30,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
@@ -49,6 +51,8 @@ import org.mockito.junit.MockitoRule;
 /** Unit tests for {@link AdSession}, independent of a {@link Player}. */
 @RunWith(AndroidJUnit4.class)
 public final class AdSessionTest {
+
+  private static final AdViewProvider AD_VIEW_PROVIDER = () -> null;
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
@@ -1142,6 +1146,7 @@ public final class AdSessionTest {
   @Test
   public void stop_activeSession_notifiesSessionStoppedWithFinalState() {
     AdSession session = createSession(createTwoAdState());
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
     session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
 
     session.stop();
@@ -1150,8 +1155,18 @@ public final class AdSessionTest {
   }
 
   @Test
+  public void stop_beforeStart_doesNotNotifySessionStopped() {
+    AdSession session = createSession(createTwoAdState());
+
+    session.stop();
+
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
   public void stop_whilePlayingAd_resetsActiveAd() {
     AdSession session = createSession(createTwoAdState());
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
     session.startAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, /* playWhenReady= */ true);
 
     session.stop();
@@ -1178,6 +1193,9 @@ public final class AdSessionTest {
     assertThat(session.isInAdGroup()).isFalse();
     assertThat(session.isPlayingAd()).isFalse();
     InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, MediaItem.EMPTY, AD_VIEW_PROVIDER, /* volume= */ 1f);
     inOrder.verify(mockSdkBridge).onAdGroupStarted(ADS_ID, /* adGroupIndex= */ 0);
     inOrder
         .verify(mockSdkBridge)
@@ -1200,7 +1218,96 @@ public final class AdSessionTest {
     verify(mockSdkBridge, never()).onAllAdsCompleted(any(), any());
   }
 
+  @Test
+  public void start_afterSetVolume_passesLatestVolumeToOnSessionStarted() {
+    AdSession session = createSession(createTwoAdState(), /* initialVolume= */ 1f);
+    session.setVolume(0.5f);
+
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
+
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, MediaItem.EMPTY, AD_VIEW_PROVIDER, /* volume= */ 0.5f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void start_calledTwice_notifiesOnSessionStartedOnce() {
+    AdSession session = createSession(createTwoAdState(), /* initialVolume= */ 1f);
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
+
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
+
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, MediaItem.EMPTY, AD_VIEW_PROVIDER, /* volume= */ 1f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void start_afterStop_doesNotNotifyOnSessionStarted() {
+    AdSession session = createSession(createTwoAdState(), /* initialVolume= */ 1f);
+    session.stop();
+
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
+
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void setVolume_beforeStart_doesNotNotifyOnVolumeChanged() {
+    AdSession session = createSession(createTwoAdState(), /* initialVolume= */ 1f);
+
+    session.setVolume(0.5f);
+
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void setVolume_whenVolumeChanges_notifiesOnVolumeChanged() {
+    AdSession session = createSession(createTwoAdState(), /* initialVolume= */ 1f);
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
+
+    session.setVolume(0.5f);
+
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, MediaItem.EMPTY, AD_VIEW_PROVIDER, /* volume= */ 1f);
+    verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.5f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void setVolume_whenVolumeMatchesLastReported_doesNotNotifyAgain() {
+    AdSession session = createSession(createTwoAdState(), /* initialVolume= */ 0.5f);
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
+    session.setVolume(0.5f);
+    session.setVolume(0.25f);
+
+    session.setVolume(0.25f);
+
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, MediaItem.EMPTY, AD_VIEW_PROVIDER, /* volume= */ 0.5f);
+    verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.25f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void setVolume_afterStop_doesNotNotifyOnVolumeChanged() {
+    AdSession session = createSession(createTwoAdState(), /* initialVolume= */ 1f);
+    session.start(MediaItem.EMPTY, AD_VIEW_PROVIDER);
+    session.stop();
+
+    session.setVolume(0.25f);
+
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, MediaItem.EMPTY, AD_VIEW_PROVIDER, /* volume= */ 1f);
+    verify(mockSdkBridge).onSessionStopped(ADS_ID, session.getAdPlaybackState());
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
   private AdSession createSession(AdPlaybackState initialAdPlaybackState) {
+    return createSession(initialAdPlaybackState, /* initialVolume= */ 1f);
+  }
+
+  private AdSession createSession(AdPlaybackState initialAdPlaybackState, float initialVolume) {
     AdsLoader.EventListener eventListener =
         new AdsLoader.EventListener() {
           @Override
@@ -1208,7 +1315,7 @@ public final class AdSessionTest {
             eventListenerStates.add(adPlaybackState);
           }
         };
-    return new AdSession(eventListener, initialAdPlaybackState, callback);
+    return new AdSession(eventListener, initialAdPlaybackState, callback, initialVolume);
   }
 
   /** Returns a state with a single preroll ad group containing two available ads. */

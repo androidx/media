@@ -19,7 +19,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.source.ads.AdPlaybackTracker.SdkBridge;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -74,7 +76,9 @@ import java.util.function.Consumer;
   // Assume dynamic until the tracker reports a static timeline, to avoid a premature
   // onAllAdsCompleted.
   private boolean isDynamic = true;
+  private boolean isStarted;
   private boolean isStopped;
+  private float volume;
 
   /**
    * Creates a session. The initial state is not published until {@link #publishAdPlaybackState()}
@@ -85,11 +89,14 @@ import java.util.function.Consumer;
    *     AdPlaybackState#adsId} must not be {@code null}. The session stores a {@linkplain
    *     AdPlaybackState#copy() copy} so that the caller can't modify the session state afterwards.
    * @param callback The {@link Callback}.
+   * @param initialVolume The initial effective player volume, with 0 being silence and 1 being
+   *     unity gain.
    */
   public AdSession(
       AdsLoader.EventListener eventListener,
       AdPlaybackState initialAdPlaybackState,
-      Callback callback) {
+      Callback callback,
+      float initialVolume) {
     checkArgument(
         initialAdPlaybackState.adsId != null, "initialAdPlaybackState.adsId must not be null.");
     this.adsId = initialAdPlaybackState.adsId;
@@ -99,6 +106,7 @@ import java.util.function.Consumer;
     this.endedAds = new HashSet<>();
     this.activeAdGroupIndex = C.INDEX_UNSET;
     this.activeAdIndexInAdGroup = C.INDEX_UNSET;
+    this.volume = initialVolume;
   }
 
   // Queries.
@@ -131,6 +139,26 @@ import java.util.function.Consumer;
    */
   public void publishAdPlaybackState() {
     publish(adPlaybackState);
+  }
+
+  /**
+   * Starts the session and notifies {@link SdkBridge#onSessionStarted} with the volume currently
+   * tracked by this session.
+   *
+   * <p>Volume changes are only reported to {@link SdkBridge#onVolumeChanged} after this method has
+   * been called. If the session is already started or stopped, this method is a no-op.
+   *
+   * @param contentMediaItem The content {@link MediaItem} of the session.
+   * @param adViewProvider The {@link AdViewProvider} of the session.
+   */
+  public void start(MediaItem contentMediaItem, AdViewProvider adViewProvider) {
+    if (isStarted || isStopped) {
+      return;
+    }
+    isStarted = true;
+    float volume = this.volume;
+    callback.notifyBridge(
+        bridge -> bridge.onSessionStarted(adsId, contentMediaItem, adViewProvider, volume));
   }
 
   // State mutations requested through the tracker API.
@@ -512,8 +540,31 @@ import java.util.function.Consumer;
   }
 
   /**
-   * Stops the session and notifies {@link SdkBridge#onSessionStopped}. The session must not be used
-   * afterwards.
+   * Updates the volume tracked by this session and notifies {@link SdkBridge#onVolumeChanged} if
+   * the volume changed and the session is {@linkplain #start started}.
+   *
+   * <p>Before the session is started, the volume is tracked without notifying, and reported by
+   * {@link SdkBridge#onSessionStarted} instead. If the session is stopped or {@code volume} equals
+   * the current volume, this method is a no-op.
+   *
+   * @param volume The current effective player volume, with 0 being silence and 1 being unity gain.
+   */
+  public void setVolume(float volume) {
+    if (isStopped || this.volume == volume) {
+      return;
+    }
+    this.volume = volume;
+    if (isStarted) {
+      callback.notifyBridge(bridge -> bridge.onVolumeChanged(adsId, volume));
+    }
+  }
+
+  /**
+   * Stops the session and notifies {@link SdkBridge#onSessionStopped} if the session was
+   * {@linkplain #start started}. The session must not be used afterwards.
+   *
+   * <p>A session that is stopped before it was started notifies neither {@link
+   * SdkBridge#onSessionStarted} nor {@link SdkBridge#onSessionStopped}.
    */
   public void stop() {
     if (isStopped) {
@@ -521,8 +572,10 @@ import java.util.function.Consumer;
     }
     isStopped = true;
     resetActiveAd();
-    AdPlaybackState finalAdPlaybackState = adPlaybackState.copy();
-    callback.notifyBridge(bridge -> bridge.onSessionStopped(adsId, finalAdPlaybackState));
+    if (isStarted) {
+      AdPlaybackState finalAdPlaybackState = adPlaybackState.copy();
+      callback.notifyBridge(bridge -> bridge.onSessionStopped(adsId, finalAdPlaybackState));
+    }
   }
 
   // Internal methods.

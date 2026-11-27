@@ -133,7 +133,7 @@ public final class AdPlaybackTrackerExternalStateManipulationTest {
     inOrder.verify(mockSdkBridge).onPlayerChanged(player);
     inOrder
         .verify(mockSdkBridge)
-        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider);
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
     inOrder
         .verify(mockSdkBridge)
         .onAdPrepareCompleted(ADS_ID, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);

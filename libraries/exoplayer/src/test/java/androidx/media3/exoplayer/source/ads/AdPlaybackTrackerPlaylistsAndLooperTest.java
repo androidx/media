@@ -30,6 +30,7 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLoop
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -401,6 +402,147 @@ public final class AdPlaybackTrackerPlaylistsAndLooperTest {
   }
 
   @Test
+  public void play_volumeChangedDuringRegularMediaSource_notifiesPreStartedAdsSessionImmediately()
+      throws Exception {
+    FakeMediaSource regularMediaSource =
+        new FakeMediaSource(createShortContentTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT);
+    AdsMediaSource adsMediaSource = createSinglePrerollAdsMediaSource(ADS_ID, AD_MEDIA_ITEM_0);
+    player.setVolume(1f);
+    player.setMediaSources(ImmutableList.of(regularMediaSource, adsMediaSource));
+    player.prepare();
+    player.play();
+    runMainLooperUntil(() -> adPlaybackTracker.isSessionActive(ADS_ID));
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+
+    player.setVolume(0.4f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.4f);
+    verify(mockSdkBridge).onVolumeChanged(any(), anyFloat());
+  }
+
+  @Test
+  public void
+      play_transitionToPreStartedAdsSessionAfterVolumeChange_doesNotEmitDuplicateVolumeChanged()
+          throws Exception {
+    FakeMediaSource regularMediaSource =
+        new FakeMediaSource(createShortContentTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT);
+    AdsMediaSource adsMediaSource = createSinglePrerollAdsMediaSource(ADS_ID, AD_MEDIA_ITEM_0);
+    player.setVolume(1f);
+    player.setMediaSources(ImmutableList.of(regularMediaSource, adsMediaSource));
+    player.prepare();
+    player.play();
+    runMainLooperUntil(() -> adPlaybackTracker.isSessionActive(ADS_ID));
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+    player.setVolume(0.4f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.4f);
+
+    advance(player).untilPosition(/* mediaItemIndex= */ 1, /* positionMs= */ 2_000L);
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.4f);
+    verifyStandardAdGroupPlaybackEvents(
+        inOrder,
+        mockSdkBridge,
+        ADS_ID,
+        /* adGroupIndex= */ 0,
+        /* startAdIndexInAdGroup= */ 0,
+        /* endAdIndexInAdGroup= */ 0);
+    verify(mockSdkBridge).onVolumeChanged(any(), anyFloat());
+  }
+
+  @Test
+  public void
+      play_volumeChangedInMultiItemAdsPlaylist_broadcastsImmediatelyWithoutDuplicateOnTransitions()
+          throws Exception {
+    AdsMediaSource adsMediaSource1 = createSinglePrerollAdsMediaSource(ADS_ID, AD_MEDIA_ITEM_0);
+    AdsMediaSource adsMediaSource2 =
+        createSinglePrerollAdsMediaSource(SECOND_ADS_ID, AD_MEDIA_ITEM_1);
+    player.setVolume(1f);
+    player.setMediaSources(ImmutableList.of(adsMediaSource1, adsMediaSource2));
+    player.prepare();
+    player.play();
+    runMainLooperUntil(() -> adPlaybackTracker.isSessionActive(SECOND_ADS_ID));
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+    player.setVolume(0.3f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 1, /* positionMs= */ 2_000L);
+    player.setVolume(0.7f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.7f);
+    verify(mockSdkBridge).onVolumeChanged(SECOND_ADS_ID, /* volume= */ 0.7f);
+
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0L);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2_000L);
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, adsMediaSource1.getMediaItem(), adViewProvider, /* volume= */ 1f);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            SECOND_ADS_ID, adsMediaSource2.getMediaItem(), adViewProvider, /* volume= */ 1f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.3f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(SECOND_ADS_ID, /* volume= */ 0.3f);
+    verifyStandardAdGroupPlaybackEvents(
+        inOrder,
+        mockSdkBridge,
+        SECOND_ADS_ID,
+        /* adGroupIndex= */ 0,
+        /* startAdIndexInAdGroup= */ 0,
+        /* endAdIndexInAdGroup= */ 0);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.7f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(SECOND_ADS_ID, /* volume= */ 0.7f);
+    verify(mockSdkBridge, times(2)).onVolumeChanged(eq(ADS_ID), anyFloat());
+    verify(mockSdkBridge, times(2)).onVolumeChanged(eq(SECOND_ADS_ID), anyFloat());
+  }
+
+  @Test
+  public void play_volumeChangedAndRevertedBeforeTransition_notifiesBothChangesAndNoneOnTransition()
+      throws Exception {
+    FakeMediaSource regularMediaSource =
+        new FakeMediaSource(createShortContentTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT);
+    AdsMediaSource adsMediaSource = createSinglePrerollAdsMediaSource(ADS_ID, AD_MEDIA_ITEM_0);
+    player.setVolume(1f);
+    player.setMediaSources(ImmutableList.of(regularMediaSource, adsMediaSource));
+    player.prepare();
+    player.play();
+    runMainLooperUntil(() -> adPlaybackTracker.isSessionActive(ADS_ID));
+    assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
+    player.setVolume(0.4f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.setVolume(1f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    advance(player).untilPosition(/* mediaItemIndex= */ 1, /* positionMs= */ 2_000L);
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.4f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 1f);
+    verifyStandardAdGroupPlaybackEvents(
+        inOrder,
+        mockSdkBridge,
+        ADS_ID,
+        /* adGroupIndex= */ 0,
+        /* startAdIndexInAdGroup= */ 0,
+        /* endAdIndexInAdGroup= */ 0);
+    verify(mockSdkBridge, times(2)).onVolumeChanged(any(), anyFloat());
+  }
+
+  @Test
   public void play_withCustomTrackerLooper_confinesBridgeCallbacksToTrackerLooper()
       throws Exception {
     List<Looper> callbackLoopers = new CopyOnWriteArrayList<>();
@@ -414,7 +556,10 @@ public final class AdPlaybackTrackerPlaylistsAndLooperTest {
 
           @Override
           public void onSessionStarted(
-              Object adsId, MediaItem contentMediaItem, AdViewProvider adViewProvider) {
+              Object adsId,
+              MediaItem contentMediaItem,
+              AdViewProvider adViewProvider,
+              float volume) {
             record("onSessionStarted");
           }
 
@@ -527,5 +672,29 @@ public final class AdPlaybackTrackerPlaylistsAndLooperTest {
       shadowOf(Looper.getMainLooper()).idle();
       trackerThread.quit();
     }
+  }
+
+  private AdsMediaSource createSinglePrerollAdsMediaSource(Object adsId, MediaItem adMediaItem) {
+    AdPlaybackState initialState =
+        new AdPlaybackState(adsId, /* adGroupTimesUs...= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, AD_DURATION_US)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, adMediaItem);
+    fakeAdsLoader.setInitialAdPlaybackState(adsId, initialState);
+    return createAdsMediaSource(
+        createShortContentTimeline(),
+        createDefaultAdMediaSourceFactory(),
+        fakeAdsLoader,
+        adViewProvider,
+        adsId);
+  }
+
+  private static Timeline createShortContentTimeline() {
+    return new FakeTimeline(
+        new TimelineWindowDefinition.Builder()
+            .setWindowPositionInFirstPeriodUs(0L)
+            .setDurationUs(10 * C.MICROS_PER_SECOND)
+            .build());
   }
 }

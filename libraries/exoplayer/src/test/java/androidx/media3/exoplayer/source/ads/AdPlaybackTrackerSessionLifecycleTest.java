@@ -29,11 +29,13 @@ import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.robolectric.Shadows.shadowOf;
@@ -44,17 +46,24 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.TrackGroup;
+import androidx.media3.common.Tracks;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAdsLoader;
+import androidx.media3.test.utils.FakePlayer;
+import androidx.media3.test.utils.StubPlayer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Defaults;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -140,7 +149,7 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     inOrder.verify(mockSdkBridge).onPlayerChanged(player);
     inOrder
         .verify(mockSdkBridge)
-        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider);
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
     inOrder.verify(mockSdkBridge).onAdGroupStarted(ADS_ID, /* adGroupIndex= */ 0);
     inOrder
         .verify(mockSdkBridge)
@@ -194,7 +203,8 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
       inOrder.verify(mockSdkBridge).onPlayerChanged(player);
       inOrder
           .verify(mockSdkBridge)
-          .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider);
+          .onSessionStarted(
+              ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
       inOrder.verify(mockSdkBridge).onAdGroupStarted(ADS_ID, /* adGroupIndex= */ 0);
       inOrder
           .verify(mockSdkBridge)
@@ -254,7 +264,8 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
       inOrder.verify(mockSdkBridge).onPlayerChanged(secondPlayer);
       inOrder
           .verify(mockSdkBridge)
-          .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider);
+          .onSessionStarted(
+              ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
       inOrder
           .verify(mockSdkBridge)
           .onAdPrepareCompleted(ADS_ID, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
@@ -319,7 +330,9 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     // EventListener is called with initial state before the ad playback state listener is called.
     inOrder.verify(mockEventListener).onAdPlaybackState(initialState);
     inOrder.verify(mockStateListener).onAdPlaybackStateChanged(ADS_ID, initialState);
-    inOrder.verify(mockSdkBridge).onSessionStarted(ADS_ID, contentMediaItem, adViewProvider);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 1f);
     // Update state with ad count which isn't related to playback and doesn't notify the sdk bridge.
     inOrder.verify(mockEventListener).onAdPlaybackState(updatedState);
     inOrder.verify(mockStateListener).onAdPlaybackStateChanged(ADS_ID, updatedState);
@@ -343,7 +356,64 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     assertThat(adPlaybackTracker.getActiveSessionAdsIds()).containsExactly(ADS_ID);
     assertThat(adPlaybackTracker.getAdPlaybackState(ADS_ID)).isEqualTo(initialState);
     verify(mockEventListener).onAdPlaybackState(initialState);
-    verify(mockSdkBridge).onSessionStarted(ADS_ID, contentMediaItem, adViewProvider);
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 1f);
+  }
+
+  @Test
+  public void startSession_withPlayerVolumeModifiedBeforeStart_passesVolumeToBridge() {
+    MediaItem contentMediaItem = createContentMediaItem(ADS_ID);
+    AdPlaybackState initialState = new AdPlaybackState(ADS_ID, /* adGroupTimesUs...= */ 0L);
+    player.setVolume(0.35f);
+
+    adPlaybackTracker.startSession(
+        contentMediaItem, adViewProvider, new AdsLoader.EventListener() {}, initialState);
+
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 0.35f);
+  }
+
+  @Test
+  public void
+      startSession_volumeChangedFromEventListenerDuringPublish_passesLatestVolumeToBridge() {
+    MediaItem contentMediaItem = createContentMediaItem(ADS_ID);
+    AdsLoader.EventListener volumeChangingEventListener =
+        new AdsLoader.EventListener() {
+          @Override
+          public void onAdPlaybackState(AdPlaybackState adPlaybackState) {
+            player.setVolume(0.4f);
+          }
+        };
+    player.setVolume(1f);
+
+    adPlaybackTracker.startSession(
+        contentMediaItem, adViewProvider, volumeChangingEventListener, new AdPlaybackState(ADS_ID));
+
+    verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 0.4f);
+    verify(mockSdkBridge, never()).onVolumeChanged(any(), anyFloat());
+  }
+
+  @Test
+  public void startSession_stoppedFromEventListenerDuringPublish_doesNotNotifyBridge() {
+    MediaItem contentMediaItem = createContentMediaItem(ADS_ID);
+    AdsLoader.EventListener sessionStoppingEventListener =
+        new AdsLoader.EventListener() {
+          @Override
+          public void onAdPlaybackState(AdPlaybackState adPlaybackState) {
+            adPlaybackTracker.stopSession(ADS_ID);
+          }
+        };
+
+    adPlaybackTracker.startSession(
+        contentMediaItem,
+        adViewProvider,
+        sessionStoppingEventListener,
+        new AdPlaybackState(ADS_ID));
+
+    assertThat(adPlaybackTracker.isSessionActive(ADS_ID)).isFalse();
+    verify(mockSdkBridge, never()).onSessionStarted(any(), any(), any(), anyFloat());
+    verify(mockSdkBridge, never()).onSessionStopped(any(), any());
   }
 
   @Test
@@ -442,7 +512,10 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
         new AdPlaybackTracker.SdkBridge() {
           @Override
           public void onSessionStarted(
-              Object adsId, MediaItem contentMediaItem, AdViewProvider adViewProvider) {
+              Object adsId,
+              MediaItem contentMediaItem,
+              AdViewProvider adViewProvider,
+              float volume) {
             events.add("onSessionStarted");
             trackerRef.get().stopSession(adsId);
           }
@@ -516,7 +589,10 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
         new AdPlaybackTracker.SdkBridge() {
           @Override
           public void onSessionStarted(
-              Object adsId, MediaItem contentMediaItem, AdViewProvider adViewProvider) {
+              Object adsId,
+              MediaItem contentMediaItem,
+              AdViewProvider adViewProvider,
+              float volume) {
             trackerRef
                 .get()
                 .updateAdPlaybackState(
@@ -636,7 +712,8 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
         .containsExactly(ADS_ID, SECOND_ADS_ID)
         .inOrder();
     verify(mockSdkBridge)
-        .onSessionStarted(SECOND_ADS_ID, adsMediaSource2.getMediaItem(), adViewProvider);
+        .onSessionStarted(
+            SECOND_ADS_ID, adsMediaSource2.getMediaItem(), adViewProvider, /* volume= */ 1f);
     verify(mockSdkBridge)
         .onAdPrepareCompleted(SECOND_ADS_ID, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
     verify(mockSdkBridge, never()).onContentCompleted(ADS_ID);
@@ -651,7 +728,7 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     InOrder inOrder = inOrder(mockSdkBridge);
     inOrder
         .verify(mockSdkBridge)
-        .onSessionStarted(ADS_ID, adsMediaSource1.getMediaItem(), adViewProvider);
+        .onSessionStarted(ADS_ID, adsMediaSource1.getMediaItem(), adViewProvider, /* volume= */ 1f);
     inOrder
         .verify(mockSdkBridge)
         .onAdPrepareCompleted(ADS_ID, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
@@ -665,7 +742,8 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     inOrder.verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, finalState1);
     inOrder
         .verify(mockSdkBridge)
-        .onSessionStarted(SECOND_ADS_ID, adsMediaSource2.getMediaItem(), adViewProvider);
+        .onSessionStarted(
+            SECOND_ADS_ID, adsMediaSource2.getMediaItem(), adViewProvider, /* volume= */ 1f);
     inOrder
         .verify(mockSdkBridge)
         .onAdPrepareCompleted(SECOND_ADS_ID, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
@@ -710,7 +788,7 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     inOrder.verify(mockSdkBridge).onPlayerChanged(player);
     inOrder
         .verify(mockSdkBridge)
-        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider);
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 1f);
     inOrder
         .verify(mockSdkBridge)
         .onAdPrepareCompleted(ADS_ID, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
@@ -825,7 +903,9 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     }
     InOrder inOrder = inOrder(mockSdkBridge);
     inOrder.verify(mockSdkBridge).onPlayerChanged(player);
-    inOrder.verify(mockSdkBridge).onSessionStarted(ADS_ID, contentMediaItem, adViewProvider);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 1f);
     inOrder.verify(mockSdkBridge).onPlayerChanged(null);
     inOrder
         .verify(mockSdkBridge)
@@ -862,6 +942,607 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
   }
 
   @Test
+  public void onVolumeChanged_withActiveSession_forwardsVolume() throws Exception {
+    Timeline contentTimeline = createVodContentTimeline();
+    AdPlaybackState initialState =
+        new AdPlaybackState(ADS_ID, /* adGroupTimesUs...= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, AD_MEDIA_ITEM_0);
+    fakeAdsLoader.setInitialAdPlaybackState(ADS_ID, initialState);
+    AdsMediaSource adsMediaSource =
+        createAdsMediaSource(
+            contentTimeline,
+            createDefaultAdMediaSourceFactory(),
+            fakeAdsLoader,
+            adViewProvider,
+            ADS_ID);
+    player.setVolume(0f);
+    player.setMediaSource(adsMediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.setVolume(0.25f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.setVolume(0.5f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 0f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.25f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.5f);
+    verify(mockSdkBridge, times(2)).onVolumeChanged(any(), anyFloat());
+  }
+
+  @Test
+  public void onVolumeChanged_afterStopSession_doesNotForwardVolume() throws Exception {
+    Timeline contentTimeline = createVodContentTimeline();
+    AdPlaybackState initialState =
+        new AdPlaybackState(ADS_ID, /* adGroupTimesUs...= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, AD_MEDIA_ITEM_0);
+    fakeAdsLoader.setInitialAdPlaybackState(ADS_ID, initialState);
+    AdsMediaSource adsMediaSource =
+        createAdsMediaSource(
+            contentTimeline,
+            createDefaultAdMediaSourceFactory(),
+            fakeAdsLoader,
+            adViewProvider,
+            ADS_ID);
+    player.setVolume(0f);
+    player.setMediaSource(adsMediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    player.setVolume(0.25f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.setVolume(0.5f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    adPlaybackTracker.stopSession(ADS_ID);
+
+    player.setVolume(0.75f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, adsMediaSource.getMediaItem(), adViewProvider, /* volume= */ 0f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.25f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.5f);
+    inOrder.verify(mockSdkBridge).onSessionStopped(eq(ADS_ID), any(AdPlaybackState.class));
+    verify(mockSdkBridge, times(2)).onVolumeChanged(any(), anyFloat());
+  }
+
+  @Test
+  public void setPlayer_replacingPlayerWithDifferentVolume_notifiesAllActiveSessions() {
+    player.setVolume(1f);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    adPlaybackTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+    ExoPlayer secondPlayer = new TestExoPlayerBuilder(context).build();
+    try {
+      secondPlayer.setVolume(0.4f);
+
+      adPlaybackTracker.setPlayer(secondPlayer);
+
+      InOrder inOrder = inOrder(mockSdkBridge);
+      inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+      inOrder
+          .verify(mockSdkBridge)
+          .onSessionStarted(
+              eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(1f));
+      inOrder
+          .verify(mockSdkBridge)
+          .onSessionStarted(
+              eq(SECOND_ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(1f));
+      inOrder.verify(mockSdkBridge).onPlayerChanged(secondPlayer);
+      inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.4f);
+      inOrder.verify(mockSdkBridge).onVolumeChanged(SECOND_ADS_ID, /* volume= */ 0.4f);
+    } finally {
+      secondPlayer.release();
+    }
+  }
+
+  @Test
+  public void setPlayer_replacingPlayerWithSameVolume_doesNotNotifyVolumeChanged() {
+    player.setVolume(0.4f);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    adPlaybackTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+    ExoPlayer secondPlayer = new TestExoPlayerBuilder(context).build();
+    try {
+      secondPlayer.setVolume(0.4f);
+
+      adPlaybackTracker.setPlayer(secondPlayer);
+
+      verify(mockSdkBridge, never()).onVolumeChanged(any(), anyFloat());
+    } finally {
+      secondPlayer.release();
+    }
+  }
+
+  @Test
+  public void setPlayer_null_doesNotNotifyVolumeChanged() {
+    MediaItem contentMediaItem = createContentMediaItem(ADS_ID);
+    player.setVolume(0.4f);
+    adPlaybackTracker.startSession(
+        contentMediaItem,
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+
+    adPlaybackTracker.setPlayer(null);
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 0.4f);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(null);
+    verify(mockSdkBridge, never()).onVolumeChanged(any(), anyFloat());
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void setPlayer_nullThenPlayerWithDifferentVolume_notifiesVolumeChangedOnce() {
+    MediaItem contentMediaItem = createContentMediaItem(ADS_ID);
+    player.setVolume(0.4f);
+    adPlaybackTracker.startSession(
+        contentMediaItem,
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    ExoPlayer otherPlayer = new TestExoPlayerBuilder(context).build();
+    try {
+      otherPlayer.setVolume(0.8f);
+
+      adPlaybackTracker.setPlayer(null);
+      adPlaybackTracker.setPlayer(otherPlayer);
+
+      InOrder inOrder = inOrder(mockSdkBridge);
+      inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+      inOrder
+          .verify(mockSdkBridge)
+          .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 0.4f);
+      inOrder.verify(mockSdkBridge).onPlayerChanged(null);
+      inOrder.verify(mockSdkBridge).onPlayerChanged(otherPlayer);
+      inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.8f);
+      verifyNoMoreInteractions(mockSdkBridge);
+    } finally {
+      otherPlayer.release();
+    }
+  }
+
+  @Test
+  public void
+      setPlayerAndStartSession_withoutGetVolumeOrGetTracksCommands_usesZeroVolumeWithoutCallingGetters() {
+    Player playerWithoutVolumeAndTracksCommands = createPlayerWithoutVolumeAndTracksCommands();
+    player.setVolume(0.4f);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+
+    adPlaybackTracker.setPlayer(playerWithoutVolumeAndTracksCommands);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(0.4f));
+    inOrder.verify(mockSdkBridge).onPlayerChanged(playerWithoutVolumeAndTracksCommands);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0f);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(SECOND_ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(0f));
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void startSession_withoutGetVolumeCommandAndSelectedAudioTrack_reportsUnityVolume() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(true));
+    fakePlayer.setVolume(0.3f);
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    MediaItem contentMediaItem = createContentMediaItem(ADS_ID);
+
+    adPlaybackTracker.startSession(
+        contentMediaItem,
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 1f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void startSession_withoutGetVolumeCommandAndNoSelectedAudioTrack_reportsZeroVolume() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(false));
+    fakePlayer.setVolume(0.8f);
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    MediaItem contentMediaItem = createContentMediaItem(ADS_ID);
+
+    adPlaybackTracker.startSession(
+        contentMediaItem,
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(ADS_ID, contentMediaItem, adViewProvider, /* volume= */ 0f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void
+      onTracksChanged_selectingAudioTrackWithoutGetVolumeCommand_notifiesActiveSessionsUnityVolume() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(false));
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    adPlaybackTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+    fakePlayer.setTracks(Tracks.EMPTY);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockSdkBridge, never()).onVolumeChanged(any(), anyFloat());
+
+    fakePlayer.setTracks(createTracksWithAudioSelected(true));
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(0f));
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(SECOND_ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(0f));
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 1f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(SECOND_ADS_ID, /* volume= */ 1f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void
+      onTracksChanged_deselectingAudioTrackWithoutGetVolumeCommand_notifiesActiveSessionsZeroVolume() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(true));
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    adPlaybackTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+    fakePlayer.setTracks(
+        new Tracks(
+            ImmutableList.of(
+                createAudioTrackGroup(/* selected= */ true),
+                createVideoTrackGroup(/* selected= */ true))));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockSdkBridge, never()).onVolumeChanged(any(), anyFloat());
+
+    fakePlayer.setTracks(createTracksWithAudioSelected(false));
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(1f));
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(SECOND_ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(1f));
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(SECOND_ADS_ID, /* volume= */ 0f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void onTracksChanged_withGetVolumeCommandAvailable_doesNotNotifyVolumeChanged() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(true));
+    fakePlayer.setVolume(0.4f);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    adPlaybackTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+
+    fakePlayer.setTracks(createTracksWithAudioSelected(false));
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockSdkBridge, never()).onVolumeChanged(any(), anyFloat());
+  }
+
+  @Test
+  public void
+      onAvailableCommandsChanged_addingGetVolumeCommandWithSelectedAudioTrack_syncsPlayerVolumeToActiveSessions() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(true));
+    fakePlayer.setVolume(0.3f);
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    adPlaybackTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+    fakePlayer.setVolume(0.25f);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockSdkBridge, never()).onVolumeChanged(any(), anyFloat());
+
+    fakePlayer.addCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(1f));
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(SECOND_ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(1f));
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0.25f);
+    inOrder.verify(mockSdkBridge).onVolumeChanged(SECOND_ADS_ID, /* volume= */ 0.25f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void
+      onAvailableCommandsChanged_removingGetVolumeCommandWithSelectedAudioTrack_fallsBackToUnityVolume() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(true));
+    fakePlayer.setVolume(0.25f);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(0.25f));
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 1f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void
+      onAvailableCommandsChanged_removingGetVolumeCommandWithoutSelectedAudioTrack_fallsBackToZeroVolume() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(false));
+    fakePlayer.setVolume(0.25f);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(0.25f));
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void
+      onAvailableCommandsChanged_removingGetTracksCommandWithoutGetVolumeCommand_fallsBackToZeroVolume() {
+    FakePlayer fakePlayer = new FakePlayer();
+    fakePlayer.setMediaItem(MediaItem.EMPTY);
+    fakePlayer.setTracks(createTracksWithAudioSelected(true));
+    fakePlayer.removeCommands(Player.COMMAND_GET_VOLUME);
+    shadowOf(Looper.getMainLooper()).idle();
+    adPlaybackTracker.setPlayer(fakePlayer);
+    adPlaybackTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+
+    fakePlayer.removeCommands(Player.COMMAND_GET_TRACKS);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(player);
+    inOrder.verify(mockSdkBridge).onPlayerChanged(fakePlayer);
+    inOrder
+        .verify(mockSdkBridge)
+        .onSessionStarted(
+            eq(ADS_ID), any(MediaItem.class), eq(adViewProvider), /* volume= */ eq(1f));
+    inOrder.verify(mockSdkBridge).onVolumeChanged(ADS_ID, /* volume= */ 0f);
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
+  public void onVolumeChanged_setVolumeFromCallback_convergesAllActiveSessionsToFinalVolume()
+      throws Exception {
+    List<String> events = new ArrayList<>();
+    AdPlaybackTracker.SdkBridge reentrantBridge =
+        new AdPlaybackTracker.SdkBridge() {
+          @Override
+          public void onVolumeChanged(Object adsId, float volume) {
+            events.add("onVolumeChanged:" + adsId + ":" + volume);
+            if (adsId.equals(ADS_ID) && volume == 0.4f) {
+              player.setVolume(0.8f);
+            }
+          }
+        };
+    standaloneTracker = new AdPlaybackTracker(reentrantBridge);
+    player.setVolume(1f);
+    standaloneTracker.setPlayer(player);
+    standaloneTracker.startSession(
+        createContentMediaItem(ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(ADS_ID));
+    standaloneTracker.startSession(
+        createContentMediaItem(SECOND_ADS_ID),
+        adViewProvider,
+        new AdsLoader.EventListener() {},
+        new AdPlaybackState(SECOND_ADS_ID));
+    events.clear();
+
+    player.setVolume(0.4f);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    assertThat(events)
+        .containsExactly(
+            "onVolumeChanged:" + ADS_ID + ":0.4",
+            "onVolumeChanged:" + SECOND_ADS_ID + ":0.8",
+            "onVolumeChanged:" + ADS_ID + ":0.8")
+        .inOrder();
+  }
+
+  @Test
+  public void
+      sdkBridgeReentrancy_setVolumeFromOnVolumeChangedDuringSetPlayer_doesNotOverwriteWithStaleVolume() {
+    List<String> events = new ArrayList<>();
+    ExoPlayer secondPlayer = new TestExoPlayerBuilder(context).build();
+    try {
+      secondPlayer.setVolume(0.4f);
+      AdPlaybackTracker.SdkBridge reentrantBridge =
+          new AdPlaybackTracker.SdkBridge() {
+            @Override
+            public void onVolumeChanged(Object adsId, float volume) {
+              events.add("onVolumeChanged:" + adsId + ":" + volume);
+              if (adsId.equals(ADS_ID) && volume == 0.4f) {
+                secondPlayer.setVolume(0.8f);
+              }
+            }
+          };
+      standaloneTracker = new AdPlaybackTracker(reentrantBridge);
+      player.setVolume(1f);
+      standaloneTracker.setPlayer(player);
+      standaloneTracker.startSession(
+          createContentMediaItem(ADS_ID),
+          adViewProvider,
+          new AdsLoader.EventListener() {},
+          new AdPlaybackState(ADS_ID));
+      standaloneTracker.startSession(
+          createContentMediaItem(SECOND_ADS_ID),
+          adViewProvider,
+          new AdsLoader.EventListener() {},
+          new AdPlaybackState(SECOND_ADS_ID));
+      events.clear();
+
+      standaloneTracker.setPlayer(secondPlayer);
+
+      assertThat(events)
+          .containsExactly(
+              "onVolumeChanged:" + ADS_ID + ":0.4",
+              "onVolumeChanged:" + ADS_ID + ":0.8",
+              "onVolumeChanged:" + SECOND_ADS_ID + ":0.8")
+          .inOrder();
+    } finally {
+      secondPlayer.release();
+    }
+  }
+
+  @Test
   public void allPublicMethods_fromNonTrackerLooperThread_throwIllegalStateException() {
     HandlerThread trackerThread = new HandlerThread("AdPlaybackTrackerTestThread");
     trackerThread.start();
@@ -888,6 +1569,55 @@ public final class AdPlaybackTrackerSessionLifecycleTest {
     } finally {
       trackerThread.quit();
     }
+  }
+
+  private static Tracks createTracksWithAudioSelected(boolean audioSelected) {
+    return new Tracks(ImmutableList.of(createAudioTrackGroup(audioSelected)));
+  }
+
+  private static Tracks.Group createAudioTrackGroup(boolean selected) {
+    return new Tracks.Group(
+        new TrackGroup(ExoPlayerTestRunner.AUDIO_FORMAT),
+        /* adaptiveSupported= */ false,
+        /* trackSupport= */ new int[] {C.FORMAT_HANDLED},
+        /* trackSelected= */ new boolean[] {selected});
+  }
+
+  private static Tracks.Group createVideoTrackGroup(boolean selected) {
+    return new Tracks.Group(
+        new TrackGroup(ExoPlayerTestRunner.VIDEO_FORMAT),
+        /* adaptiveSupported= */ false,
+        /* trackSupport= */ new int[] {C.FORMAT_HANDLED},
+        /* trackSelected= */ new boolean[] {selected});
+  }
+
+  private static Player createPlayerWithoutVolumeAndTracksCommands() {
+    Player.Commands availableCommands =
+        new Player.Commands.Builder()
+            .addAll(Player.COMMAND_GET_TIMELINE, Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+            .build();
+    return new StubPlayer() {
+      @Override
+      public Looper getApplicationLooper() {
+        return Looper.getMainLooper();
+      }
+
+      @Override
+      public void addListener(Listener listener) {}
+
+      @Override
+      public void removeListener(Listener listener) {}
+
+      @Override
+      public Commands getAvailableCommands() {
+        return availableCommands;
+      }
+
+      @Override
+      public Timeline getCurrentTimeline() {
+        return Timeline.EMPTY;
+      }
+    };
   }
 
   // TODO: Deduplicate with Util.createParameters.

@@ -30,6 +30,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Log;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -100,12 +101,21 @@ public final class AdPlaybackTracker {
     /**
      * Called when an {@link AdsMediaSource} session starts for the given {@code adsId}.
      *
+     * <p>Not called if the session is stopped before starting completes (for example, from {@link
+     * AdsLoader.EventListener#onAdPlaybackState} while publishing the initial {@link
+     * AdPlaybackState} in {@link #startSession}); in that case, {@link #onSessionStopped} is not
+     * called either.
+     *
      * @param adsId The session identifier.
      * @param contentMediaItem The content {@link MediaItem} for the session.
      * @param adViewProvider The {@link AdViewProvider} for the session.
+     * @param volume The initial player volume, with 0 being silence and 1 being unity gain (or when
+     *     {@link Player#COMMAND_GET_VOLUME} is unavailable, {@code 1f} if {@link
+     *     Player#COMMAND_GET_TRACKS} is available and an audio track is selected, and {@code 0f}
+     *     otherwise).
      */
     default void onSessionStarted(
-        Object adsId, MediaItem contentMediaItem, AdViewProvider adViewProvider) {}
+        Object adsId, MediaItem contentMediaItem, AdViewProvider adViewProvider, float volume) {}
 
     /**
      * Called when an ad period completes preparation in {@link AdsMediaSource}.
@@ -229,15 +239,24 @@ public final class AdPlaybackTracker {
     default void onContentCompleted(Object adsId) {}
 
     /**
-     * Called when the player volume changes for an active session.
+     * Called for every active session whose effective player volume changes (via {@link
+     * Player.Listener#onVolumeChanged}, {@link Player.Listener#onTracksChanged}, {@link
+     * Player.Listener#onAvailableCommandsChanged}, or when attaching a {@link Player} with a
+     * different volume in {@link #setPlayer}), including sessions whose window is not currently
+     * playing.
      *
      * @param adsId The session identifier.
-     * @param volumePercent The updated player volume as a percentage in {@code [0, 100]}.
+     * @param volume The updated player volume, with 0 being silence and 1 being unity gain (or when
+     *     {@link Player#COMMAND_GET_VOLUME} is unavailable, {@code 1f} if {@link
+     *     Player#COMMAND_GET_TRACKS} is available and an audio track is selected, and {@code 0f}
+     *     otherwise).
      */
-    default void onVolumeChanged(Object adsId, int volumePercent) {}
+    default void onVolumeChanged(Object adsId, float volume) {}
 
     /**
      * Called when the {@link AdsMediaSource} session for {@code adsId} is stopped.
+     *
+     * <p>Only called for sessions that were announced with {@link #onSessionStarted}.
      *
      * @param adsId The session identifier.
      * @param finalAdPlaybackState The final {@link AdPlaybackState} of the session.
@@ -320,7 +339,9 @@ public final class AdPlaybackTracker {
    * Sets the active {@link Player} and registers or unregisters the internal listener.
    *
    * <p>Setting a new player or {@code null} ends any active ad group on ongoing {@link
-   * AdsMediaSource} sessions.
+   * AdsMediaSource} sessions. Attaching a player with a different effective volume notifies {@link
+   * SdkBridge#onVolumeChanged} for all started sessions, whereas detaching ({@code null}) keeps the
+   * last reported volume.
    *
    * <p>Must be called on this tracker's {@link Looper} thread.
    *
@@ -518,7 +539,9 @@ public final class AdPlaybackTracker {
   /**
    * Registers an active {@link AdsMediaSource} session for {@code initialAdPlaybackState.adsId},
    * publishes {@code initialAdPlaybackState} to {@code eventListener}, and notifies {@link
-   * SdkBridge#onSessionStarted}.
+   * SdkBridge#onSessionStarted} (unless the session was stopped while publishing {@code
+   * initialAdPlaybackState}, in which case neither {@link SdkBridge#onSessionStarted} nor {@link
+   * SdkBridge#onSessionStopped} is called).
    *
    * <p>The {@code contentMediaItem} must have a non-null {@link MediaItem.AdsConfiguration} with an
    * {@link MediaItem.AdsConfiguration#adsId} equal to {@code initialAdPlaybackState.adsId}.
@@ -543,7 +566,8 @@ public final class AdPlaybackTracker {
       AdPlaybackState initialAdPlaybackState) {
     verifyLooperThread();
     Object adsId = checkNotNull(initialAdPlaybackState.adsId);
-    if (isReleased || player == null) {
+    @Nullable Player currentPlayer = this.player;
+    if (isReleased || currentPlayer == null) {
       // Run without ads after release or when no player is attached so that a still-active
       // AdsMediaSource is not stuck waiting for an initial AdPlaybackState.
       eventListener.onAdPlaybackState(new AdPlaybackState(adsId));
@@ -560,12 +584,15 @@ public final class AdPlaybackTracker {
         adsId);
     checkArgument(
         !sessionsByAdsId.containsKey(adsId), "Session already active for adsId: %s", adsId);
-    AdSession session = new AdSession(eventListener, initialAdPlaybackState, sessionCallback);
+    AdSession session =
+        new AdSession(
+            eventListener, initialAdPlaybackState, sessionCallback, getPlayerVolume(currentPlayer));
     sessionsByAdsId.put(adsId, session);
     // Publish before notifying the bridge so that a re-entrant updateAdPlaybackState() from
-    // onSessionStarted() is not overwritten by the initial state.
+    // onSessionStarted() is not overwritten by the initial state. The session reports its latest
+    // volume when started, so that a volume change during publishing is not lost.
     session.publishAdPlaybackState();
-    notifyBridge(bridge -> bridge.onSessionStarted(adsId, contentMediaItem, adViewProvider));
+    session.start(contentMediaItem, adViewProvider);
   }
 
   /**
@@ -625,8 +652,9 @@ public final class AdPlaybackTracker {
 
   /**
    * Unregisters the {@link AdsMediaSource} session for {@code adsId}, notifies {@link
-   * SdkBridge#onSessionStopped}, and returns the final {@link AdPlaybackState} (or {@code null} if
-   * this tracker is released or has no active session for {@code adsId}).
+   * SdkBridge#onSessionStopped} if {@link SdkBridge#onSessionStarted} was called for the session,
+   * and returns the final {@link AdPlaybackState} (or {@code null} if this tracker is released or
+   * has no active session for {@code adsId}).
    *
    * <p>The returned instance is a {@linkplain AdPlaybackState#copy() copy} of the session's final
    * state.
@@ -706,7 +734,32 @@ public final class AdPlaybackTracker {
     }
     notifyBridge(bridge -> bridge.onPlayerChanged(player));
     if (player != null && this.player == player) {
-      playerListener.updateCurrentSessionDynamicState(player);
+      syncVolume();
+      if (this.player == player) {
+        playerListener.updateCurrentSessionDynamicState(player);
+      }
+    }
+  }
+
+  private static float getPlayerVolume(Player player) {
+    if (player.isCommandAvailable(Player.COMMAND_GET_VOLUME)) {
+      return player.getVolume();
+    }
+    return player.isCommandAvailable(Player.COMMAND_GET_TRACKS)
+            && player.getCurrentTracks().isTypeSelected(C.TRACK_TYPE_AUDIO)
+        ? 1f
+        : 0f;
+  }
+
+  private void syncVolume() {
+    for (AdSession session : ImmutableList.copyOf(sessionsByAdsId.values())) {
+      // Re-read the player and its volume for every session: an SdkBridge may change the volume
+      // from onVolumeChanged, and a value captured before the loop would overwrite the newer one.
+      @Nullable Player currentPlayer = player;
+      if (currentPlayer == null) {
+        return;
+      }
+      session.setVolume(getPlayerVolume(currentPlayer));
     }
   }
 
@@ -976,6 +1029,21 @@ public final class AdPlaybackTracker {
       if (newSession != null && currentPlayer.getPlaybackState() == Player.STATE_READY) {
         newSession.startAd(newPosition.adGroupIndex, newPosition.adIndexInAdGroup, playWhenReady);
       }
+    }
+
+    @Override
+    public void onTracksChanged(Tracks tracks) {
+      syncVolume();
+    }
+
+    @Override
+    public void onAvailableCommandsChanged(Player.Commands availableCommands) {
+      syncVolume();
+    }
+
+    @Override
+    public void onVolumeChanged(float volume) {
+      syncVolume();
     }
 
     @Override
