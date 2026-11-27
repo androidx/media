@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.material3.editing
 
 import android.graphics.Bitmap
 import android.os.Looper
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -49,6 +50,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -254,6 +256,74 @@ class ClippingSliderTest {
         assertThat(player.isScrubbingModeEnabled).isFalse()
         assertThat(player.currentPosition).isEqualTo((draggedProgress * 10_000L).toLong())
       }
+    }
+
+  @Test
+  fun playing_reachesClippingEnd_loopsToClippingStart() =
+    runTest(testDispatcher) {
+      val player = createPlayer(durationMs = 10_000, positionMs = 7_000)
+      player.play()
+      setClippingSliderContentWithPlayer(
+        player,
+        scope = backgroundScope,
+        initialClippingRangeMs = 2_000L..8_000L,
+      )
+      rule.runOnIdle { assertThat(player.currentPosition).isEqualTo(7_000L) }
+
+      player.setPositionSupplierDrivenBy(testScheduler)
+      testScheduler.advanceTimeBy(1_500.milliseconds)
+
+      rule.runOnIdle {
+        assertThat(player.currentPosition).isEqualTo(2_000L)
+        assertThat(player.playWhenReady).isTrue()
+      }
+    }
+
+  @Test
+  fun paused_atClippingEnd_staysAtClippingEnd() =
+    runTest(testDispatcher) {
+      val player = createPlayer(durationMs = 10_000, positionMs = 3_000)
+      setClippingSliderContentWithPlayer(
+        player,
+        scope = backgroundScope,
+        initialClippingRangeMs = 2_000L..8_000L,
+      )
+
+      player.setPosition(8_000)
+      testScheduler.advanceTimeBy(1_000.milliseconds)
+
+      rule.runOnIdle {
+        assertThat(player.currentPosition).isEqualTo(8_000L)
+        assertThat(player.playWhenReady).isFalse()
+      }
+    }
+
+  @Test
+  fun dragPositionThumb_sliderRemovedDuringDrag_leavesScrubbingMode() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer(durationMs = 10_000, positionMs = 5_000)
+      val showSlider = mutableStateOf(true)
+      val bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+      rule.setContent {
+        touchSlop = LocalViewConfiguration.current.touchSlop
+        if (showSlider.value) {
+          ClippingSlider(
+            player = player,
+            bitmaps = ImmutableList.of(bitmap, bitmap),
+            modifier = Modifier.testTag(tag),
+            scope = backgroundScope,
+          )
+        }
+      }
+      onPositionThumb().performTouchInput {
+        down(center)
+        moveBy(Offset(touchSlop + 50f, 0f))
+      }
+      rule.runOnIdle { assertThat(player.isScrubbingModeEnabled).isTrue() }
+
+      showSlider.value = false
+
+      rule.runOnIdle { assertThat(player.isScrubbingModeEnabled).isFalse() }
     }
 
   @Test

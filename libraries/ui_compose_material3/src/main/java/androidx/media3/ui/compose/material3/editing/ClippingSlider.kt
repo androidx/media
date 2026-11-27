@@ -1259,8 +1259,8 @@ internal class ClippingSliderState(
    */
   suspend fun observe(): Nothing {
     coroutineScope {
-      // Observe Player events (isPlaying, playWhenReady) to keep playback states synchronized.
-      launch { playerStateObserver?.observe() }
+      // Observe and control the Player.
+      launch { observePlayer() }
 
       // Apply initial clipping range once media duration is known.
       launch {
@@ -1303,6 +1303,15 @@ internal class ClippingSliderState(
           startScrubbing()
         }
       }
+
+      awaitCancellation()
+    }
+  }
+
+  private suspend fun observePlayer(): Nothing {
+    coroutineScope {
+      // Observe Player events (isPlaying, playWhenReady) to keep playback states synchronized.
+      launch { playerStateObserver?.observe() }
 
       // Take the player out of scrubbing mode once no thumb is interacted with anymore. The
       // onValueChangeFinished callbacks already do this, but they aren't delivered for interrupted
