@@ -17,6 +17,7 @@
 package androidx.media3.ui.compose.material3.editing
 
 import android.graphics.Bitmap
+import android.os.Looper
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -39,16 +40,23 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.test.utils.FakeMediaSource
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.test.utils.FakeTimeline
+import androidx.media3.test.utils.TestExoPlayerBuilder
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(AndroidJUnit4::class)
 class ClippingSliderTest {
@@ -61,6 +69,12 @@ class ClippingSliderTest {
   val rule = createComposeRule(ComposeUiTestConfig(effectContext = testDispatcher))
 
   private var touchSlop = 0f
+  private val playersToRelease = mutableListOf<ExoPlayer>()
+
+  @After
+  fun tearDown() {
+    playersToRelease.forEach { it.release() }
+  }
 
   @Test
   fun clippingSlider_defaultRange_selectsWholeMediaWithEnabledThumbs() =
@@ -104,7 +118,6 @@ class ClippingSliderTest {
         down(center)
         moveBy(Offset(touchSlop + 50f, 0f))
       }
-      testScheduler.runCurrent()
 
       // FakePlayer doesn't support scrubbing mode, so the seek is deferred until the release.
       rule.runOnIdle {
@@ -116,7 +129,6 @@ class ClippingSliderTest {
       }
 
       onStartThumb().performTouchInput { up() }
-      testScheduler.runCurrent()
 
       val expectedSliderStart =
         calculateFraction(
@@ -163,7 +175,6 @@ class ClippingSliderTest {
         down(center)
         moveBy(Offset(touchSlop + 50f, 0f))
       }
-      testScheduler.runCurrent()
 
       // FakePlayer doesn't support scrubbing mode, so the seek is deferred until the release.
       val draggedProgress = rule.runOnIdle {
@@ -177,13 +188,71 @@ class ClippingSliderTest {
       assertThat(reportedProgress).isEqualTo(draggedProgress)
 
       onPositionThumb().performTouchInput { up() }
-      testScheduler.runCurrent()
 
       rule.runOnIdle {
         assertThat(state.isUserInteracting).isFalse()
         assertThat(progressChangeFinished).isTrue()
         assertThat(player.currentPosition).isEqualTo((draggedProgress * 10_000L).toLong())
         assertThat(state.playbackProgress).isWithin(tolerance).of(draggedProgress)
+      }
+    }
+
+  @Test
+  fun dragStartThumb_scrubbingSupported_seeksToNewStartDuringDrag() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer(durationMs = 10_000, positionMs = 2_000)
+      val state =
+        setClippingSliderContent(
+          player,
+          scope = backgroundScope,
+          initialClippingRangeMs = 2_000L..8_000L,
+        )
+      rule.runOnIdle { assertThat(state.clippingRangeMs).isEqualTo(2_000L..8_000L) }
+
+      onStartThumb().performTouchInput {
+        down(center)
+        moveBy(Offset(touchSlop + 50f, 0f))
+      }
+
+      rule.runOnIdle {
+        assertThat(player.isScrubbingModeEnabled).isTrue()
+        assertThat(state.clippingRangeMs.first).isGreaterThan(2_000L)
+        assertThat(player.currentPosition).isEqualTo(state.clippingRangeMs.first)
+      }
+
+      onStartThumb().performTouchInput { up() }
+
+      rule.runOnIdle {
+        assertThat(player.isScrubbingModeEnabled).isFalse()
+        assertThat(player.currentPosition).isEqualTo(state.clippingRangeMs.first)
+      }
+    }
+
+  @Test
+  fun dragPositionThumb_scrubbingSupported_seeksDuringDrag() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer(durationMs = 10_000, positionMs = 5_000)
+      val state = setClippingSliderContent(player, scope = backgroundScope)
+      assertThat(onPositionThumb().fetchProgress()).isWithin(tolerance).of(0.5f)
+
+      onPositionThumb().performTouchInput {
+        down(center)
+        moveBy(Offset(touchSlop + 50f, 0f))
+      }
+
+      val draggedProgress = rule.runOnIdle {
+        assertThat(player.isScrubbingModeEnabled).isTrue()
+        val progress = state.progressSliderState.value
+        assertThat(progress).isGreaterThan(0.5f)
+        assertThat(player.currentPosition).isEqualTo((progress * 10_000L).toLong())
+        progress
+      }
+
+      onPositionThumb().performTouchInput { up() }
+
+      rule.runOnIdle {
+        assertThat(player.isScrubbingModeEnabled).isFalse()
+        assertThat(player.currentPosition).isEqualTo((draggedProgress * 10_000L).toLong())
       }
     }
 
@@ -197,7 +266,6 @@ class ClippingSliderTest {
         scope = backgroundScope,
         initialClippingRangeMs = 2_000L..8_000L,
       )
-      testScheduler.runCurrent()
 
       rule.runOnIdle { assertThat(player.currentPosition).isEqualTo(2_000L) }
       // The thumbs are centered half a thumb outside the clip, so 2 s to 8 s of 10 s is symmetric.
@@ -219,7 +287,6 @@ class ClippingSliderTest {
       val player = createPlayer(durationMs = 10_000, positionMs = 0, isSeekable = false)
 
       setClippingSliderContentWithPlayer(player, scope = backgroundScope)
-      testScheduler.runCurrent()
 
       onStartThumb().assertIsNotEnabled()
       onEndThumb().assertIsNotEnabled()
@@ -323,4 +390,26 @@ class ClippingSliderTest {
           ),
       )
       .apply { setPosition(positionMs) }
+
+  /** Returns a prepared [ExoPlayer] with a single seekable item of [durationMs] at [positionMs]. */
+  private fun createExoPlayer(durationMs: Long, positionMs: Long): ExoPlayer {
+    val player = TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build()
+    playersToRelease.add(player)
+    player.setMediaSource(
+      FakeMediaSource(
+        FakeTimeline(
+          FakeTimeline.TimelineWindowDefinition.Builder()
+            .setDurationUs(durationMs * 1_000)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build()
+        )
+      )
+    )
+    player.seekTo(positionMs)
+    player.prepare()
+    while (player.playbackState != Player.STATE_READY) {
+      shadowOf(Looper.getMainLooper()).idle()
+    }
+    return player
+  }
 }

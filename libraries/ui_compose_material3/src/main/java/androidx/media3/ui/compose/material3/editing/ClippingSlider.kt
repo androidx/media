@@ -952,9 +952,7 @@ internal class ClippingSliderState(
       // trackRange, so otherwise the thumb can't follow a boundary moving outwards.
       updateProgressSliderRange(clippingRange)
       progressSliderState.value = currentHandle
-      // Only seek continuously when scrubbing mode makes frequent seeks cheap. Otherwise, the seek
-      // is deferred to onRangeSliderValueChangeFinished.
-      if (isScrubbing) seekTo(currentHandle)
+      scrubTo(currentHandle)
     }
   }
 
@@ -991,9 +989,7 @@ internal class ClippingSliderState(
     // The interaction listener also starts scrubbing, but it runs asynchronously and can lag behind
     // the first value changes of a drag.
     startScrubbing()
-    // Only seek continuously when scrubbing mode makes frequent seeks cheap. Otherwise, the seek is
-    // deferred to onProgressSliderValueChangeFinished.
-    if (isScrubbing) seekTo(coerced)
+    scrubTo(coerced)
   }
 
   internal fun onProgressSliderValueChangeFinished() {
@@ -1215,6 +1211,14 @@ internal class ClippingSliderState(
       rangeSliderState.endValue = sliderRange.endInclusive
     }
     updateProgressSliderRange(range)
+  }
+
+  /**
+   * Seeks to the given progress if the player is in scrubbing mode, which makes frequent seeks
+   * cheap. Otherwise, the seek is deferred to the end of the interaction.
+   */
+  private fun scrubTo(progress: Float) {
+    if (isScrubbing) seekTo(progress)
   }
 
   /**
