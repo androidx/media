@@ -67,6 +67,7 @@ import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import com.google.common.collect.ImmutableList;
+import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -474,6 +475,7 @@ public class MatroskaExtractor implements Extractor {
   private final ParsableByteArray supplementalData;
   private @MonotonicNonNull ByteBuffer encryptionSubsampleDataBuffer;
 
+  private long ebmlHeaderPosition = C.INDEX_UNSET;
   private long segmentContentSize;
   private long segmentContentPosition = C.INDEX_UNSET;
   private long timecodeScale = C.TIME_UNSET;
@@ -613,7 +615,13 @@ public class MatroskaExtractor implements Extractor {
 
   @Override
   public final boolean sniff(ExtractorInput input) throws IOException {
-    return new Sniffer().sniff(input);
+    long startPosition = input.getPeekPosition();
+    Sniffer sniffer = new Sniffer();
+    if (!sniffer.sniff(input)) {
+      return false;
+    }
+    ebmlHeaderPosition = startPosition + sniffer.getHeaderOffset();
+    return true;
   }
 
   @Override
@@ -662,6 +670,23 @@ public class MatroskaExtractor implements Extractor {
 
   @Override
   public final int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
+    long position = input.getPosition();
+    if (ebmlHeaderPosition == C.INDEX_UNSET) {
+      // The caller can select the extractor without sniffing.
+      try {
+        if (!sniff(input)) {
+          ebmlHeaderPosition = position;
+        }
+      } catch (EOFException e) {
+        // Leave short or invalid inputs for the EBML reader to handle as usual.
+        ebmlHeaderPosition = position;
+      } finally {
+        input.resetPeekPosition();
+      }
+    }
+    if (position < ebmlHeaderPosition) {
+      input.skipFully((int) (ebmlHeaderPosition - position));
+    }
     haveOutputSample = false;
     boolean continueReading = true;
     while (continueReading && !haveOutputSample) {
