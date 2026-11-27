@@ -34,7 +34,7 @@ repositories {
     filter { includeGroup("com.google.devsite") }
   }
   maven {
-    url = uri("https://maven.pkg.jetbrains.space/kotlin/p/dokka/dev")
+    url = uri("https://packages.jetbrains.team/maven/p/kt/dokka-dev")
     content { includeGroup("org.jetbrains.dokka") }
   }
 }
