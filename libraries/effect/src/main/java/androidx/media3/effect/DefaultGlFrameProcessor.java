@@ -33,6 +33,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.content.Context;
 import android.opengl.GLES20;
 import android.util.SparseArray;
+import android.view.Display;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -455,6 +456,16 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           .setColorSpace(C.COLOR_SPACE_BT2020)
           .setColorTransfer(C.COLOR_TRANSFER_HLG)
           .build();
+
+  /**
+   * Metadata key for storing the base-2 logarithm of the target HDR headroom, in {@link
+   * Frame#getMetadata()} and {@link GlTextureFrame#getMetadata()}.
+   *
+   * <p>The value is a finite {@link Float} {@code >= 0.0f} equal to {@code log2} of the target
+   * HDR-to-SDR luminance ratio (for example, {@code log2} of {@link Display#getHdrSdrRatio()}),
+   * where {@code 0.0f} represents SDR reference white.
+   */
+  /* package */ static final String KEY_TARGET_LOG2_HDR_HEADROOM = "KEY_TARGET_LOG2_HDR_HEADROOM";
 
   private static final String TAG = "GlFrameProcessor";
   private static final long RELEASE_TIMEOUT_MS = 1_000;

@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.video;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.math.DoubleMath.log2;
@@ -23,10 +24,12 @@ import static java.lang.Math.min;
 import static java.lang.Math.pow;
 import static java.lang.Math.signum;
 
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
@@ -39,7 +42,9 @@ import org.jspecify.annotations.Nullable;
  * <p>Holds {@link Frame#KEY_HDR_ST2094_50_INFO} metadata. The bitstream format is defined in Annex
  * C of <a href="https://pub.smpte.org/pub/st2094-50/">SMPTE ST 2094-50:2026</a>.
  */
-/* package */ final class HagcMetadata {
+@UnstableApi
+@RestrictTo(LIBRARY_GROUP)
+public final class HagcMetadata {
 
   /** The {@link #hdrReferenceWhiteNits} of a payload that doesn't specify one. */
   public static final float DEFAULT_HDR_REFERENCE_WHITE_NITS = 203f;
@@ -630,7 +635,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** The headroom-adaptive tone map of a frame. */
-  /* package */ static final class HeadroomAdaptiveToneMap {
+  public static final class HeadroomAdaptiveToneMap {
 
     /**
      * The {@link #gainApplicationColorSpace} of a payload that lists the chromaticities of its gain
@@ -724,7 +729,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** A rendition of the frame for an alternate HDR headroom, described as a gain to the frame. */
-  /* package */ static final class AlternateImage {
+  public static final class AlternateImage {
 
     /** The log2 HDR headroom of the alternate image, in the range [0, 6]. */
     public final float hdrHeadroom;
@@ -768,7 +773,7 @@ import org.jspecify.annotations.Nullable;
    * <p>The weights are in the range [0, 1]. They're normalized to sum to 1 when the mix is created,
    * as when it's evaluated (Formula (10)), so that equivalent mixes are equal.
    */
-  /* package */ static final class ComponentMix {
+  public static final class ComponentMix {
 
     /** The mix whose output is the maximum of the components. */
     public static final ComponentMix MAX =
@@ -868,7 +873,7 @@ import org.jspecify.annotations.Nullable;
    *
    * <p>{@code x}, {@code y} and {@code slopes} have the same length, the number of control points.
    */
-  /* package */ static final class GainCurve {
+  public static final class GainCurve {
 
     /**
      * The x coordinates of the control points, in non-decreasing order and in the range [0, 64].
