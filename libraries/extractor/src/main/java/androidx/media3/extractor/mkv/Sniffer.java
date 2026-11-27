@@ -34,6 +34,7 @@ import java.io.IOException;
 
   private final ParsableByteArray scratch;
   private int peekLength;
+  private int headerOffset;
 
   public Sniffer() {
     scratch = new ParsableByteArray(8);
@@ -41,30 +42,33 @@ import java.io.IOException;
 
   /** See {@link Extractor#sniff(ExtractorInput)}. */
   public boolean sniff(ExtractorInput input) throws IOException {
+    long startPosition = input.getPeekPosition();
     long inputLength = input.getLength();
     int bytesToSearch =
-        (int)
-            (inputLength == C.LENGTH_UNSET || inputLength > SEARCH_LENGTH
-                ? SEARCH_LENGTH
-                : inputLength);
+        inputLength == C.LENGTH_UNSET
+            ? SEARCH_LENGTH
+            : (int) Math.min(SEARCH_LENGTH, inputLength - startPosition);
     // Find four bytes equal to ID_EBML near the start of the input.
     input.peekFully(scratch.getData(), 0, 4);
-    long tag = scratch.readUnsignedInt();
+    scratch.setPosition(0);
+    int tag = scratch.readInt();
     peekLength = 4;
     while (tag != ID_EBML) {
-      if (++peekLength == bytesToSearch) {
+      if (peekLength >= bytesToSearch) {
         return false;
       }
       input.peekFully(scratch.getData(), 0, 1);
-      tag = (tag << 8) & 0xFFFFFF00;
-      tag |= scratch.getData()[0] & 0xFF;
+      tag = (tag << 8) | (scratch.getData()[0] & 0xFF);
+      peekLength++;
     }
+    headerOffset = peekLength - 4;
 
     // Read the size of the EBML header and make sure it is within the stream.
     long headerSize = readUint(input);
     long headerStart = peekLength;
     if (headerSize == Long.MIN_VALUE
-        || (inputLength != C.LENGTH_UNSET && headerStart + headerSize >= inputLength)) {
+        || (inputLength != C.LENGTH_UNSET
+            && startPosition + headerStart + headerSize >= inputLength)) {
       return false;
     }
 
@@ -85,6 +89,11 @@ import java.io.IOException;
       }
     }
     return peekLength == headerStart + headerSize;
+  }
+
+  /** Returns the offset of the EBML header found by a successful call to {@link #sniff}. */
+  public int getHeaderOffset() {
+    return headerOffset;
   }
 
   /** Peeks a variable-length unsigned EBML integer from the input. */
