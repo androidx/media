@@ -67,6 +67,7 @@ import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import com.google.common.collect.ImmutableList;
+import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -79,6 +80,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -145,6 +147,7 @@ public class MatroskaExtractor implements Extractor {
   private static final String TAG = "MatroskaExtractor";
 
   private static final int UNSET_ENTRY_ID = -1;
+  private static final int MAX_INDEX_SEEKS = 32;
 
   private static final int BLOCK_STATE_START = 0;
   private static final int BLOCK_STATE_HEADER = 1;
@@ -453,6 +456,9 @@ public class MatroskaExtractor implements Extractor {
   }
 
   private final EbmlReader reader;
+  private final EbmlReader indexReader;
+  private final ArrayList<Long> linkedSeekHeadPositions;
+  private final HashSet<Long> visitedIndexPositions;
   private final VarintReader varintReader;
   private final SparseArray<Track> tracks;
   private final LongSparseArray<ChapterEntry> chapters;
@@ -504,6 +510,9 @@ public class MatroskaExtractor implements Extractor {
   private long currentCueRelativePosition = C.INDEX_UNSET;
   private int primarySeekTrackNumber = C.INDEX_UNSET;
   private boolean seekForCues;
+  private boolean formatsAwaitCues;
+  private long inputLength = C.LENGTH_UNSET;
+  private int pendingIndexElementId = C.INDEX_UNSET;
   private long cuesContentPosition = C.INDEX_UNSET;
   private long seekPositionAfterBuildingCues = C.INDEX_UNSET;
   private long tracksContentPosition = C.INDEX_UNSET;
@@ -587,7 +596,12 @@ public class MatroskaExtractor implements Extractor {
   /* package */ MatroskaExtractor(
       EbmlReader reader, @Flags int flags, SubtitleParser.Factory subtitleParserFactory) {
     this.reader = reader;
-    this.reader.init(new InnerEbmlProcessor());
+    InnerEbmlProcessor processor = new InnerEbmlProcessor();
+    this.reader.init(processor);
+    indexReader = new DefaultEbmlReader();
+    indexReader.init(processor);
+    linkedSeekHeadPositions = new ArrayList<>();
+    visitedIndexPositions = new HashSet<>();
     this.subtitleParserFactory = subtitleParserFactory;
     this.perTrackCues = new SparseArray<>();
     seekForCuesEnabled = (flags & FLAG_DISABLE_SEEK_FOR_CUES) == 0;
@@ -633,6 +647,11 @@ public class MatroskaExtractor implements Extractor {
     clusterTimecodeUs = C.TIME_UNSET;
     blockState = BLOCK_STATE_START;
     reader.reset();
+    indexReader.reset();
+    visitedIndexPositions.clear();
+    pendingIndexElementId = C.INDEX_UNSET;
+    seekForCues = false;
+    seekPositionAfterBuildingCues = C.INDEX_UNSET;
     varintReader.reset();
     resetWriteSampleData();
     currentChapters.clear();
@@ -662,13 +681,35 @@ public class MatroskaExtractor implements Extractor {
 
   @Override
   public final int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
+    long length = input.getLength();
+    if (length != C.LENGTH_UNSET) {
+      inputLength = length;
+    }
     haveOutputSample = false;
     boolean continueReading = true;
     while (continueReading && !haveOutputSample) {
-      continueReading = reader.read(input);
-      if (continueReading
-          && (maybeSeekForTracks(seekPosition, input.getPosition())
-              || maybeSeekForCues(seekPosition, input.getPosition()))) {
+      boolean readingIndex = seekPositionAfterBuildingCues != C.INDEX_UNSET;
+      try {
+        continueReading = readingIndex ? readIndex(input) : reader.read(input);
+      } catch (EOFException e) {
+        if (!readingIndex) {
+          if (!isReadingOptionalIndex()) {
+            throw e;
+          }
+          if (!sentSeekMap) {
+            outputUnseekableMap();
+          }
+        }
+        continueReading = false;
+      }
+      if (!continueReading && readingIndex) {
+        // A stale or truncated target is optional. Try another link or resume the media.
+        inCuesElement = false;
+        perTrackCues.clear();
+        seekForCues = true;
+      }
+      if ((continueReading && maybeSeekForTracks(seekPosition, input.getPosition()))
+          || maybeSeekForCues(seekPosition, input.getPosition())) {
         return Extractor.RESULT_SEEK;
       }
     }
@@ -931,8 +972,19 @@ public class MatroskaExtractor implements Extractor {
         }
         if (seekEntryId == ID_CUES) {
           cuesContentPosition = seekEntryPosition;
+        } else if (seekEntryId == ID_SEEK_HEAD
+            && seekForCuesEnabled
+            && isValidIndexPosition(seekEntryPosition)
+            && !linkedSeekHeadPositions.contains(seekEntryPosition)
+            && linkedSeekHeadPositions.size() < MAX_INDEX_SEEKS) {
+          linkedSeekHeadPositions.add(seekEntryPosition);
         } else if (seekEntryId == ID_TRACKS) {
           tracksContentPosition = seekEntryPosition;
+        }
+        break;
+      case ID_SEEK_HEAD:
+        if (seekPositionAfterBuildingCues != C.INDEX_UNSET) {
+          seekForCues = true;
         }
         break;
       case ID_CUES:
@@ -962,15 +1014,7 @@ public class MatroskaExtractor implements Extractor {
           }
           sentSeekMap = true;
           inCuesElement = false;
-          for (int i = 0; i < tracks.size(); i++) {
-            Track track = tracks.valueAt(i);
-            if (!track.waitingForDtsAnalysis) {
-              updateTrackFormatWithMetadata(track);
-              track.assertOutputInitialized();
-              track.output.format(checkNotNull(track.format));
-            }
-          }
-          maybeEndTracks();
+          outputTrackFormats();
         }
         break;
       case ID_CUE_TRACK_POSITIONS:
@@ -1096,7 +1140,8 @@ public class MatroskaExtractor implements Extractor {
         // If we're not going to seek for cues, or we have already processed them, output the
         // formats immediately.
         boolean maybeSendFormatsEarly =
-            !seekForCuesEnabled || cuesContentPosition == C.INDEX_UNSET || sentSeekMap;
+            !seekForCuesEnabled || getNextIndexPosition() == C.INDEX_UNSET || sentSeekMap;
+        formatsAwaitCues = !maybeSendFormatsEarly;
 
         for (int i = 0; i < tracks.size(); i++) {
           Track trackItem = tracks.valueAt(i);
@@ -2195,30 +2240,80 @@ public class MatroskaExtractor implements Extractor {
     return bytesWritten;
   }
 
-  /**
-   * Updates the position of the holder to Cues element's position if the extractor configuration
-   * permits use of master seek entry. After building Cues sets the holder's position back to where
-   * it was before.
-   *
-   * @param seekPosition The holder whose position will be updated.
-   * @param currentPosition Current position of the input.
-   * @return Whether the seek position was updated.
-   */
+  /** Reads an index target without changing the reader state at the start of media. */
+  private boolean readIndex(ExtractorInput input) throws IOException {
+    if (pendingIndexElementId != C.INDEX_UNSET) {
+      int id;
+      try {
+        input.peekFully(seekEntryIdBytes.getData(), 0, 4);
+        seekEntryIdBytes.setPosition(0);
+        id = seekEntryIdBytes.readInt();
+      } finally {
+        input.resetPeekPosition();
+      }
+      if (id != pendingIndexElementId) {
+        return false;
+      }
+      pendingIndexElementId = C.INDEX_UNSET;
+    }
+    return indexReader.read(input);
+  }
+
   private boolean maybeSeekForCues(PositionHolder seekPosition, long currentPosition) {
     if (seekForCues) {
-      seekPositionAfterBuildingCues = currentPosition;
-      seekPosition.position = cuesContentPosition;
       seekForCues = false;
-      return true;
+      long indexPosition = getNextIndexPosition();
+      if (indexPosition != C.INDEX_UNSET) {
+        if (seekPositionAfterBuildingCues == C.INDEX_UNSET) {
+          seekPositionAfterBuildingCues = currentPosition;
+        }
+        visitedIndexPositions.add(indexPosition);
+        pendingIndexElementId = indexPosition == cuesContentPosition ? ID_CUES : ID_SEEK_HEAD;
+        indexReader.reset();
+        seekPosition.position = indexPosition;
+        return true;
+      }
+      outputUnseekableMap();
     }
-    // After parsing Cues, seek back to original position if available. We will not do this unless
-    // we seeked to get to the Cues in the first place.
     if (sentSeekMap && seekPositionAfterBuildingCues != C.INDEX_UNSET) {
       seekPosition.position = seekPositionAfterBuildingCues;
       seekPositionAfterBuildingCues = C.INDEX_UNSET;
+      pendingIndexElementId = C.INDEX_UNSET;
       return true;
     }
     return false;
+  }
+
+  private long getNextIndexPosition() {
+    if (visitedIndexPositions.size() >= MAX_INDEX_SEEKS) {
+      return C.INDEX_UNSET;
+    }
+    if (isValidIndexPosition(cuesContentPosition)
+        && !visitedIndexPositions.contains(cuesContentPosition)) {
+      return cuesContentPosition;
+    }
+    for (int i = linkedSeekHeadPositions.size() - 1; i >= 0; i--) {
+      long position = linkedSeekHeadPositions.get(i);
+      if (isValidIndexPosition(position) && !visitedIndexPositions.contains(position)) {
+        return position;
+      }
+    }
+    return C.INDEX_UNSET;
+  }
+
+  private boolean isValidIndexPosition(long position) {
+    return position > segmentContentPosition
+        && (segmentContentSize == C.LENGTH_UNSET
+            || position - segmentContentPosition < segmentContentSize)
+        && (inputLength == C.LENGTH_UNSET || position < inputLength);
+  }
+
+  private boolean isReadingOptionalIndex() {
+    if (!seekForCuesEnabled || !readTracks) {
+      return false;
+    }
+    int elementId = reader.getCurrentElementId(id -> id == ID_SEEK_HEAD || isLevel1Element(id));
+    return elementId == ID_SEEK_HEAD || elementId == ID_CUES;
   }
 
   private boolean maybeSeekForTracks(PositionHolder seekPosition, long currentPosition) {
@@ -2312,15 +2407,32 @@ public class MatroskaExtractor implements Extractor {
       return; // Already evaluated
     }
     // We need to build cues before parsing the cluster.
-    if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
-      // We know where the Cues element is located. Seek to request it.
+    if (seekForCuesEnabled && getNextIndexPosition() != C.INDEX_UNSET) {
       seekForCues = true;
     } else {
-      // We don't know where the Cues element is located. It's most likely omitted. Allow
-      // playback, but disable seeking.
-      checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
-      sentSeekMap = true;
+      outputUnseekableMap();
     }
+  }
+
+  private void outputUnseekableMap() {
+    checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+    sentSeekMap = true;
+    if (formatsAwaitCues) {
+      outputTrackFormats();
+    }
+  }
+
+  private void outputTrackFormats() {
+    formatsAwaitCues = false;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.valueAt(i);
+      if (!track.waitingForDtsAnalysis) {
+        updateTrackFormatWithMetadata(track);
+        track.assertOutputInitialized();
+        track.output.format(checkNotNull(track.format));
+      }
+    }
+    maybeEndTracks();
   }
 
   private void maybeEndTracks() {

@@ -15,8 +15,10 @@
  */
 package androidx.media3.extractor.mkv;
 
+import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.extractor.ExtractorInput;
+import com.google.common.base.Predicate;
 import java.io.IOException;
 
 /**
@@ -42,6 +44,12 @@ import java.io.IOException;
    * from scratch.
    */
   void reset();
+
+  /**
+   * Returns the innermost active element matching {@code predicate}, or {@link C#INDEX_UNSET}.
+   * Includes the element whose content size is still being read.
+   */
+  int getCurrentElementId(Predicate<Integer> predicate);
 
   /**
    * Reads from an {@link ExtractorInput}, invoking an event callback if possible.

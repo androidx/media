@@ -22,6 +22,7 @@ import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.extractor.ExtractorInput;
+import com.google.common.base.Predicate;
 import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -77,6 +78,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     elementState = ELEMENT_STATE_READ_ID;
     masterElementsStack.clear();
     varintReader.reset();
+  }
+
+  @Override
+  public int getCurrentElementId(Predicate<Integer> predicate) {
+    if (elementState != ELEMENT_STATE_READ_ID && predicate.apply(elementId)) {
+      return elementId;
+    }
+    for (MasterElement element : masterElementsStack) {
+      if (predicate.apply(element.elementId)) {
+        return element.elementId;
+      }
+    }
+    return C.INDEX_UNSET;
   }
 
   @Override
