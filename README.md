@@ -1,3 +1,43 @@
+# AndroidX Media fork for Nordic Android Player
+
+This is TV4's fork of Google's [Media3 (ExoPlayer)](https://github.com/androidx/media). It is
+based on the upstream `1.11.1` release and carries only fixes we need before Google ships them.
+Remove the fork again once an upstream release contains them.
+
+## Changes on top of Media3 1.11.1
+
+* Fix the start time of refreshed HLS live playlists that no longer contain the segment with the
+  `EXT-X-PROGRAM-DATE-TIME`, for example with delta updates
+  ([androidx/media#3067](https://github.com/androidx/media/issues/3067)). Without it, audio and
+  video drift apart during Prism live ads, which freezes the video.
+
+The earlier 1.9.1 fork also had `Timeline.getAdGroupMediaItems` and a subtitle cue fix
+(NPLAY-363). They are not part of this version.
+
+## How to use this fork
+
+* Publish a new version with the GitHub action
+  [Publish GitHub Packages](https://github.com/TV4/nordic-android-media3v2/actions/workflows/publish-github-packages.yml).
+  Use the upstream version with an `rvX` suffix, for example `1.11.1rv1`.
+
+* Add the GitHub Packages Maven repository so Gradle can resolve the forked artifacts:
+```
+maven {
+    url = uri("https://maven.pkg.github.com/TV4/nordic-android-media3v2")
+    credentials {
+        username = providers.gradleProperty("githubPackages.user").orNull ?: System.getenv("GITHUB_ACTOR")
+        password = providers.gradleProperty("githubPackages.token").orNull ?: System.getenv("GITHUB_TOKEN")
+    }
+}
+```
+
+* Then depend on the forked version:
+```
+dependencies {
+    api("androidx.media3:media3-exoplayer:1.11.1rv1")
+}
+```
+
 # AndroidX Media
 
 AndroidX Media is a collection of libraries for implementing media use cases on
