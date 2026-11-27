@@ -38,6 +38,10 @@
         metadata, and ignore malformed non-integer or non-positive `TLEN` values
         instead of throwing `NumberFormatException`
         ([#3492](https://github.com/androidx/media/issues/3492)).
+    *   ADTS: Update the constant-bitrate `SeekMap` end position to the last
+        complete audio frame at end of input so trailing metadata (such as
+        APEv2 tags) does not inflate reported duration or seek ranges
+        ([#3571](https://github.com/androidx/media/issues/3571)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:

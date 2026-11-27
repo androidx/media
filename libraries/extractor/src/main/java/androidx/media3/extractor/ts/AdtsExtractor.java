@@ -138,6 +138,8 @@ public final class AdtsExtractor implements Extractor {
 
   private long firstSampleTimestampUs;
   private long firstFramePosition;
+  private long seekMapDataEndPosition;
+  private long endPositionOfLastSampleRead;
   private int averageFrameSize;
   private boolean hasCalculatedAverageFrameSize;
   private boolean startedPacket;
@@ -164,6 +166,8 @@ public final class AdtsExtractor implements Extractor {
     packetBuffer = new ParsableByteArray();
     averageFrameSize = C.LENGTH_UNSET;
     firstFramePosition = C.INDEX_UNSET;
+    seekMapDataEndPosition = C.INDEX_UNSET;
+    endPositionOfLastSampleRead = C.INDEX_UNSET;
     // Allocate scratch space for an ID3 header. The same buffer is also used to read 4 byte values.
     scratch = new ParsableByteArray(ID3_HEADER_LENGTH);
     scratchBits = new ParsableBitArray(scratch.getData());
@@ -250,6 +254,7 @@ public final class AdtsExtractor implements Extractor {
     startedPacket = false;
     reader.seek();
     firstSampleTimestampUs = timeUs;
+    endPositionOfLastSampleRead = C.INDEX_UNSET;
   }
 
   @Override
@@ -276,9 +281,10 @@ public final class AdtsExtractor implements Extractor {
       calculateAverageFrameSize(input);
     }
 
+    long bufferStartPosition = input.getPosition();
     int bytesRead = input.read(packetBuffer.getData(), 0, MAX_PACKET_SIZE);
     boolean readEndOfStream = bytesRead == RESULT_END_OF_INPUT;
-    maybeOutputSeekMap(inputLength, readEndOfStream);
+    maybeOutputSeekMap(inputLength, readEndOfStream, input.getPosition());
     if (readEndOfStream) {
       return RESULT_END_OF_INPUT;
     }
@@ -295,6 +301,10 @@ public final class AdtsExtractor implements Extractor {
     // TODO: Make it possible for reader to consume the dataSource directly, so that it becomes
     // unnecessary to copy the data through packetBuffer.
     reader.consume(packetBuffer);
+    int lastAudioSampleEndOffset = reader.getLastAudioSampleEndOffset();
+    if (lastAudioSampleEndOffset != C.INDEX_UNSET) {
+      endPositionOfLastSampleRead = bufferStartPosition + lastAudioSampleEndOffset;
+    }
     return RESULT_CONTINUE;
   }
 
@@ -337,8 +347,21 @@ public final class AdtsExtractor implements Extractor {
   }
 
   @RequiresNonNull("extractorOutput")
-  private void maybeOutputSeekMap(long inputLength, boolean readEndOfStream) {
+  private void maybeOutputSeekMap(long inputLength, boolean readEndOfStream, long inputPosition) {
     if (hasOutputSeekMap) {
+      if (readEndOfStream
+          && inputPosition == inputLength
+          && seekMapDataEndPosition != C.INDEX_UNSET
+          && seekMapDataEndPosition != C.LENGTH_UNSET
+          && endPositionOfLastSampleRead != C.INDEX_UNSET
+          && endPositionOfLastSampleRead > firstFramePosition
+          && endPositionOfLastSampleRead < seekMapDataEndPosition) {
+        seekMapDataEndPosition = endPositionOfLastSampleRead;
+        extractorOutput.seekMap(
+            getConstantBitrateSeekMap(
+                seekMapDataEndPosition,
+                (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0));
+      }
       return;
     }
 
@@ -353,9 +376,19 @@ public final class AdtsExtractor implements Extractor {
     }
 
     if (useConstantBitrateSeeking && reader.getSampleDurationUs() != C.TIME_UNSET) {
+      long dataEndPosition = inputLength;
+      if (readEndOfStream
+          && inputLength != C.LENGTH_UNSET
+          && inputPosition == inputLength
+          && endPositionOfLastSampleRead != C.INDEX_UNSET
+          && endPositionOfLastSampleRead > firstFramePosition
+          && endPositionOfLastSampleRead < inputLength) {
+        dataEndPosition = endPositionOfLastSampleRead;
+      }
+      seekMapDataEndPosition = dataEndPosition;
       extractorOutput.seekMap(
           getConstantBitrateSeekMap(
-              inputLength, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0));
+              dataEndPosition, (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0));
     } else {
       extractorOutput.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
     }
@@ -381,9 +414,12 @@ public final class AdtsExtractor implements Extractor {
         scratch.setPosition(0);
         int syncBytes = scratch.readUnsignedShort();
         if (!AdtsReader.isAdtsSyncWord(syncBytes)) {
-          // Invalid sync byte pattern.
-          // Constant bit-rate seeking will probably fail for this stream.
-          numValidFrames = 0;
+          // Invalid sync byte pattern. Keep the average frame size if we already validated enough
+          // consecutive frames (for example, when a short stream ends with trailing metadata such
+          // as an APEv2 or ID3v1 tag); otherwise CBR seeking will probably fail for this stream.
+          if (numValidFrames < 4) {
+            numValidFrames = 0;
+          }
           break;
         } else {
           // Read the frame size.

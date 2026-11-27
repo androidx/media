@@ -85,6 +85,7 @@ public final class AdtsReader implements ElementaryStreamReader {
 
   private boolean hasCrc;
   private boolean foundFirstFrame;
+  private int lastAudioSampleEndOffset;
 
   // Used to verifies sync words
   private int firstFrameVersion;
@@ -128,6 +129,7 @@ public final class AdtsReader implements ElementaryStreamReader {
     firstFrameSampleRateIndex = C.INDEX_UNSET;
     sampleDurationUs = C.TIME_UNSET;
     timeUs = C.TIME_UNSET;
+    lastAudioSampleEndOffset = C.INDEX_UNSET;
     this.exposeId3 = exposeId3;
     this.language = language;
     this.roleFlags = roleFlags;
@@ -143,6 +145,7 @@ public final class AdtsReader implements ElementaryStreamReader {
   @Override
   public void seek() {
     timeUs = C.TIME_UNSET;
+    lastAudioSampleEndOffset = C.INDEX_UNSET;
     resetSync();
   }
 
@@ -174,6 +177,7 @@ public final class AdtsReader implements ElementaryStreamReader {
   @Override
   public void consume(ParsableByteArray data) throws ParserException {
     assertTracksCreated();
+    lastAudioSampleEndOffset = C.INDEX_UNSET;
     while (data.bytesLeft() > 0) {
       switch (state) {
         case STATE_FINDING_SAMPLE:
@@ -208,6 +212,15 @@ public final class AdtsReader implements ElementaryStreamReader {
    */
   public long getSampleDurationUs() {
     return sampleDurationUs;
+  }
+
+  /**
+   * Returns the buffer offset immediately after the last complete audio frame emitted during the
+   * most recent {@link #consume(ParsableByteArray)} call, or {@link C#INDEX_UNSET} if none was
+   * completed.
+   */
+  /* package */ int getLastAudioSampleEndOffset() {
+    return lastAudioSampleEndOffset;
   }
 
   private void resetSync() {
@@ -548,6 +561,9 @@ public final class AdtsReader implements ElementaryStreamReader {
       // packetStarted method must be called before reading samples.
       checkState(timeUs != C.TIME_UNSET);
       currentOutput.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, sampleSize, 0, null);
+      if (currentOutput == output) {
+        lastAudioSampleEndOffset = data.getPosition();
+      }
       timeUs += currentSampleDuration;
       setFindingSampleState();
     }
