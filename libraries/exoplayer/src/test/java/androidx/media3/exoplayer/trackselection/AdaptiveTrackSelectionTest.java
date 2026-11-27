@@ -112,6 +112,31 @@ public final class AdaptiveTrackSelectionTest {
   }
 
   @Test
+  public void updateSelectedTrack_withZeroChunkDuration_ignoresTimeToFirstByte() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(5000L);
+
+    for (long timeToFirstByteUs : new long[] {0, 1_000_000}) {
+      when(mockBandwidthMeter.getTimeToFirstByteEstimateUs()).thenReturn(timeToFirstByteUs);
+      AdaptiveTrackSelection adaptiveTrackSelection =
+          prepareAdaptiveTrackSelectionWithBandwidthFraction(
+              trackGroup, /* bandwidthFraction= */ 1f);
+
+      adaptiveTrackSelection.updateSelectedTrack(
+          /* playbackPositionUs= */ 0,
+          /* bufferedDurationUs= */ 0,
+          /* availableDurationUs= */ C.TIME_UNSET,
+          /* queue= */ Collections.emptyList(),
+          createMediaChunkIterators(trackGroup, /* chunkDurationUs= */ 0));
+
+      assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format3);
+    }
+  }
+
+  @Test
   public void initial_updateSelectedTrack_returnsCorrectLatestBitrateEstimate() {
     Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
     Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
