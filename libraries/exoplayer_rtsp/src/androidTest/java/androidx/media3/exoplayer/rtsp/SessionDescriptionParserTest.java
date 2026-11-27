@@ -366,6 +366,24 @@ public class SessionDescriptionParserTest {
   }
 
   @Test
+  public void parse_sdpStringWithSingleSpaceSessionName_succeeds() throws Exception {
+    String testMediaSdpInfo =
+        "v=0\r\n"
+            + "o=- 0 0 IN IP4 127.0.0.1\r\n"
+            + "s= \r\n"
+            + "c=IN IP4 0.0.0.0\r\n"
+            + "t=0 0\r\n"
+            + "m=video 0 RTP/AVP 96\r\n"
+            + "a=control:trackID=0\r\n"
+            + "a=rtpmap:96 H264/90000\r\n";
+
+    SessionDescription sessionDescription = SessionDescriptionParser.parse(testMediaSdpInfo);
+
+    assertThat(sessionDescription.sessionName).isEqualTo(" ");
+    assertThat(sessionDescription.mediaDescriptionList).hasSize(1);
+  }
+
+  @Test
   public void parse_sdpStringWithEmptySessionAttribute_throwsParserException() {
     String testMediaSdpInfo =
         "v=0\r\n"

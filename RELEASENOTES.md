@@ -110,6 +110,9 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Fix `ParserException` (`Malformed SDP line: s=`) when the session
+        description has `s= ` (a single space) as the session name, which some
+        servers such as MediaMTX send for streams without a name.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   AV1 extension: Fix a native memory leak of one decoded frame each time
         `Libdav1dVideoRenderer` releases its decoder in surface output mode.

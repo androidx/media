@@ -82,8 +82,8 @@ import org.jspecify.annotations.Nullable;
     boolean isSkippingMediaDescription = false;
 
     // Lines are separated by an CRLF.
-    for (String line : RtspMessageUtil.splitRtspMessageBody(sdpString)) {
-      line = line.trim();
+    for (String untrimmedLine : RtspMessageUtil.splitRtspMessageBody(sdpString)) {
+      String line = untrimmedLine.trim();
 
       if (line.isEmpty()) {
         continue;
@@ -94,6 +94,11 @@ import org.jspecify.annotations.Nullable;
         Matcher sdpTagMatcher = SDP_LINE_WITH_EMPTY_VALUE_PATTERN.matcher(line);
         if (sdpTagMatcher.matches() && Objects.equals(sdpTagMatcher.group(1), INFORMATION_TYPE)) {
           // Allow and skip empty Session Information (tag 'i') attributes
+          continue;
+        }
+        if (line.equals("s=") && untrimmedLine.startsWith("s= ")) {
+          // RFC 4566 section 5.3 recommends "s= " (a single space) for a session with no name
+          sessionDescriptionBuilder.setSessionName(" ");
           continue;
         }
         throw ParserException.createForMalformedManifest(
