@@ -112,6 +112,11 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix parsing of `#EXT-X-DATERANGE` interstitial client-defined attributes
+        whose name is a suffix of an earlier `X-*` attribute on the same tag,
+        and throw `ParserException` instead of `StringIndexOutOfBoundsException`
+        or `NumberFormatException` for malformed empty or decimal client-defined
+        attribute values.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

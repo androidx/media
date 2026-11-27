@@ -308,6 +308,11 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("\\{\\$([a-zA-Z0-9\\-_]+)\\}");
   private static final Pattern REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX =
       Pattern.compile("\\b(X-[A-Z0-9-]+)=");
+  private static final Pattern REGEX_CLIENT_DEFINED_QUOTED_STRING_VALUE =
+      Pattern.compile(ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_CLIENT_DEFINED_HEX_VALUE = Pattern.compile("(0[xX][A-F0-9]+)");
+  private static final Pattern REGEX_CLIENT_DEFINED_DECIMAL_VALUE =
+      Pattern.compile("([\\d\\.]+)\\b");
 
   private static final String DATERANGE_CLASS_INTERSTITIALS = "com.apple.hls.interstitial";
 
@@ -897,6 +902,16 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
 
     long segmentDurationUs = 0;
     String segmentTitle = "";
+    String lastSegmentTitle = "";
+    if (previousMediaPlaylist != null) {
+      for (int i = previousMediaPlaylist.segments.size() - 1; i >= 0; i--) {
+        String previousTitle = previousMediaPlaylist.segments.get(i).title;
+        if (!previousTitle.isEmpty()) {
+          lastSegmentTitle = previousTitle;
+          break;
+        }
+      }
+    }
     boolean hasDiscontinuitySequence = false;
     int playlistDiscontinuitySequence = 0;
     int relativeDiscontinuitySequence = 0;
@@ -1029,6 +1044,24 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         segmentDurationUs = parseTimeSecondsToUs(line, REGEX_MEDIA_DURATION, matcherCache);
         segmentTitle =
             parseOptionalStringAttr(line, REGEX_MEDIA_TITLE, "", variableDefinitions, matcherCache);
+        if (segmentTitle.isEmpty()) {
+          // Variable substitution (e.g. an empty QUERYPARAM) can yield a non-interned empty
+          // string, and untitled segments intentionally do not reset lastSegmentTitle.
+          segmentTitle = "";
+        } else if (segmentTitle.equals(lastSegmentTitle)) {
+          segmentTitle = lastSegmentTitle;
+        } else {
+          if (previousMediaPlaylist != null) {
+            long previousIndex = segmentMediaSequence - previousMediaPlaylist.mediaSequence;
+            if (previousIndex >= 0 && previousIndex < previousMediaPlaylist.segments.size()) {
+              String previousTitle = previousMediaPlaylist.segments.get((int) previousIndex).title;
+              if (segmentTitle.equals(previousTitle)) {
+                segmentTitle = previousTitle;
+              }
+            }
+          }
+          lastSegmentTitle = segmentTitle;
+        }
       } else if (line.startsWith(TAG_SKIP)) {
         int skippedSegmentCount = parseIntAttr(line, REGEX_SKIPPED_SEGMENTS, matcherCache);
         checkState(previousMediaPlaylist != null && segments.isEmpty());
@@ -1391,29 +1424,26 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         Matcher matcher =
             matcherCache.obtainMatcher(REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX, attributes);
         while (matcher.find()) {
-          String attributePrefix = matcher.group();
-          switch (attributePrefix) {
-            case "X-ASSET-URI=": // fall through
-            case "X-ASSET-LIST=": // fall through
-            case "X-RESUME-OFFSET=": // fall through
-            case "X-PLAYOUT-LIMIT=": // fall through
-            case "X-SNAP=": // fall through
-            case "X-RESTRICT=": // fall through
-            case "X-CONTENT-MAY-VARY=": // fall through
-            case "X-TIMELINE-OCCUPIES=": // fall through
-            case "X-TIMELINE-STYLE=": // fall through
-            case "X-SKIP-CONTROL-OFFSET=": // fall through
-            case "X-SKIP-CONTROL-DURATION=": // fall through
-            case "X-SKIP-CONTROL-LABEL-ID=":
+          String attributeName = checkNotNull(matcher.group(1));
+          switch (attributeName) {
+            case "X-ASSET-URI": // fall through
+            case "X-ASSET-LIST": // fall through
+            case "X-RESUME-OFFSET": // fall through
+            case "X-PLAYOUT-LIMIT": // fall through
+            case "X-SNAP": // fall through
+            case "X-RESTRICT": // fall through
+            case "X-CONTENT-MAY-VARY": // fall through
+            case "X-TIMELINE-OCCUPIES": // fall through
+            case "X-TIMELINE-STYLE": // fall through
+            case "X-SKIP-CONTROL-OFFSET": // fall through
+            case "X-SKIP-CONTROL-DURATION": // fall through
+            case "X-SKIP-CONTROL-LABEL-ID":
               // ignore interstitial attributes
               break;
             default:
               clientDefinedAttributes.add(
                   parseClientDefinedAttribute(
-                      attributes,
-                      attributePrefix.substring(0, attributePrefix.length() - 1),
-                      variableDefinitions,
-                      matcherCache));
+                      attributes, attributeName, matcher.end(), variableDefinitions, matcherCache));
               break;
           }
         }
@@ -1779,50 +1809,104 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static HlsMediaPlaylist.ClientDefinedAttribute parseClientDefinedAttribute(
       String attributes,
       String clientAttribute,
+      int valueBeginIndex,
       Map<String, String> variableDefinitions,
       MatcherCache matcherCache)
       throws ParserException {
-    String prefix = clientAttribute + "=";
-    int index = attributes.indexOf(prefix);
-    int valueBeginIndex = index + prefix.length();
-    int valueBeginMaxLength = attributes.length() == valueBeginIndex + 1 ? 1 : 2;
-    String valueBegin =
-        attributes.substring(valueBeginIndex, valueBeginIndex + valueBeginMaxLength);
-    if (valueBegin.startsWith("\"")) {
-      // a quoted string value
-      Pattern pattern = Pattern.compile(clientAttribute + "=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
-      String value = parseStringAttr(attributes, pattern, variableDefinitions, matcherCache);
+    if (valueBeginIndex < attributes.length() && attributes.charAt(valueBeginIndex) == '"') {
+      // A quoted-string value.
+      String value =
+          replaceVariableReferences(
+              matchClientDefinedAttributeValue(
+                  attributes,
+                  clientAttribute,
+                  valueBeginIndex,
+                  REGEX_CLIENT_DEFINED_QUOTED_STRING_VALUE,
+                  matcherCache),
+              variableDefinitions,
+              matcherCache);
       return new HlsMediaPlaylist.ClientDefinedAttribute(
           clientAttribute, value, HlsMediaPlaylist.ClientDefinedAttribute.TYPE_TEXT);
-    } else if (valueBegin.equals("0x") || valueBegin.equals("0X")) {
-      // a hexadecimal sequence value
-      Pattern pattern = Pattern.compile(clientAttribute + "=(0[xX][A-F0-9]+)");
-      String value = parseStringAttr(attributes, pattern, variableDefinitions, matcherCache);
+    } else if (attributes.startsWith("0x", valueBeginIndex)
+        || attributes.startsWith("0X", valueBeginIndex)) {
+      // A hexadecimal-sequence value.
+      String value =
+          matchClientDefinedAttributeValue(
+              attributes,
+              clientAttribute,
+              valueBeginIndex,
+              REGEX_CLIENT_DEFINED_HEX_VALUE,
+              matcherCache);
       return new HlsMediaPlaylist.ClientDefinedAttribute(
           clientAttribute, value, HlsMediaPlaylist.ClientDefinedAttribute.TYPE_HEX_TEXT);
     } else {
-      // a decimal-floating-point value
-      Pattern pattern = Pattern.compile(clientAttribute + "=([\\d\\.]+)\\b");
-      return new HlsMediaPlaylist.ClientDefinedAttribute(
-          clientAttribute, parseDoubleAttr(attributes, pattern, matcherCache));
+      // A decimal-floating-point value.
+      String value =
+          matchClientDefinedAttributeValue(
+              attributes,
+              clientAttribute,
+              valueBeginIndex,
+              REGEX_CLIENT_DEFINED_DECIMAL_VALUE,
+              matcherCache);
+      try {
+        return new HlsMediaPlaylist.ClientDefinedAttribute(
+            clientAttribute, Double.parseDouble(value));
+      } catch (NumberFormatException e) {
+        throw ParserException.createForMalformedManifest(
+            "Invalid decimal-floating-point value for " + clientAttribute + " in " + attributes, e);
+      }
     }
+  }
+
+  private static String matchClientDefinedAttributeValue(
+      String attributes,
+      String clientAttribute,
+      int valueBeginIndex,
+      Pattern valuePattern,
+      MatcherCache matcherCache)
+      throws ParserException {
+    Matcher matcher = matcherCache.obtainMatcher(valuePattern, attributes);
+    matcher.region(valueBeginIndex, attributes.length());
+    if (!matcher.lookingAt()) {
+      throw ParserException.createForMalformedManifest(
+          "Couldn't match "
+              + valuePattern.pattern()
+              + " for "
+              + clientAttribute
+              + " in "
+              + attributes,
+          /* cause= */ null);
+    }
+    return checkNotNull(matcher.group(1));
   }
 
   private static String replaceVariableReferences(
       String string, Map<String, String> variableDefinitions, MatcherCache matcherCache) {
+    if (variableDefinitions.isEmpty() || string.indexOf("{$") == -1) {
+      return string;
+    }
     Matcher matcher = matcherCache.obtainMatcher(REGEX_VARIABLE_REFERENCE, string);
-    StringBuffer stringWithReplacements = new StringBuffer();
+    @Nullable StringBuilder stringWithReplacements = null;
+    int lastAppendPosition = 0;
     while (matcher.find()) {
-      String groupName = matcher.group(1);
-      if (variableDefinitions.containsKey(groupName)) {
-        matcher.appendReplacement(
-            stringWithReplacements, Matcher.quoteReplacement(variableDefinitions.get(groupName)));
-      } else {
-        // The variable is not defined. Leave the reference unchanged.
+      String groupName = checkNotNull(matcher.group(1));
+      @Nullable String replacement = variableDefinitions.get(groupName);
+      if (replacement != null) {
+        if (stringWithReplacements == null) {
+          stringWithReplacements =
+              new StringBuilder(
+                  string.length() - (matcher.end() - matcher.start()) + replacement.length());
+        }
+        stringWithReplacements
+            .append(string, lastAppendPosition, matcher.start())
+            .append(replacement);
+        lastAppendPosition = matcher.end();
       }
     }
-    matcher.appendTail(stringWithReplacements);
-    return stringWithReplacements.toString();
+    if (stringWithReplacements == null) {
+      return string;
+    }
+    return stringWithReplacements.append(string, lastAppendPosition, string.length()).toString();
   }
 
   private static void verifyVariableNameNotContainedOrThrow(

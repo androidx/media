@@ -37,9 +37,9 @@ import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Segment;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,9 +50,10 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** Test for {@link HlsPlaylistParser} to parse {@link HlsMediaPlaylist}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class HlsMediaPlaylistParserTest {
 
   @Test
@@ -2715,5 +2716,263 @@ public class HlsMediaPlaylistParserTest {
             ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
 
     assertThat(parserException).hasMessageThat().contains("duplicate variable name \"import_1\"");
+  }
+
+  @Test
+  public void parse_repeatedSegmentTitles_deduplicatesTitleStrings() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/titles.m3u8?empty_title=");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"empty_title\"\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-MEDIA-SEQUENCE:0\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment0.ts\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment1.ts\n"
+            + "#EXTINF:6.0,\n"
+            + "segment2.ts\n"
+            + "#EXTINF:6.0,{$empty_title}\n"
+            + "segment3.ts\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment4.ts\n"
+            + "#EXTINF:6.0,Other title\n"
+            + "segment5.ts\n"
+            + "#EXTINF:6.0,\n"
+            + "segment6.ts\n";
+    String refreshedPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"empty_title\"\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-MEDIA-SEQUENCE:1\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment1.ts\n"
+            + "#EXTINF:6.0,\n"
+            + "segment2.ts\n"
+            + "#EXTINF:6.0,{$empty_title}\n"
+            + "segment3.ts\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment4.ts\n"
+            + "#EXTINF:6.0,Other title\n"
+            + "segment5.ts\n"
+            + "#EXTINF:6.0,\n"
+            + "segment6.ts\n"
+            + "#EXTINF:6.0,Other title\n"
+            + "segment7.ts\n";
+    String nonOverlappingRefreshString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:3\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:6.0,Other title\n"
+            + "segment10.ts\n";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+    HlsMediaPlaylist refreshedPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, playlist)
+                .parse(
+                    playlistUri,
+                    new ByteArrayInputStream(Util.getUtf8Bytes(refreshedPlaylistString)));
+    HlsMediaPlaylist nonOverlappingPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, playlist)
+                .parse(
+                    playlistUri,
+                    new ByteArrayInputStream(Util.getUtf8Bytes(nonOverlappingRefreshString)));
+
+    assertThat(playlist.segments.get(0).title).isEqualTo("Repeated title");
+    assertThat(playlist.segments.get(1).title).isSameInstanceAs(playlist.segments.get(0).title);
+    assertThat(playlist.segments.get(2).title).isSameInstanceAs("");
+    assertThat(playlist.segments.get(3).title).isSameInstanceAs("");
+    assertThat(playlist.segments.get(4).title).isSameInstanceAs(playlist.segments.get(0).title);
+    assertThat(playlist.segments.get(5).title).isEqualTo("Other title");
+    assertThat(playlist.segments.get(6).title).isSameInstanceAs("");
+    assertThat(refreshedPlaylist.segments.get(0).title)
+        .isSameInstanceAs(playlist.segments.get(0).title);
+    assertThat(refreshedPlaylist.segments.get(3).title)
+        .isSameInstanceAs(playlist.segments.get(0).title);
+    assertThat(refreshedPlaylist.segments.get(4).title)
+        .isSameInstanceAs(playlist.segments.get(5).title);
+    assertThat(refreshedPlaylist.segments.get(6).title)
+        .isSameInstanceAs(playlist.segments.get(5).title);
+    assertThat(nonOverlappingPlaylist.segments.get(0).title)
+        .isSameInstanceAs(playlist.segments.get(5).title);
+  }
+
+  @Test
+  public void parse_skippedSegments_deduplicatesTitleStrings() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/titles.m3u8");
+    String previousPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:9\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=12.0\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-MEDIA-SEQUENCE:0\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment0.ts\n"
+            + "#EXTINF:6.0,\n"
+            + "segment1.ts\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment2.ts\n"
+            + "#EXTINF:6.0,Other title\n"
+            + "segment3.ts\n";
+    String deltaPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:9\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=12.0\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-MEDIA-SEQUENCE:0\n"
+            + "#EXT-X-SKIP:SKIPPED-SEGMENTS=2\n"
+            + "#EXTINF:6.0,Repeated title\n"
+            + "segment2.ts\n"
+            + "#EXTINF:6.0,Other title\n"
+            + "segment3.ts\n"
+            + "#EXTINF:6.0,Other title\n"
+            + "segment4.ts\n";
+    HlsMediaPlaylist previousPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(
+                    playlistUri,
+                    new ByteArrayInputStream(Util.getUtf8Bytes(previousPlaylistString)));
+    InputStream deltaInputStream = new ByteArrayInputStream(Util.getUtf8Bytes(deltaPlaylistString));
+
+    HlsMediaPlaylist deltaPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, previousPlaylist)
+                .parse(playlistUri, deltaInputStream);
+
+    assertThat(deltaPlaylist.segments.get(2).title)
+        .isSameInstanceAs(previousPlaylist.segments.get(0).title);
+    assertThat(deltaPlaylist.segments.get(3).title)
+        .isSameInstanceAs(previousPlaylist.segments.get(3).title);
+    assertThat(deltaPlaylist.segments.get(4).title)
+        .isSameInstanceAs(previousPlaylist.segments.get(3).title);
+  }
+
+  @Test
+  public void parse_clientDefinedAttributesWithVariables_parsesValues() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/interstitials.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"ad_tag\",VALUE=\"sponsored\"\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-PREFIX-X-VALUE=42.5,"
+            + "X-VALUE=\"label_{$ad_tag}\","
+            + "X-HEX=0x1A2F\n";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.interstitials).hasSize(1);
+    assertThat(playlist.interstitials.get(0).clientDefinedAttributes)
+        .containsExactly(
+            new HlsMediaPlaylist.ClientDefinedAttribute(
+                "X-HEX", "0x1A2F", HlsMediaPlaylist.ClientDefinedAttribute.TYPE_HEX_TEXT),
+            new HlsMediaPlaylist.ClientDefinedAttribute("X-PREFIX-X-VALUE", 42.5d),
+            new HlsMediaPlaylist.ClientDefinedAttribute(
+                "X-VALUE", "label_sponsored", HlsMediaPlaylist.ClientDefinedAttribute.TYPE_TEXT))
+        .inOrder();
+  }
+
+  @Test
+  public void parse_malformedClientDefinedAttribute_throwsParserException(
+      @TestParameter({
+            "X-EMPTY=",
+            "X-STR=\"unterminated",
+            "X-HEX=0xZZ",
+            "X-NUM=abc",
+            "X-NUM=1.2.3",
+            "X-NUM=.."
+          })
+          String malformedAttribute) {
+    Uri playlistUri = Uri.parse("https://example.com/interstitials.m3u8");
+    String attributeName = malformedAttribute.substring(0, malformedAttribute.indexOf('='));
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + malformedAttribute
+            + "\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException exception =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(exception.contentIsMalformed).isTrue();
+    assertThat(exception).hasMessageThat().contains("for " + attributeName);
+  }
+
+  @Test
+  public void parse_multipleVariableReferences_substitutesValuesLiterally() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"dir\",VALUE=\"resolved$1\\path\"\n"
+            + "#EXT-X-DEFINE:NAME=\"ext\",VALUE=\"ts\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "{$dir}/segment_0.{$ext}\n"
+            + "#EXTINF:5.005,\n"
+            + "prefix_{$dir}_{$ext}_suffix\n";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.segments.get(0).url).isEqualTo("resolved$1\\path/segment_0.ts");
+    assertThat(playlist.segments.get(1).url).isEqualTo("prefix_resolved$1\\path_ts_suffix");
+  }
+
+  @Test
+  public void parse_undefinedVariableReference_leavesReferenceUnchanged() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"defined_var\",VALUE=\"resolved\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment_{$undefined_var}.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "{$undefined_var}_{$defined_var}_{$other_undefined}.ts\n";
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(playlist.segments.get(0).url).isEqualTo("segment_{$undefined_var}.ts");
+    assertThat(playlist.segments.get(1).url)
+        .isEqualTo("{$undefined_var}_resolved_{$other_undefined}.ts");
   }
 }
