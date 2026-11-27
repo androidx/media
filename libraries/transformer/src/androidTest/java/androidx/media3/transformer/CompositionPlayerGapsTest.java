@@ -15,11 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
-import static androidx.media3.transformer.AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -71,8 +69,7 @@ public final class CompositionPlayerGapsTest {
   private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
   private final Context context = ApplicationProvider.getApplicationContext();
 
-  @TestParameter(valuesProvider = UseDefaultGlFrameProcessorProvider.class)
-  private boolean useDefaultGlFrameProcessor;
+  @TestParameter private boolean useDefaultGlFrameProcessor;
 
   private @MonotonicNonNull CompositionPlayer compositionPlayer;
   private @MonotonicNonNull SurfaceView surfaceView;
@@ -140,7 +137,7 @@ public final class CompositionPlayerGapsTest {
 
   private CompositionPlayer createCompositionPlayer(
       VideoFrameMetadataListener videoFrameMetadataListener) {
-    if (useDefaultGlFrameProcessor && SDK_INT >= HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
+    if (useDefaultGlFrameProcessor) {
       FrameProcessor.Factory frameProcessorFactory =
           new CapturingFrameProcessor.Factory(
               glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(context),
@@ -257,18 +254,6 @@ public final class CompositionPlayerGapsTest {
               /* gapStartUs= */ 2 * AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs(),
               /* gapEndUs= */ 2 * AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs()
                   + AUDIO_ONLY_MEDIA_ITEM.getPresentationDurationUs()));
-    }
-  }
-
-  private static final class UseDefaultGlFrameProcessorProvider
-      extends TestParameterValuesProvider {
-    @Override
-    protected ImmutableList<Boolean> provideValues(TestParameterValuesProvider.Context context) {
-      // Provide true only on supported SDK levels to avoid triggering the AssumeSdkInt lint check.
-      if (SDK_INT >= HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
-        return ImmutableList.of(false, true);
-      }
-      return ImmutableList.of(false);
     }
   }
 

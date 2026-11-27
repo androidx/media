@@ -54,6 +54,7 @@ import static androidx.media3.transformer.TestUtil.getIt35SampleDataByTimeUs;
 import static androidx.media3.transformer.TestUtil.getQueuedContentTimesUs;
 import static androidx.media3.transformer.TestUtil.setupAndPrepareHardwareBufferPlayer;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
@@ -95,6 +96,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
@@ -1451,7 +1453,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @Config(minSdk = 28)
   public void frameProcessor_setComposition_withLowFrameRate_rendersFirstFrame()
       throws PlaybackException, TimeoutException {
     MediaItem clippedMediaItem =
@@ -1696,6 +1697,40 @@ public class CompositionPlayerTest {
     assertThat(frameProcessor.getQueuedContentTimesUs())
         .containsExactly(ImmutableList.of(500_000L, 500_500L), ImmutableList.of(1_223_466L))
         .inOrder();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void frameProcessor_playbackBelowApi28_queuesImagePlanesFramesAndEnds() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    CapturingFrameProcessor frameProcessor =
+        checkNotNull(frameProcessorFactory.getCreatedProcessor());
+    int queuedFrameCount = 0;
+    for (CapturingFrameProcessor.Event event : frameProcessor.getQueuedEvents()) {
+      if (!(event instanceof FramesEvent)) {
+        continue;
+      }
+      for (AsyncFrame asyncFrame : ((FramesEvent) event).frames) {
+        queuedFrameCount++;
+        assertThat(asyncFrame.frame).isInstanceOf(DefaultImagePlanesFrame.class);
+      }
+    }
+    assertThat(queuedFrameCount).isGreaterThan(0);
+    assertThat(frameProcessor.isEnded()).isTrue();
   }
 
   @Test

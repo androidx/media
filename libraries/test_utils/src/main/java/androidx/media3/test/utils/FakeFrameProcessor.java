@@ -18,6 +18,7 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
@@ -144,7 +145,11 @@ public class FakeFrameProcessor implements FrameProcessor {
   public boolean queue(List<AsyncFrame> frames) {
     queuedFramesCount++;
     if (!configured && !frames.isEmpty()) {
-      output.configure(frames.get(0).frame.getFormat(), /* usage= */ 0);
+      // Input frames are not written to output; only output's own placeholderFrame is queued below.
+      // Clear pixelFormat so output selects its default format, matching DefaultGlFrameProcessor.
+      Format outputFormat =
+          frames.get(0).frame.getFormat().buildUpon().setPixelFormat(Format.NO_VALUE).build();
+      output.configure(outputFormat, /* usage= */ 0);
       configured = true;
       @Nullable AsyncFrame placeholderFrame =
           output.dequeueInputFrame(directExecutor(), /* wakeupListener= */ () -> {});

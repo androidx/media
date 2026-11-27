@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
@@ -38,7 +37,6 @@ import org.jspecify.annotations.Nullable;
  * A {@link FrameProcessor} that delegates to an underlying {@link FrameProcessor} and records
  * queued frames and EOS signals for testing.
  */
-@RequiresApi(26)
 @ExperimentalApi // TODO: b/498176910 Remove once FrameProcessor is production ready.
 public class CapturingFrameProcessor implements FrameProcessor {
 

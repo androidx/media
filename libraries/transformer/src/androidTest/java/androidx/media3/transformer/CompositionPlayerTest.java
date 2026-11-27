@@ -20,8 +20,8 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
+import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
-import static androidx.media3.transformer.AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -84,7 +84,6 @@ import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -824,7 +823,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void compositionPlayer_withFrameProcessor_outputsFrameBeforeEnding() throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
@@ -875,7 +873,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void compositionPlayer_withFrameProcessor_setsReleaseTimeInMetadataListener()
       throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
@@ -885,11 +882,8 @@ public class CompositionPlayerTest {
         new Composition.Builder(
                 EditedMediaItemSequence.withVideoFrom(
                     ImmutableList.of(
-                        new EditedMediaItem.Builder(
-                                MediaItem.fromUri(
-                                    MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
-                            .setDurationUs(
-                                MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
                             .build())))
             .build();
 
@@ -915,7 +909,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void compositionPlayer_withFrameProcessor_playAfterEnded_doesNotTimeout()
       throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();

@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITION_PLAYER;
@@ -49,7 +48,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.IntRange;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -467,18 +465,16 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     /**
      * Sets the {@link FrameProcessor.Factory} to be used to create {@link FrameProcessor} instances
-     * that are used to process {@link androidx.media3.common.video.HardwareBufferFrame}s.
+     * that are used to process {@link Frame}s.
      *
      * <p>If a {@link FrameProcessor.Factory} is not set, a {@link SingleInputVideoGraph.Factory} is
-     * used and {@link CompositionPlayer} will not process {@link
-     * androidx.media3.common.video.HardwareBufferFrame}s.
+     * used and {@link CompositionPlayer} will not use the {@link FrameProcessor}-based pipeline.
      *
      * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
      * @return This builder.
      * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory} is
      *     set.
      */
-    @RequiresApi(28)
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     public Builder setFrameProcessorFactory(FrameProcessor.Factory frameProcessorFactory) {
@@ -572,7 +568,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                 .build();
         videoGraphFactory = new SingleInputVideoGraph.Factory(videoFrameProcessorFactory);
       }
-      if (SDK_INT >= 28 && frameProcessorFactory != null && hardwareBufferJniWrapper == null) {
+      if (frameProcessorFactory != null && hardwareBufferJniWrapper == null) {
         hardwareBufferJniWrapper = HardwareBufferJni.INSTANCE;
       }
       CompositionPlayer compositionPlayer = new CompositionPlayer(this);
@@ -737,7 +733,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     try {
       playbackThread.start();
       playbackThreadHandler = clock.createHandler(playbackThread.getLooper(), /* callback= */ null);
-      if (SDK_INT >= 28 && frameProcessorFactory != null) {
+      if (frameProcessorFactory != null) {
         Executor playbackThreadExecutor =
             new HandlerExecutor(playbackThreadHandler, internalListener);
         Executor applicationThreadExecutor =
@@ -1073,7 +1069,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     if (frameProcessor != null) {
       frameProcessor.close();
     }
-    if (SDK_INT >= 28 && surfaceHolderFrameWriter != null) {
+    if (surfaceHolderFrameWriter != null) {
       surfaceHolderFrameWriter.close();
     }
     // Remove any queued callback from the internal player.
@@ -1533,7 +1529,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
     playerHolders.clear();
 
-    if (SDK_INT >= 26 && frameProcessor != null) {
+    if (frameProcessor != null) {
       if (frameAggregator != null) {
         frameAggregator.close();
       }
@@ -2018,7 +2014,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private void setVideoSurfaceHolderInternal(SurfaceHolder surfaceHolder) {
-    if (SDK_INT >= 28 && surfaceHolderFrameWriter != null) {
+    if (surfaceHolderFrameWriter != null) {
       surfaceHolderFrameWriter.setSurfaceHolder(surfaceHolder);
       return;
     }
@@ -2055,7 +2051,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    */
   private void clearVideoSurfaceInternal() {
     displaySurface = null;
-    if (SDK_INT >= 28 && surfaceHolderFrameWriter != null) {
+    if (surfaceHolderFrameWriter != null) {
       surfaceHolderFrameWriter.setSurfaceHolder(null);
     }
     if (compositionPlayerInternal != null) {
@@ -2557,7 +2553,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     @Override
     public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
-      if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+      if (videoPacketReleaseControl != null) {
         videoPacketReleaseControl.onFrameProcessed(frame, onCompleteFence);
       }
     }

@@ -23,7 +23,6 @@ import static androidx.media3.test.utils.AssetInfo.AMR_NB_SINE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.RAW_AAC_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.skip;
@@ -1119,7 +1118,6 @@ public class CompositionPlayerSeekTest {
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void frameProcessor_oneVideoSequence_seekForwardsAndBackwards_outputsCorrectFrames()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
@@ -1212,7 +1210,6 @@ public class CompositionPlayerSeekTest {
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void frameProcessor_twoVideoSequences_seekForwardsAndBackwards_outputsCorrectFrames()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
@@ -1310,7 +1307,6 @@ public class CompositionPlayerSeekTest {
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void frameProcessor_oneVideoSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     AtomicBoolean isPlaying = new AtomicBoolean();
@@ -1380,7 +1376,6 @@ public class CompositionPlayerSeekTest {
 
   @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
-  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void frameProcessor_twoVideoSequences_seekThenPlay_outputsPacketAndEnds()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();

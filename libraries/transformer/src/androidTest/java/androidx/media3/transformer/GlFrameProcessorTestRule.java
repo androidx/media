@@ -31,7 +31,6 @@ import org.junit.rules.ExternalResource;
 public final class GlFrameProcessorTestRule extends ExternalResource {
 
   /** Returns a {@link DefaultGlFrameProcessor.Factory}. */
-  @RequiresApi(26)
   public DefaultGlFrameProcessor.Factory createDefaultGlFrameProcessorFactory(Context context) {
     return new DefaultGlFrameProcessor.Factory.Builder(context).build();
   }
@@ -67,7 +66,6 @@ public final class GlFrameProcessorTestRule extends ExternalResource {
    * Returns a {@link CompositionPlayer.Builder} configured with {@link
    * DefaultGlFrameProcessor.Factory}.
    */
-  @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public CompositionPlayer.Builder createCompositionPlayerBuilder(Context context) {
     return new CompositionPlayer.Builder(context)
         .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)

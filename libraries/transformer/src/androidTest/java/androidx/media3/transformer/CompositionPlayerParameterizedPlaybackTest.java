@@ -27,7 +27,6 @@ import static com.google.common.truth.TruthJUnit.assume;
 
 import android.content.Context;
 import android.view.SurfaceView;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoGraph;
@@ -40,7 +39,6 @@ import androidx.media3.test.utils.CompositionAssetInfo;
 import androidx.media3.test.utils.FrameProcessorTestUtil;
 import androidx.media3.test.utils.PlayerFence;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -193,7 +191,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void playback_frameProcessor(
       @TestParameter(valuesProvider = FrameConsumerConfigsProvider.class)
           CompositionAssetInfo compositionAssetInfo)
@@ -242,7 +239,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
     endedFuture.get();
   }
 
-  @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   private void runCompositionPlayer(
       Composition composition, FrameProcessor.Factory frameProcessorFactory) throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();

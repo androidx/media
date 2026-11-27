@@ -19,6 +19,8 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeTrue;
 
@@ -26,15 +28,20 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -57,7 +64,6 @@ import org.junit.runner.RunWith;
  * android.app.UiAutomation#takeScreenshot()}, which goes through real SurfaceFlinger composition.
  */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
 public final class CompositionPlayerSurfaceViewDisplayTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 10_000;
@@ -106,13 +112,36 @@ public final class CompositionPlayerSurfaceViewDisplayTest {
       compositionPlayer.setComposition(createSingleItemComposition());
       compositionPlayer.prepare();
     });
-    try {
-      firstFrameRenderedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
-    } catch (TimeoutException e) {
-      assumeSurfaceViewHasWindowFocus();
-      throw e;
-    }
+    awaitOrAssumeWindowFocused(firstFrameRenderedFuture);
 
+    assertSurfaceViewDisplaysContent();
+  }
+
+  @Test
+  public void experimentalRedrawLastFrame_surfaceRecreated_displaysFrame() throws Exception {
+    SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
+    ConditionVariable redrawnFrameRendered = new ConditionVariable();
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = glFrameProcessorTestRule.createCompositionPlayerBuilder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(createSingleItemComposition());
+      compositionPlayer.prepare();
+    });
+    awaitOrAssumeWindowFocused(firstFrameRenderedFuture);
+    // Recreate the SurfaceView while paused so no new playback frames arrive to repopulate it.
+    recreateSurfaceView(
+        surfaceView,
+        MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat.width,
+        MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat.height);
+    instrumentation.runOnMainSync(() ->
+        compositionPlayer.setVideoFrameMetadataListener(
+            (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+                redrawnFrameRendered.open()));
+
+    instrumentation.runOnMainSync(() -> compositionPlayer.experimentalRedrawLastFrame());
+
+    assertThat(redrawnFrameRendered.block(TEST_TIMEOUT_MS)).isTrue();
     assertSurfaceViewDisplaysContent();
   }
 
@@ -127,6 +156,60 @@ public final class CompositionPlayerSurfaceViewDisplayTest {
                             MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
                         .build())))
         .build();
+  }
+
+  private static void recreateSurfaceView(
+      SurfaceView surfaceView, int expectedWidth, int expectedHeight) throws InterruptedException {
+    Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+    ConditionVariable surfaceDestroyed = new ConditionVariable();
+    ConditionVariable surfaceRecreated = new ConditionVariable();
+    SurfaceHolder.Callback callback =
+        new SurfaceHolder.Callback() {
+          @Override
+          public void surfaceCreated(SurfaceHolder holder) {}
+
+          @Override
+          public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            if (width == expectedWidth && height == expectedHeight) {
+              surfaceRecreated.open();
+            }
+          }
+
+          @Override
+          public void surfaceDestroyed(SurfaceHolder holder) {
+            surfaceDestroyed.open();
+          }
+        };
+    try {
+      instrumentation.runOnMainSync(() -> {
+        surfaceView.getHolder().addCallback(callback);
+        surfaceView.setVisibility(View.GONE);
+      });
+      checkState(
+          surfaceDestroyed.block(TEST_TIMEOUT_MS), "Timed out waiting for surfaceDestroyed.");
+      surfaceRecreated.close();
+      instrumentation.runOnMainSync(() -> surfaceView.setVisibility(View.VISIBLE));
+      checkState(surfaceRecreated.block(TEST_TIMEOUT_MS), "Timed out waiting for surfaceChanged.");
+    } finally {
+      instrumentation.runOnMainSync(() -> surfaceView.getHolder().removeCallback(callback));
+    }
+  }
+
+  /**
+   * Waits for {@code future} to complete within {@link #TEST_TIMEOUT_MS}.
+   *
+   * <p>If waiting times out because {@link #surfaceView} lost window focus (for example, due to a
+   * system dialog on the test device), skips the test via a JUnit assumption.
+   */
+  private void awaitOrAssumeWindowFocused(ListenableFuture<?> future)
+      throws ExecutionException, InterruptedException, TimeoutException {
+    try {
+      future.get(TEST_TIMEOUT_MS, MILLISECONDS);
+    } catch (TimeoutException | CancellationException e) {
+      // PlayerFence surfaces its internal timeout as CancellationException.
+      assumeSurfaceViewHasWindowFocus();
+      throw e;
+    }
   }
 
   private void assertSurfaceViewDisplaysContent() throws InterruptedException {

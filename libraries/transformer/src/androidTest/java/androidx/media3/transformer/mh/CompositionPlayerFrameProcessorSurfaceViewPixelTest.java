@@ -88,7 +88,6 @@ import org.junit.runner.RunWith;
  */
 @Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
 public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
@@ -222,6 +221,8 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
   }
 
   @Test
+  // SurfaceHolderFrameWriter only backs up and restores HardwareBuffers (API 28+).
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void compositionPlayer_withFrameProcessor_backsUpAndRestoresFrameOnLifecycleChange()
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();

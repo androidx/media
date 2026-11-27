@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -272,7 +271,7 @@ import org.jspecify.annotations.Nullable;
           playbackAudioGraphWrapper.setAudioAttributes((AudioAttributes) message.obj);
           break;
         case MSG_REDRAW:
-          if (SDK_INT >= 26 && videoPacketReleaseControl != null && replayAllowed) {
+          if (videoPacketReleaseControl != null && replayAllowed) {
             videoPacketReleaseControl.redraw();
           }
           break;
@@ -303,7 +302,7 @@ import org.jspecify.annotations.Nullable;
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
     playbackVideoGraphWrapper.setIsInputSdrToneMapped(
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
-    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+    if (videoPacketReleaseControl != null) {
       // Flush the primary sequence to reset the state of the release control when a new Composition
       // is set.
       videoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
@@ -316,7 +315,7 @@ import org.jspecify.annotations.Nullable;
       playbackAudioGraphWrapper.release();
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
       playbackVideoGraphWrapper.release();
-      if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+      if (videoPacketReleaseControl != null) {
         videoPacketReleaseControl.close();
       }
     } catch (RuntimeException e) {
@@ -330,7 +329,7 @@ import org.jspecify.annotations.Nullable;
     droppedFrameAccumulationStartTimeMs = clock.elapsedRealtime();
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
-    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+    if (videoPacketReleaseControl != null) {
       videoPacketReleaseControl.onStarted();
     }
   }
@@ -339,7 +338,7 @@ import org.jspecify.annotations.Nullable;
     maybeNotifyDroppedFrames();
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
-    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+    if (videoPacketReleaseControl != null) {
       videoPacketReleaseControl.onStopped();
     }
   }

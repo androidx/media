@@ -59,7 +59,6 @@ import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link CompositionPlayer} using {@link DefaultGlFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
 public final class CompositionPlayerDefaultGlFrameProcessorTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
