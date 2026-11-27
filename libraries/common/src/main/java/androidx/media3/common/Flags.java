@@ -136,6 +136,7 @@ public final class Flags {
    *   <li>{@link #FLAG_ENABLE_PCM_AUDIO_OFFLOAD}
    *   <li>{@link #FLAG_UNIFIED_DECODER_RENDERER}
    *   <li>{@link #FLAG_USE_MP3_ID3_TLEN_DURATION}
+   *   <li>{@link #FLAG_AVOID_OVERLAPPING_SUBTITLE_CUES}
    * </ul>
    */
   @Documented
@@ -166,6 +167,7 @@ public final class Flags {
         FLAG_ENABLE_PCM_AUDIO_OFFLOAD,
         FLAG_UNIFIED_DECODER_RENDERER,
         FLAG_USE_MP3_ID3_TLEN_DURATION,
+        FLAG_AVOID_OVERLAPPING_SUBTITLE_CUES,
       })
   public @interface Flag {}
 
@@ -418,7 +420,18 @@ public final class Flags {
   @ExperimentalApi // TODO(b/590116371): Remove this flag (earliest cleanup: 2027-04-07).
   public static final int FLAG_USE_MP3_ID3_TLEN_DURATION = 22;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 23;
+  /**
+   * Flag to avoid overlapping text cues in {@code SubtitleView} canvas output.
+   *
+   * <p>When enabled, {@code CanvasSubtitleOutput} resolves vertical bounding-box overlaps for text
+   * cues positioned with {@link androidx.media3.common.text.Cue#DIMEN_UNSET} or {@link
+   * androidx.media3.common.text.Cue#LINE_TYPE_NUMBER}. When disabled, each cue is drawn
+   * independently at its original position.
+   */
+  @ExperimentalApi // TODO(b/590831385): Remove this flag (earliest cleanup: 2027-04-07).
+  public static final int FLAG_AVOID_OVERLAPPING_SUBTITLE_CUES = 23;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 24;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 

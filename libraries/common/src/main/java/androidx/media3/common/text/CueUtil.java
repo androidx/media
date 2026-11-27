@@ -15,7 +15,12 @@
  */
 package androidx.media3.common.text;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import android.graphics.Rect;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.UnstableApi;
+import java.util.List;
 
 /** Utility methods and constants for {@link Cue} layout and styling. */
 @UnstableApi
@@ -94,6 +99,76 @@ public final class CueUtil {
       default:
         return anchorPoint;
     }
+  }
+
+  /**
+   * Resolves vertical overlap between a candidate cue box and already-placed cue boxes within a
+   * viewport.
+   *
+   * <p>If {@code cueRect} is empty or does not intersect any box in {@code placedRects}, {@code
+   * cueRect.top} is returned unchanged.
+   *
+   * <p>Otherwise, the candidate box is shifted vertically in the preferred direction (upward if
+   * {@code preferUpward} is {@code true}, downward otherwise) past each intersecting box until a
+   * non-overlapping position within {@code [viewportTop, viewportBottom]} is found. If shifting in
+   * the preferred direction reaches the viewport boundary without finding a free position, the
+   * search restarts from {@code cueRect.top} in the opposite direction. If neither direction fits
+   * within the viewport without overlap, {@code cueRect.top} is returned unchanged.
+   *
+   * @param cueRect The initial bounding box of the candidate cue, in pixels. Not modified.
+   * @param placedRects The bounding boxes of cues already placed in the viewport, in pixels.
+   * @param viewportTop The top boundary of the viewport, in pixels.
+   * @param viewportBottom The bottom boundary of the viewport, in pixels.
+   * @param preferUpward Whether to shift upward first ({@code true}) or downward first ({@code
+   *     false}) when resolving overlap.
+   * @return The resolved top coordinate for the candidate cue, in pixels.
+   */
+  @RestrictTo(LIBRARY_GROUP)
+  public static int resolveVerticalOverlap(
+      Rect cueRect,
+      List<Rect> placedRects,
+      int viewportTop,
+      int viewportBottom,
+      boolean preferUpward) {
+    if (placedRects.isEmpty() || cueRect.isEmpty()) {
+      return cueRect.top;
+    }
+    int height = cueRect.height();
+    for (int attempt = 0; attempt < 2; attempt++) {
+      boolean moveUp = (attempt == 0) == preferUpward;
+      int candidateTop = cueRect.top;
+      while (true) {
+        int nextTop = candidateTop;
+        for (int i = 0; i < placedRects.size(); i++) {
+          Rect placed = placedRects.get(i);
+          if (intersects(
+              cueRect.left, candidateTop, cueRect.right, candidateTop + height, placed)) {
+            nextTop =
+                moveUp ? Math.min(nextTop, placed.top - height) : Math.max(nextTop, placed.bottom);
+          }
+        }
+        if (nextTop == candidateTop) {
+          if (candidateTop == cueRect.top
+              || (candidateTop >= viewportTop && candidateTop + height <= viewportBottom)) {
+            return candidateTop;
+          }
+          break;
+        }
+        candidateTop = nextTop;
+        if (moveUp ? candidateTop < viewportTop : candidateTop + height > viewportBottom) {
+          break;
+        }
+      }
+    }
+    return cueRect.top;
+  }
+
+  private static boolean intersects(int left, int top, int right, int bottom, Rect placed) {
+    return !placed.isEmpty()
+        && left < placed.right
+        && right > placed.left
+        && top < placed.bottom
+        && bottom > placed.top;
   }
 
   private CueUtil() {}

@@ -101,6 +101,11 @@
         and `SeekForwardButton` in `media3-ui-compose-material3` contained a
         literal `%d` instead of the seek amount
         ([#3577](https://github.com/androidx/media/issues/3577)).
+    *   Prevent overlapping text cues with unset or line-number positioning from
+        drawing on top of earlier cues in `SubtitleView`
+        ([#2237](https://github.com/androidx/media/issues/2237)). This is
+        guarded by `Flags.FLAG_AVOID_OVERLAPPING_SUBTITLE_CUES`, which is
+        enabled in canary mode.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

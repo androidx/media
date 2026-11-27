@@ -20,10 +20,12 @@ import static androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.text.TextDirectionHeuristic;
 import android.text.TextDirectionHeuristics;
 import android.util.AttributeSet;
 import android.view.View;
+import androidx.media3.common.Flags;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.text.SubtitleStyle;
@@ -38,8 +40,15 @@ import org.jspecify.annotations.Nullable;
  */
 /* package */ final class CanvasSubtitleOutput extends View implements SubtitleView.Output {
 
-  private final List<SubtitlePainter> painters;
+  private static final int SHIFT_DIRECTION_NONE = 0;
+  private static final int SHIFT_DIRECTION_UP = 1;
+  private static final int SHIFT_DIRECTION_DOWN = 2;
 
+  private final List<SubtitlePainter> painters;
+  private final List<Rect> cueRectPool;
+  private final List<Rect> placedTextCueRects;
+
+  private int[] cueShiftDirections;
   private List<Cue> cues;
   private @Cue.TextSizeType int textSizeType;
   private float textSize;
@@ -54,6 +63,9 @@ import org.jspecify.annotations.Nullable;
   public CanvasSubtitleOutput(Context context, @Nullable AttributeSet attrs) {
     super(context, attrs);
     painters = new ArrayList<>();
+    cueRectPool = new ArrayList<>();
+    placedTextCueRects = new ArrayList<>();
+    cueShiftDirections = new int[0];
     cues = Collections.emptyList();
     textSizeType = Cue.TEXT_SIZE_TYPE_FRACTIONAL;
     textSize = DEFAULT_TEXT_SIZE_FRACTION;
@@ -76,9 +88,13 @@ import org.jspecify.annotations.Nullable;
     this.textSizeType = textSizeType;
     this.bottomPaddingFraction = bottomPaddingFraction;
     this.textDirectionHeuristic = textDirectionHeuristic;
-    // Ensure we have sufficient painters, and reset any unused painters.
+    // Ensure we have sufficient painters and reusable scratch storage, and reset unused painters.
     while (painters.size() < cues.size()) {
       painters.add(new SubtitlePainter(getContext()));
+      cueRectPool.add(new Rect());
+    }
+    if (cueShiftDirections.length < cues.size()) {
+      cueShiftDirections = new int[cues.size()];
     }
     for (int i = cues.size(); i < painters.size(); i++) {
       painters.get(i).reset();
@@ -116,7 +132,11 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
+    boolean avoidOverlappingCues = Flags.isEnabled(Flags.FLAG_AVOID_OVERLAPPING_SUBTITLE_CUES);
+    placedTextCueRects.clear();
     int cueCount = cues.size();
+    // Lay out all cues first and record fixed text cues as obstacles so movable cues earlier in
+    // the list still avoid overlapping fixed cues later in the list.
     for (int i = 0; i < cueCount; i++) {
       Cue cue = cues.get(i);
       if (cue.verticalType != Cue.TYPE_UNSET) {
@@ -126,18 +146,56 @@ import org.jspecify.annotations.Nullable;
           CueUtil.resolveTextSize(
               cue.textSizeType, cue.textSize, rawViewHeight, viewHeightMinusPadding);
       SubtitlePainter painter = painters.get(i);
-      painter.draw(
+      painter.layout(
           cue,
           style,
           defaultViewTextSizePx,
           cueTextSizePx,
           bottomPaddingFraction,
           textDirectionHeuristic,
-          canvas,
           left,
           top,
           right,
           bottom);
+      if (!avoidOverlappingCues) {
+        painter.draw(canvas, /* textVerticalOffsetPx= */ 0);
+        continue;
+      }
+      Rect cueRect = cueRectPool.get(i);
+      if (painter.getTextBounds(cueRect)) {
+        if (cue.line == Cue.DIMEN_UNSET || cue.lineType == Cue.LINE_TYPE_NUMBER) {
+          cueShiftDirections[i] =
+              (cue.line == Cue.DIMEN_UNSET || cue.line < 0)
+                  ? SHIFT_DIRECTION_UP
+                  : SHIFT_DIRECTION_DOWN;
+        } else {
+          cueShiftDirections[i] = SHIFT_DIRECTION_NONE;
+          placedTextCueRects.add(cueRect);
+        }
+      } else {
+        cueShiftDirections[i] = SHIFT_DIRECTION_NONE;
+      }
+    }
+    if (!avoidOverlappingCues) {
+      return;
+    }
+    for (int i = 0; i < cueCount; i++) {
+      int verticalOffsetPx = 0;
+      int shiftDirection = cueShiftDirections[i];
+      if (shiftDirection != SHIFT_DIRECTION_NONE) {
+        Rect cueRect = cueRectPool.get(i);
+        int resolvedTop =
+            CueUtil.resolveVerticalOverlap(
+                cueRect,
+                placedTextCueRects,
+                top,
+                bottom,
+                /* preferUpward= */ shiftDirection == SHIFT_DIRECTION_UP);
+        verticalOffsetPx = resolvedTop - cueRect.top;
+        cueRect.offset(/* dx= */ 0, verticalOffsetPx);
+        placedTextCueRects.add(cueRect);
+      }
+      painters.get(i).draw(canvas, verticalOffsetPx);
     }
   }
 

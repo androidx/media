@@ -127,35 +127,32 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * Draws the provided {@link Cue} into a canvas with the specified styling.
+   * Lays out the provided {@link Cue} with the specified styling.
    *
    * <p>A call to this method is able to use cached results of calculations made during the previous
    * call, and so an instance of this class is able to optimize repeated calls to this method in
    * which the same parameters are passed.
    *
-   * @param cue The cue to draw. sizes embedded within the cue should be applied. Otherwise, it is
-   *     ignored.
-   * @param style The style to use when drawing the cue text.
-   * @param defaultTextSizePx The default text size to use when drawing the text, in pixels.
+   * @param cue The cue to lay out.
+   * @param style The style to use when laying out the cue text.
+   * @param defaultTextSizePx The default text size to use when laying out the text, in pixels.
    * @param cueTextSizePx The embedded text size of this cue, in pixels.
    * @param bottomPaddingFraction The bottom padding fraction to apply when {@link Cue#line} is
-   *     {@link Cue#DIMEN_UNSET}, as a fraction of the viewport height
+   *     {@link Cue#DIMEN_UNSET}, as a fraction of the viewport height.
    * @param textDirectionHeuristic The {@link TextDirectionHeuristic} to use when wrapping
    *     bidirectional text.
-   * @param canvas The canvas into which to draw.
    * @param cueBoxLeft The left position of the enclosing cue box.
    * @param cueBoxTop The top position of the enclosing cue box.
    * @param cueBoxRight The right position of the enclosing cue box.
    * @param cueBoxBottom The bottom position of the enclosing cue box.
    */
-  public void draw(
+  public void layout(
       Cue cue,
       SubtitleStyle style,
       float defaultTextSizePx,
       float cueTextSizePx,
       float bottomPaddingFraction,
       TextDirectionHeuristic textDirectionHeuristic,
-      Canvas canvas,
       int cueBoxLeft,
       int cueBoxTop,
       int cueBoxRight,
@@ -195,7 +192,6 @@ import org.jspecify.annotations.Nullable;
         && this.parentRight == cueBoxRight
         && this.parentBottom == cueBoxBottom) {
       // We can use the cached layout.
-      drawLayout(canvas, isTextCue);
       return;
     }
 
@@ -234,7 +230,38 @@ import org.jspecify.annotations.Nullable;
       checkNotNull(cueBitmap);
       setupBitmapLayout();
     }
-    drawLayout(canvas, isTextCue);
+  }
+
+  /**
+   * Populates {@code outBounds} with the bounding box of the last laid-out text cue, in canvas
+   * coordinates.
+   *
+   * @param outBounds The {@link Rect} to populate if a non-empty text layout is available.
+   * @return {@code true} if {@code outBounds} was populated, or {@code false} if the last cue was a
+   *     bitmap cue or produced no text layout.
+   */
+  public boolean getTextBounds(Rect outBounds) {
+    if (textLayout == null || textLayout.getWidth() <= 0 || textLayout.getHeight() <= 0) {
+      return false;
+    }
+    outBounds.set(
+        textLeft, textTop, textLeft + textLayout.getWidth(), textTop + textLayout.getHeight());
+    return true;
+  }
+
+  /**
+   * Draws the last laid-out {@link Cue} into {@code canvas}.
+   *
+   * @param canvas The canvas into which to draw.
+   * @param textVerticalOffsetPx Additional vertical offset in pixels applied when drawing text
+   *     cues, for example to avoid overlapping previously drawn cues. Ignored for bitmap cues.
+   */
+  public void draw(Canvas canvas, int textVerticalOffsetPx) {
+    if (cueBitmap != null && bitmapRect != null) {
+      drawBitmapLayout(canvas);
+    } else {
+      drawTextLayout(canvas, textVerticalOffsetPx);
+    }
   }
 
   /** Releases cached references to the last rendered cue, bitmap, styling, and layouts. */
@@ -408,17 +435,7 @@ import org.jspecify.annotations.Nullable;
     bitmapRect = new Rect(x, y, x + width, y + height);
   }
 
-  private void drawLayout(Canvas canvas, boolean isTextCue) {
-    if (isTextCue) {
-      drawTextLayout(canvas);
-    } else {
-      checkNotNull(bitmapRect);
-      checkNotNull(cueBitmap);
-      drawBitmapLayout(canvas);
-    }
-  }
-
-  private void drawTextLayout(Canvas canvas) {
+  private void drawTextLayout(Canvas canvas, int verticalOffsetPx) {
     StaticLayout textLayout = this.textLayout;
     StaticLayout edgeLayout = this.edgeLayout;
     if (textLayout == null || edgeLayout == null) {
@@ -427,7 +444,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     int saveCount = canvas.save();
-    canvas.translate(textLeft, textTop);
+    canvas.translate(textLeft, textTop + verticalOffsetPx);
 
     if (Color.alpha(windowColor) > 0) {
       windowPaint.setColor(windowColor);
