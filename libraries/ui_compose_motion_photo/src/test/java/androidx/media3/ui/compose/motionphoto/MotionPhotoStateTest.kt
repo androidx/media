@@ -4108,6 +4108,293 @@ class MotionPhotoStateTest {
   }
 
   @Test
+  fun config_loopModeToggledWhileShowingPhoto_seeksBetweenPhotoFrameAndStart() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialConfig = MotionPhotoConfig(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START),
+      )
+
+    state.config = state.config.copy(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME)
+    waitForIdle()
+    val positionWhenEnabledMs = player.currentPosition
+    state.config = state.config.copy(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START)
+    waitForIdle()
+
+    assertThat(positionWhenEnabledMs).isEqualTo(400L)
+    assertThat(player.currentPosition).isEqualTo(0L)
+  }
+
+  @Test
+  fun config_loopModeFromPhotoFrameBeforeFirstFrame_seeksToPhotoFrame() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+        bufferingDelayMs = 10_000L,
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig = MotionPhotoConfig(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START),
+      )
+
+    state.config = state.config.copy(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME)
+    waitForIdle()
+
+    assertThat(player.currentPosition).isEqualTo(400L)
+  }
+
+  @Test
+  fun config_loopModeFromPhotoFrameAfterFirstFrame_doesNotInterruptMotion() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig = MotionPhotoConfig(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START),
+      )
+    renderFirstFrameAndCompleteTransition(player)
+    val seekPositionsMs = recordSeekPositionsMs(player)
+
+    state.config = state.config.copy(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME)
+    waitForIdle()
+
+    assertThat(seekPositionsMs).isEmpty()
+  }
+
+  @Test
+  fun config_loopFromPhotoFrameDuringDeferredRewind_rewindsAfterTransition() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig =
+          MotionPhotoConfig(
+            transitionDurationMs = 200L,
+            loopMode = MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START,
+          ),
+      )
+    renderFirstFrameAndCompleteTransition(player, transitionDurationMs = 200L)
+    mainClock.autoAdvance = false
+    player.setPosition(750L)
+    state.showStillPhoto()
+    advanceTimeAndWait(100L)
+
+    state.config = state.config.copy(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME)
+    waitForIdle()
+    val positionMidTransitionMs = player.currentPosition
+    advanceTimeAndWait(100L)
+
+    assertThat(positionMidTransitionMs).isAtLeast(750L)
+    assertThat(player.currentPosition).isEqualTo(400L)
+  }
+
+  @Test
+  fun config_boundariesAndLoopModeUpdatedTogether_seeksOnceToPhotoFrame() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialConfig = MotionPhotoConfig(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START),
+      )
+    val seekPositionsMs = recordSeekPositionsMs(player)
+
+    state.config =
+      state.config.copy(
+        rangeStart = Boundary.START_OF_VIDEO.plusMs(100L),
+        loopMode = MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME,
+      )
+    waitForIdle()
+
+    assertThat(seekPositionsMs).containsExactly(300L)
+    assertThat(player.currentPosition).isEqualTo(300L)
+  }
+
+  @Test
+  fun config_loopModeFromPhotoFrameAfterEndedAndRewound_seeksToPhotoFrame() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig =
+          MotionPhotoConfig(loopMode = MotionPhotoConfig.LOOP_MODE_OFF, transitionDurationMs = 0L),
+      )
+    renderFirstFrameAndCompleteTransition(player, transitionDurationMs = 0L)
+    player.setPlaybackState(Player.STATE_ENDED)
+    waitForIdle()
+
+    state.config = state.config.copy(loopMode = MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME)
+    waitForIdle()
+
+    assertThat(player.currentPosition).isEqualTo(400L)
+    assertThat(player.playWhenReady).isTrue()
+  }
+
+  @Test
+  fun config_resumeDisabledWithEndUpdateBeforeFirstFrame_seeksToStart() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 600_000L),
+        bufferingDelayMs = 10_000L,
+      )
+    player.prepare()
+    player.setPosition(250L)
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig = MotionPhotoConfig(resumeVideoFromPreviousPosition = true),
+      )
+
+    state.config =
+      state.config.copy(resumeVideoFromPreviousPosition = false, rangeEnd = Boundary.PHOTO_FRAME)
+    waitForIdle()
+
+    assertThat(player.currentPosition).isEqualTo(0L)
+  }
+
+  @Test
+  fun config_resumeDisabledBeforeFirstFrameWithEmptyRange_rewinds() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = C.TIME_UNSET,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    player.prepare()
+    player.setPosition(250L)
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig =
+          MotionPhotoConfig(
+            resumeVideoFromPreviousPosition = true,
+            rangeEnd = Boundary.END_OF_VIDEO.minusMs(100L),
+          ),
+      )
+
+    state.config = state.config.copy(resumeVideoFromPreviousPosition = false)
+    waitForIdle()
+    val positionWhileRangeEmptyMs = player.currentPosition
+    player.setOriginalDuration("motion_photo", 1_000L)
+    waitForIdle()
+
+    assertThat(positionWhileRangeEmptyMs).isEqualTo(0L)
+    assertThat(player.currentPosition).isEqualTo(0L)
+  }
+
+  @Test
+  fun config_resumeDisabledAfterFirstFrameWithEmptyRange_rewinds() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig = MotionPhotoConfig(resumeVideoFromPreviousPosition = true),
+      )
+    renderFirstFrameAndCompleteTransition(player)
+    mainClock.autoAdvance = false
+    state.config = state.config.copy(rangeEnd = Boundary.START_OF_VIDEO)
+    waitForIdle()
+    player.setPosition(250L)
+
+    state.config =
+      state.config.copy(
+        resumeVideoFromPreviousPosition = false,
+        loopMode = MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME,
+      )
+    waitForIdle()
+    val positionWhileRangeEmptyMs = player.currentPosition
+    state.config = state.config.copy(rangeEnd = Boundary.END_OF_VIDEO.minusMs(100L))
+    waitForIdle()
+
+    assertThat(positionWhileRangeEmptyMs).isEqualTo(0L)
+    assertThat(player.currentPosition).isEqualTo(400L)
+  }
+
+  @Test
+  fun config_resumeDisabledAndRangeRestoredAfterFirstFrame_rewinds() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig =
+          MotionPhotoConfig(resumeVideoFromPreviousPosition = true, transitionDurationMs = 0L),
+      )
+    renderFirstFrameAndCompleteTransition(player, transitionDurationMs = 0L)
+    mainClock.autoAdvance = false
+    state.config = state.config.copy(rangeEnd = Boundary.START_OF_VIDEO)
+    waitForIdle()
+    player.setPosition(250L)
+
+    state.config =
+      state.config.copy(resumeVideoFromPreviousPosition = false, rangeEnd = Boundary.END_OF_VIDEO)
+    waitForIdle()
+
+    assertThat(player.currentPosition).isEqualTo(0L)
+    assertThat(player.playWhenReady).isTrue()
+  }
+
+  @Test
+  fun config_resumeDisabledAndRangeEmptiedAfterFirstFrame_rewinds() = runComposeUiTest {
+    val player =
+      createSeekableFakePlayer(
+        durationMs = 1_000L,
+        tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+      )
+    val state =
+      setContentWithMotionPhotoState(
+        player = player,
+        initialShowMotion = true,
+        initialConfig = MotionPhotoConfig(resumeVideoFromPreviousPosition = true),
+      )
+    renderFirstFrameAndCompleteTransition(player)
+    mainClock.autoAdvance = false
+    player.setPosition(250L)
+
+    state.config =
+      state.config.copy(resumeVideoFromPreviousPosition = false, rangeEnd = Boundary.START_OF_VIDEO)
+    waitForIdle()
+
+    assertThat(player.currentPosition).isEqualTo(0L)
+  }
+
+  @Test
   fun motionPhotoConfig_withInvalidLoopMode_throwsIllegalArgumentException() {
     assertThrows(IllegalArgumentException::class.java) { MotionPhotoConfig(loopMode = -1) }
     assertThrows(IllegalArgumentException::class.java) { MotionPhotoConfig(loopMode = 3) }

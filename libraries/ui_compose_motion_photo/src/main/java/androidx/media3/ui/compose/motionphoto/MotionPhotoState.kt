@@ -237,6 +237,10 @@ internal constructor(
   private val isPhotoTarget: Boolean
     get() = motionTarget != MotionTarget.MOTION
 
+  /** Whether the still photo hides motion, so seeking is not visible. */
+  private val isMotionHidden: Boolean
+    get() = isPhotoTarget || isPlaybackRangeEmpty || !hasRenderedFirstFrame
+
   private val showMotion: Boolean
     get() = !isPhotoTarget && player?.playbackState != Player.STATE_IDLE
 
@@ -310,11 +314,8 @@ internal constructor(
    * The [MotionPhotoConfig] governing motion playback behavior.
    *
    * This value is initialized from `initialConfig` and can be updated by the application to change
-   * playback behavior dynamically. Setting this property syncs the attached [Player] accordingly,
-   * except changes to the photo-frame start position implied by [MotionPhotoConfig.loopMode], which
-   * are not reconciled immediately while stationary.
+   * playback behavior dynamically. Setting this property syncs the attached [Player] accordingly.
    */
-  // TODO(b/544627271): Reconcile loopMode start-position updates immediately while stationary.
   var config: MotionPhotoConfig
     get() = _config
     set(value) {
@@ -328,7 +329,7 @@ internal constructor(
       } else if (
         !_config.resumeVideoFromPreviousPosition &&
           previousConfig.resumeVideoFromPreviousPosition &&
-          isPhotoTarget
+          isMotionHidden
       ) {
         isRewindPending = true
       }
@@ -354,6 +355,9 @@ internal constructor(
         isRewindPending = false
       }
       if (restartedEndedMotion) {
+        if (!isRewindPending && currentPlayer.playbackState != Player.STATE_ENDED) {
+          reconcileStartPosition(currentPlayer)
+        }
         motionTarget = MotionTarget.MOTION
         syncMotion(currentPlayer, allowPrepareOnError = false)
       } else if (
@@ -361,8 +365,10 @@ internal constructor(
       ) {
         markMotionEnded()
       } else {
-        if (isRewindPending && isPhotoTarget && deferredRewindJob == null) {
+        if (isRewindPending && isMotionHidden && deferredRewindJob == null) {
           rewind(currentPlayer)
+        } else if (previousConfig.loopMode != _config.loopMode) {
+          reconcileStartPosition(currentPlayer)
         }
         syncPlaybackState(currentPlayer)
       }
@@ -517,7 +523,7 @@ internal constructor(
           playbackState != Player.STATE_BUFFERING
       ) {
         isAwaitingStartSeekReady = false
-        if (!isPhotoTarget && !isPlaybackRangeEmpty && hasRenderedFirstFrame) {
+        if (!isMotionHidden) {
           isNewItemAwaitingInitialStart = false
         }
         syncPlayWhenReady(this)
@@ -627,10 +633,10 @@ internal constructor(
   }
 
   /**
-   * Reconciles [currentPlayer]'s start position when photo-frame metadata, duration, or seek
-   * capabilities resolve while the still photo is shown (or [allowAfterFirstFrame] is `true` when
-   * exiting an empty playback range, which also showed the still photo) or before the first frame
-   * of motion has rendered.
+   * Reconciles [currentPlayer]'s start position when photo-frame metadata, duration, seek
+   * capabilities, playback boundaries, or [MotionPhotoConfig.loopMode] change while the still photo
+   * is shown (or [allowAfterFirstFrame] is `true` when exiting an empty playback range, which also
+   * showed the still photo) or before the first frame of motion has rendered.
    *
    * Only seeks when a photo-frame start position becomes actionable and has not yet been applied,
    * or falls back to the start of the range when reverting a previously applied photo-frame start,
@@ -1083,12 +1089,7 @@ internal constructor(
         // Ensure mediaItem is set on the player when boundaries cannot be resolved until the
         // player prepares the item and reports its timeline.
         loadedMediaItem == null && syncMediaItem(currentPlayer, mediaItem.clippingConfiguration)
-      if (
-        !isPlaybackRangeEmpty &&
-          !isPhotoTarget &&
-          hasRenderedFirstFrame &&
-          !_config.resumeVideoFromPreviousPosition
-      ) {
+      if (!isMotionHidden && !_config.resumeVideoFromPreviousPosition) {
         isRewindPending = true
       }
       isPlaybackRangeEmpty = true
