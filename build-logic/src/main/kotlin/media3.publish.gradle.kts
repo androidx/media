@@ -35,6 +35,16 @@ afterEvaluate {
         maven {
           val mavenRepo = findProperty("mavenRepo") as String?
           url = uri(mavenRepo ?: layout.buildDirectory.dir("repo").get())
+          // TV4: credentials for publishing to GitHub Packages.
+          val repoUser = findProperty("mavenUser") as String? ?: System.getenv("GITHUB_ACTOR")
+          val repoPassword =
+            findProperty("mavenPassword") as String? ?: System.getenv("GITHUB_TOKEN")
+          if (repoUser != null && repoPassword != null) {
+            credentials {
+              username = repoUser
+              password = repoPassword
+            }
+          }
         }
       }
 
@@ -43,7 +53,10 @@ afterEvaluate {
           from(components["release"])
           groupId = "androidx.media3"
           artifactId = Media3Modules.EXTERNAL_MODULES[project.name]?.artifactId ?: ""
-          version = libs.findVersion("releaseVersion").get().requiredVersion
+          // TV4: prefer an explicit publishVersion, e.g. 1.11.1rv1.
+          version =
+            findProperty("publishVersion") as String?
+              ?: libs.findVersion("releaseVersion").get().requiredVersion
 
           pom {
             name.set(Media3Modules.EXTERNAL_MODULES[project.name]?.name ?: "")
