@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -30,6 +29,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.Presentation;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.HashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -79,8 +78,7 @@ public class TransformerGapsTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
-  @TestParameter(valuesProvider = UseDefaultGlFrameProcessorProvider.class)
-  private boolean useDefaultGlFrameProcessor;
+  @TestParameter private boolean useDefaultGlFrameProcessor;
 
   private String testId;
   private CapturingFrameProcessor.@Nullable Factory capturingFrameProcessorFactory;
@@ -708,7 +706,7 @@ public class TransformerGapsTest {
   }
 
   private Transformer.Builder createTransformerBuilder() {
-    if (useDefaultGlFrameProcessor && SDK_INT >= HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
+    if (useDefaultGlFrameProcessor) {
       capturingFrameProcessorFactory =
           new CapturingFrameProcessor.Factory(
               glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(context));
@@ -721,7 +719,7 @@ public class TransformerGapsTest {
   }
 
   private void assertQueuedGapFrames(Map<Integer, Integer> expectedGapFrameCountsByItemIndex) {
-    if (!useDefaultGlFrameProcessor || SDK_INT < HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
+    if (!useDefaultGlFrameProcessor) {
       return;
     }
     CapturingFrameProcessor capturingFrameProcessor =
@@ -738,7 +736,7 @@ public class TransformerGapsTest {
       Frame frame = framesEvent.frames.get(0).frame;
       assertWithMessage("frameIndex=%s", frameIndex)
           .that(frame)
-          .isInstanceOf(HardwareBufferFrame.class);
+          .isInstanceOf(SDK_INT >= 28 ? HardwareBufferFrame.class : ImagePlanesFrame.class);
       int itemIndex = (int) checkNotNull(frame.getMetadata().get(KEY_COMPOSITION_ITEM_INDEX));
       if (expectedGapFrameCountsByItemIndex.containsKey(itemIndex)) {
         assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, frameIndex)
@@ -762,17 +760,5 @@ public class TransformerGapsTest {
       frameIndex++;
     }
     assertThat(actualGapFrameCountsByItemIndex).isEqualTo(expectedGapFrameCountsByItemIndex);
-  }
-
-  private static final class UseDefaultGlFrameProcessorProvider
-      extends TestParameterValuesProvider {
-    @Override
-    protected ImmutableList<Boolean> provideValues(TestParameterValuesProvider.Context context) {
-      // Provide true only on supported SDK levels to avoid triggering the AssumeSdkInt lint check.
-      if (SDK_INT >= HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
-        return ImmutableList.of(false, true);
-      }
-      return ImmutableList.of(false);
-    }
   }
 }

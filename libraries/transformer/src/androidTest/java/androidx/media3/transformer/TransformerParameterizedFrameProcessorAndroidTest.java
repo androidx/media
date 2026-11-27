@@ -30,7 +30,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.test.utils.CompositionAssetInfo;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -45,8 +44,6 @@ import org.junit.runner.RunWith;
 
 /** Parameterized end-to-end export tests for {@link Transformer}. */
 @RunWith(TestParameterInjector.class)
-// TODO: b/479415308 - Expand API versions below 28 once supported.
-@SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
 public final class TransformerParameterizedFrameProcessorAndroidTest {
 
   @Rule public final TestName testName;

@@ -67,9 +67,6 @@ import org.junit.runner.RunWith;
  * instances, which are unsupported on Robolectric.
  */
 @RunWith(AndroidJUnit4.class)
-// TODO(b/531653682): Lower minSdkVersion to 24 (here and on the maxSdkVersion = 27 tests below)
-// once HardwareBufferJniWrapper supports API 24+.
-@SdkSuppress(minSdkVersion = 26)
 public final class GlEncoderFrameWriterAndroidTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
@@ -158,7 +155,7 @@ public final class GlEncoderFrameWriterAndroidTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 26, maxSdkVersion = 27)
+  @SdkSuppress(maxSdkVersion = 27)
   public void
       dequeueInputFrame_belowApi28_returnsRgbaImagePlanesFrameMatchingFormatAndDimensions() {
     glEncoderFrameWriter.configure(TEST_ENCODING_FORMAT, Frame.USAGE_VIDEO_ENCODE);
@@ -235,7 +232,7 @@ public final class GlEncoderFrameWriterAndroidTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 26, maxSdkVersion = 27)
+  @SdkSuppress(maxSdkVersion = 27)
   public void queueInputFrame_belowApi28_rendersExpectedBitmap() throws Exception {
     glEncoderFrameWriter.close();
     SingleFrameCapturingEncoder.Factory capturingEncoderFactory =

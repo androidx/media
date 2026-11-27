@@ -17,7 +17,6 @@
 
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.BT601_MOV_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_PORTRAIT_ASSET;
@@ -47,7 +46,6 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportComp
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -115,15 +113,11 @@ public final class TransformerSequenceEffectTest {
     if (bracketIndex != -1) {
       testId = testId.substring(0, bracketIndex);
     }
-
-    if (useDefaultGlFrameProcessor) {
-      assumeTrue(SDK_INT >= 28);
-    }
   }
 
   private Transformer.Builder createTransformerBuilder() {
     Transformer.Builder builder = new Transformer.Builder(context);
-    if (shouldUseDefaultGlFrameProcessor()) {
+    if (useDefaultGlFrameProcessor) {
       builder.setFrameProcessorFactory(
           new DefaultGlFrameProcessor.Factory.Builder(context).build());
     }
@@ -686,9 +680,5 @@ public final class TransformerSequenceEffectTest {
         useDefaultGlFrameProcessor ? 20.0f : MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_LUMA;
     SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave(
         actualBitmaps, testId, maxPixelDifference);
-  }
-
-  private boolean shouldUseDefaultGlFrameProcessor() {
-    return useDefaultGlFrameProcessor && SDK_INT >= 28;
   }
 }

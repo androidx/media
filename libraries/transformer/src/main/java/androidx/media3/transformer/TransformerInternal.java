@@ -772,10 +772,6 @@ import org.jspecify.annotations.Nullable;
                   logSessionId));
         } else {
           Looper internalLooper = internalHandlerThread.getLooper();
-          if (SDK_INT < 26) {
-            throw new IllegalStateException(
-                "API 26+ required to use PacketProcessor in Transformer");
-          }
           PacketConsumerVideoSampleExporter videoSampleExporter =
               new PacketConsumerVideoSampleExporter(
                   context,

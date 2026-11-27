@@ -32,7 +32,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.LongSparseArray;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -64,7 +63,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /** Processes, encodes and muxes raw video frames. */
-@RequiresApi(26)
 /* package */ final class PacketConsumerVideoSampleExporter extends SampleExporter {
 
   private static final String DEFAULT_OUTPUT_MIME_TYPE = MimeTypes.VIDEO_H265;

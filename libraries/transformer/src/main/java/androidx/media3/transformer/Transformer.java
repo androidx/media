@@ -684,7 +684,7 @@ public final class Transformer {
           "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
           muxerFactory);
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper =
-          SDK_INT >= 26 && frameProcessorFactory != null && this.hardwareBufferJniWrapper == null
+          frameProcessorFactory != null && this.hardwareBufferJniWrapper == null
               ? HardwareBufferJni.INSTANCE
               : this.hardwareBufferJniWrapper;
       return new Transformer(

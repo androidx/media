@@ -42,7 +42,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.inspector.frame.FrameExtractor;
-import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportTestResult;
@@ -84,10 +83,7 @@ public final class TranscodeQualityTest {
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> params() {
-    if (SDK_INT >= AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
-      return ImmutableList.of(LEGACY, DEFAULT_GL_FRAME_PROCESSOR_NDK);
-    }
-    return ImmutableList.of(LEGACY);
+    return ImmutableList.of(LEGACY, DEFAULT_GL_FRAME_PROCESSOR_NDK);
   }
 
   @Parameter public String mode;
@@ -236,9 +232,6 @@ public final class TranscodeQualityTest {
   }
 
   private Transformer.Builder createBuilder(Context context, String mode) {
-    if (SDK_INT < AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
-      return new Transformer.Builder(context);
-    }
     if (mode.equals(DEFAULT_GL_FRAME_PROCESSOR_NDK)) {
       return glFrameProcessorTestRule.createTransformerBuilder(context);
     }

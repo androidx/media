@@ -94,7 +94,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
 import android.util.Rational;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Flags;
@@ -935,7 +934,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_withAggregationFps60AndFrameProcessor_upsamplesTo60Fps()
       throws Exception {
     Composition composition =
@@ -957,7 +955,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_multiSequenceWithAggregationFps60AndFrameProcessor_upsamplesTo60Fps()
       throws Exception {
     Composition composition =
@@ -980,7 +977,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_multiSequenceWithNoAggregationFpsAndFrameProcessor_keepsIntrinsicFps()
       throws Exception {
     Composition composition =
@@ -1000,7 +996,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_singleSequenceWithNoAggregationFpsAndFrameProcessor_keepsIntrinsicFps()
       throws Exception {
     Composition composition =
@@ -1020,7 +1015,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_withAggregationFps15AndFrameProcessor_downsamplesTo15Fps()
       throws Exception {
     // As defined in AssetInfo, MP4_ADVANCED_ASSET has a duration of 1024ms and
@@ -1044,7 +1038,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void videoEditing_withAggregationFpsHalfAndFrameProcessor_downsamplesToFpsHalf()
       throws Exception {
     // As defined in AssetInfo, MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S has a duration
@@ -2631,7 +2624,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void cancelExport_withPacketConsumerAndImageComposition_doesNotCrash() throws Exception {
     assumeFormatsSupported(
         context,
@@ -3809,7 +3801,6 @@ public class TransformerEndToEndTest {
     return builder.build();
   }
 
-  @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   private Transformer buildTransformerWithFrameProcessorFactory(Context context) {
     return glFrameProcessorTestRule
         .createTransformerBuilder(context)

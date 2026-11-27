@@ -16,7 +16,6 @@
 package androidx.media3.transformer;
 
 import android.content.Context;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.HardwareBufferJni;
@@ -38,7 +37,6 @@ public final class GlFrameProcessorTestRule extends ExternalResource {
   /**
    * Returns a {@link Transformer.Builder} configured with {@link DefaultGlFrameProcessor.Factory}.
    */
-  @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public Transformer.Builder createTransformerBuilder(Context context) {
     return new Transformer.Builder(context)
         .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE)
@@ -51,7 +49,6 @@ public final class GlFrameProcessorTestRule extends ExternalResource {
    *
    * @see DefaultGlFrameProcessor.Factory.Builder#setWorkingColorSpace(ColorInfo)
    */
-  @RequiresApi(AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public Transformer.Builder createTransformerBuilder(
       Context context, ColorInfo workingColorSpace) {
     return new Transformer.Builder(context)

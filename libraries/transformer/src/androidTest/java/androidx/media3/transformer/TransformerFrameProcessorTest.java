@@ -61,7 +61,6 @@ import org.junit.runner.RunWith;
 
 /** Unit test for {@link Transformer} and {@link FrameProcessor} integration. */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 28)
 public class TransformerFrameProcessorTest {
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
@@ -76,8 +75,6 @@ public class TransformerFrameProcessorTest {
     testId = testName.getMethodName();
   }
 
-  // PacketConsumer's underlying input reader requires Image.getHardwareBuffer(), which is only
-  // supported on API 28+.
   @Test
   public void export_compositionWithFrameProcessor_populatesRequiredMetadataFields()
       throws Exception {
