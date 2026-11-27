@@ -184,14 +184,16 @@ internal constructor(
 
   private var _player by mutableStateOf<Player?>(null)
   private var deferredRewindJob: Job? = null
+  private var isClippingRewindDeferred = false
   private var deferredPlayJob: Job? = null
   private var isPlayPendingFirstFrame = false
   /**
    * Whether [player] has yet to return to the start position. Set when it is bound, when the still
    * photo is shown or resume is turned off while it is shown, and before it is prepared from
-   * [Player.STATE_IDLE] (it may have stopped mid-motion). Always `false` while
-   * [MotionPhotoConfig.resumeVideoFromPreviousPosition] is `true`. Cleared once [rewind] seeks, and
-   * when a new media item or player resets the position anyway.
+   * [Player.STATE_IDLE] (it may have stopped mid-motion). Cleared when
+   * [MotionPhotoConfig.resumeVideoFromPreviousPosition] is enabled (unless a deferred rewind is
+   * still owed for a clipping update), once [rewind] seeks, and when a new media item or player
+   * resets the position anyway.
    */
   private var isRewindPending = false
 
@@ -321,10 +323,13 @@ internal constructor(
       }
       val previousConfig = _config
       _config = value
-      if (_config.resumeVideoFromPreviousPosition) {
-        cancelDeferredRewind()
+      if (_config.resumeVideoFromPreviousPosition && deferredRewindJob == null) {
         isRewindPending = false
-      } else if (previousConfig.resumeVideoFromPreviousPosition && isPhotoTarget) {
+      } else if (
+        !_config.resumeVideoFromPreviousPosition &&
+          previousConfig.resumeVideoFromPreviousPosition &&
+          isPhotoTarget
+      ) {
         isRewindPending = true
       }
       // Play-once finishes on the still photo, so changing non-looping options (e.g., boundaries
@@ -343,6 +348,10 @@ internal constructor(
           previousConfig.rangeEnd != _config.rangeEnd
       ) {
         syncMediaItem(currentPlayer)
+      }
+      if (_config.resumeVideoFromPreviousPosition && !isClippingRewindDeferred) {
+        cancelDeferredRewind()
+        isRewindPending = false
       }
       if (restartedEndedMotion) {
         motionTarget = MotionTarget.MOTION
@@ -806,6 +815,7 @@ internal constructor(
   private fun cancelDeferredRewind() {
     deferredRewindJob?.cancel()
     deferredRewindJob = null
+    isClippingRewindDeferred = false
   }
 
   /**
@@ -1156,7 +1166,8 @@ internal constructor(
    * An in-place update that keeps the start position preserves the current playback position
    * (unless [isPhotoTarget] and [isRewindPending] are `true`, or the current position is at or
    * beyond the new end position), while a change of the start position restarts from scratch (see
-   * [motionStartPositionMs]).
+   * [motionStartPositionMs]). When a deferred rewind is already in flight, seeking is left to that
+   * rewind once the crossfade completes.
    */
   private fun syncMediaItem(
     currentPlayer: Player,
@@ -1203,7 +1214,15 @@ internal constructor(
     if (didStartChange) {
       isNewItemAwaitingInitialStart = true
     }
-    if (didStartChange || (isPhotoTarget && isRewindPending) || isCurrentPositionPastEnd) {
+    val isClippingRewindRequired = didStartChange || isCurrentPositionPastEnd
+    if (deferredRewindJob != null) {
+      if (isClippingRewindRequired) {
+        isClippingRewindDeferred = true
+      }
+      // The deferred rewind seeks to the new start once the crossfade has completed.
+      return true
+    }
+    if (isClippingRewindRequired || (isPhotoTarget && isRewindPending)) {
       rewind(currentPlayer)
     } else {
       reconcileStartPosition(currentPlayer, allowAfterFirstFrame = wasPlaybackRangeEmpty)

@@ -1924,32 +1924,156 @@ class MotionPhotoStateTest {
     }
 
   @Test
-  fun config_whenEndBoundaryUpdatedWhileShowingPhotoWithResumeFalse_restartsFromStartPosition() =
+  fun config_whenEndBoundaryUpdatedDuringDeferredRewind_keepsRewindDeferred() = runComposeUiTest {
+    val player = createSeekableFakePlayer(durationMs = 1_000L)
+    val state = setContentWithPlayingMotionPhotoState(player)
+    mainClock.autoAdvance = false
+    player.setPosition(300L)
+    state.showStillPhoto()
+    advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS / 4)
+    val seekPositionsMs = recordSeekPositionsMs(player)
+
+    state.config = state.config.copy(rangeEnd = Boundary.START_OF_VIDEO.plusMs(600L))
+
+    assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+    assertThat(seekPositionsMs).isEmpty()
+
+    advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS * 3 / 4)
+
+    assertThat(seekPositionsMs).containsExactly(0L)
+  }
+
+  @Test
+  fun config_whenStartBoundaryUpdatedDuringDeferredRewind_keepsRewindDeferred() = runComposeUiTest {
+    val player = createSeekableFakePlayer(durationMs = 1_000L)
+    val state = setContentWithPlayingMotionPhotoState(player)
+    mainClock.autoAdvance = false
+    player.setPosition(300L)
+    state.showStillPhoto()
+    advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS / 4)
+    val seekPositionsMs = recordSeekPositionsMs(player)
+
+    state.config = state.config.copy(rangeStart = Boundary.START_OF_VIDEO.plusMs(100L))
+
+    assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(100L)
+    assertThat(seekPositionsMs).isEmpty()
+
+    advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS * 3 / 4)
+
+    assertThat(seekPositionsMs).containsExactly(0L)
+  }
+
+  @Test
+  fun config_whenEndBoundaryMovedBeforePositionDuringDeferredRewind_keepsRewindDeferred() =
     runComposeUiTest {
       val player = createSeekableFakePlayer(durationMs = 1_000L)
-      val state =
-        setContentWithPlayingMotionPhotoState(
-          player,
-          initialConfig =
-            MotionPhotoConfig(
-              resumeVideoFromPreviousPosition = false,
-              rangeStart = Boundary.START_OF_VIDEO.plusMs(100L),
-            ),
-        )
+      val state = setContentWithPlayingMotionPhotoState(player)
       mainClock.autoAdvance = false
       player.setPosition(300L)
       state.showStillPhoto()
       advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS / 4)
-      assertThat(player.currentPosition).isAtLeast(300L)
       val seekPositionsMs = recordSeekPositionsMs(player)
 
-      state.config = state.config.copy(rangeEnd = Boundary.START_OF_VIDEO.plusMs(600L))
+      state.config = state.config.copy(rangeEnd = Boundary.START_OF_VIDEO.plusMs(200L))
 
-      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
-      assertThat(player.currentPosition).isEqualTo(0L)
-      assertThat(player.playWhenReady).isFalse()
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(200L)
+      assertThat(seekPositionsMs).isEmpty()
+
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS * 3 / 4)
+
       assertThat(seekPositionsMs).containsExactly(0L)
-      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS)
+    }
+
+  @Test
+  fun config_whenResumeEnabledAfterStartChangeDuringDeferredRewind_stillRewinds() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      val state = setContentWithPlayingMotionPhotoState(player)
+      mainClock.autoAdvance = false
+      player.setPosition(300L)
+      state.showStillPhoto()
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS / 4)
+      val seekPositionsMs = recordSeekPositionsMs(player)
+
+      state.config = state.config.copy(rangeStart = Boundary.START_OF_VIDEO.plusMs(100L))
+      state.config = state.config.copy(resumeVideoFromPreviousPosition = true)
+
+      assertThat(seekPositionsMs).isEmpty()
+
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS * 3 / 4)
+
+      assertThat(seekPositionsMs).containsExactly(0L)
+    }
+
+  @Test
+  fun config_whenStartBoundaryAndResumeUpdatedDuringDeferredRewind_keepsRewindDeferred() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      val state = setContentWithPlayingMotionPhotoState(player)
+      mainClock.autoAdvance = false
+      player.setPosition(300L)
+      state.showStillPhoto()
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS / 4)
+      val seekPositionsMs = recordSeekPositionsMs(player)
+
+      state.config =
+        state.config.copy(
+          rangeStart = Boundary.START_OF_VIDEO.plusMs(100L),
+          resumeVideoFromPreviousPosition = true,
+        )
+
+      assertThat(seekPositionsMs).isEmpty()
+
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS * 3 / 4)
+
+      assertThat(seekPositionsMs).containsExactly(0L)
+    }
+
+  @Test
+  fun config_whenEndBoundaryAndResumeUpdatedDuringDeferredRewind_cancelsRewind() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      val state = setContentWithPlayingMotionPhotoState(player)
+      mainClock.autoAdvance = false
+      player.setPosition(300L)
+      state.showStillPhoto()
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS / 4)
+      val seekPositionsMs = recordSeekPositionsMs(player)
+
+      state.config =
+        state.config.copy(
+          rangeEnd = Boundary.START_OF_VIDEO.plusMs(600L),
+          resumeVideoFromPreviousPosition = true,
+        )
+
+      assertThat(seekPositionsMs).isEmpty()
+
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS * 3 / 4)
+
+      assertThat(seekPositionsMs).isEmpty()
+    }
+
+  @Test
+  fun config_whenEndMovedBeforePositionAndResumeEnabledDuringDeferredRewind_stillRewinds() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      val state = setContentWithPlayingMotionPhotoState(player)
+      mainClock.autoAdvance = false
+      player.setPosition(300L)
+      state.showStillPhoto()
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS / 4)
+      val seekPositionsMs = recordSeekPositionsMs(player)
+
+      state.config =
+        state.config.copy(
+          rangeEnd = Boundary.START_OF_VIDEO.plusMs(200L),
+          resumeVideoFromPreviousPosition = true,
+        )
+
+      assertThat(seekPositionsMs).isEmpty()
+
+      advanceTimeAndWait(MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS * 3 / 4)
+
       assertThat(seekPositionsMs).containsExactly(0L)
     }
 
