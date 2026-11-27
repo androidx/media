@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <resources>
-  <string name="app_name">Composition Demo</string>
+  <string name="app_name">Media3 Composition Demo</string>
   <string name="edit">Edit</string>
   <string name="add_effects">Add effects</string>
   <string name="add_effects_hint">Click the Media Item to apply effects</string>
