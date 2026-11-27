@@ -15,7 +15,9 @@
  */
 package androidx.media3.extractor.mkv;
 
+import static androidx.media3.extractor.Extractor.RESULT_CONTINUE;
 import static androidx.media3.extractor.Extractor.RESULT_SEEK;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.Mockito.mock;
@@ -23,15 +25,19 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
+import androidx.media3.common.Metadata;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
+import androidx.media3.extractor.metadata.Chapter;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -44,6 +50,14 @@ import org.junit.runner.RunWith;
 /** Non-parameterized tests for {@link MatroskaExtractor}. */
 @RunWith(AndroidJUnit4.class)
 public class MatroskaExtractorNonParameterizedTest {
+
+  private static final Metadata LATE_CHAPTER_METADATA =
+      new Metadata(
+          new Chapter.Builder()
+              .setStartTimeMs(20)
+              .setEndTimeMs(40)
+              .setTitle(new Label("eng", "Late chapter"))
+              .build());
 
   @Test
   public void seek_afterSeekMapSent_seekMapRemainsValid() throws Exception {
@@ -94,6 +108,45 @@ public class MatroskaExtractorNonParameterizedTest {
   }
 
   @Test
+  public void read_chaptersAfterFirstCluster_outputsUpdatedFormat() throws Exception {
+    // The file contains Cues, the first Cluster, Chapters, then a second Cluster.
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mkv/sample_with_late_chapters.mkv");
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+    FakeExtractorOutput output =
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ true));
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    extractor.init(output);
+    PositionHolder positionHolder = new PositionHolder();
+
+    assertThat(extractor.read(input, positionHolder)).isEqualTo(RESULT_CONTINUE);
+    assertThat(checkNotNull(output.seekMap).isSeekable()).isTrue();
+    FakeTrackOutput trackOutput = checkNotNull(output.trackOutputs.get(1));
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(checkNotNull(trackOutput.lastFormat).metadata).isNull();
+
+    assertThat(extractor.read(input, positionHolder)).isEqualTo(RESULT_CONTINUE);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(2);
+    assertThat(checkNotNull(trackOutput.lastFormat).metadata).isEqualTo(LATE_CHAPTER_METADATA);
+  }
+
+  @Test
+  public void read_chaptersBeforeFirstClusterWithoutCues_outputsUpdatedFormat() throws Exception {
+    assertChaptersPublishedWithFirstSample(
+        "media/mkv/sample_with_chapters_before_first_cluster_no_cues.mkv", /* flags= */ 0);
+  }
+
+  @Test
+  public void read_chaptersBeforeFirstClusterWithCueSeekingDisabled_outputsUpdatedFormat()
+      throws Exception {
+    assertChaptersPublishedWithFirstSample(
+        "media/mkv/sample_with_chapters_before_first_cluster_indexed.mkv",
+        MatroskaExtractor.FLAG_DISABLE_SEEK_FOR_CUES);
+  }
+
+  @Test
   public void seek_resetsSubtitleParser() throws Exception {
     List<SubtitleParser> createdParsers = new ArrayList<>();
     SubtitleParser.Factory subtitleParserFactory =
@@ -113,5 +166,22 @@ public class MatroskaExtractorNonParameterizedTest {
     extractor.seek(/* position= */ 0, /* timeUs= */ 0);
 
     verify(subtitleParser).reset();
+  }
+
+  private static void assertChaptersPublishedWithFirstSample(
+      String fileName, @MatroskaExtractor.Flags int flags) throws Exception {
+    byte[] data = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), fileName);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+    FakeExtractorOutput output =
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ true));
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED, flags);
+    extractor.init(output);
+
+    assertThat(extractor.read(input, new PositionHolder())).isEqualTo(RESULT_CONTINUE);
+    assertThat(checkNotNull(output.seekMap).isSeekable()).isFalse();
+    FakeTrackOutput trackOutput = checkNotNull(output.trackOutputs.get(1));
+    assertThat(trackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(checkNotNull(trackOutput.lastFormat).metadata).isEqualTo(LATE_CHAPTER_METADATA);
   }
 }
