@@ -32,6 +32,10 @@ public final class WebvttParserUtil {
 
   private WebvttParserUtil() {}
 
+  static boolean isCommentStart(String line) {
+    return COMMENT.matcher(line).matches();
+  }
+
   /**
    * Reads and validates the first line of a WebVTT file.
    *
@@ -108,7 +112,7 @@ public final class WebvttParserUtil {
   public static @Nullable Matcher findNextCueHeader(ParsableByteArray input) {
     @Nullable String line;
     while ((line = input.readLine()) != null) {
-      if (COMMENT.matcher(line).matches()) {
+      if (isCommentStart(line)) {
         // Skip until the end of the comment block.
         while ((line = input.readLine()) != null && !line.isEmpty()) {}
       } else {

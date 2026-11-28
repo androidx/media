@@ -41,6 +41,8 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Bytes;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -61,6 +63,9 @@ public class MatroskaExtractorNonParameterizedTest {
 
     List<FakeTrackOutput> textTracks = output.getTrackOutputsForType(C.TRACK_TYPE_TEXT);
     assertThat(textTracks).hasSize(2);
+    assertThat(textTracks.get(0).lastFormat.roleFlags & C.ROLE_FLAG_CAPTION).isEqualTo(0);
+    assertThat(textTracks.get(1).lastFormat.roleFlags & C.ROLE_FLAG_CAPTION)
+        .isEqualTo(C.ROLE_FLAG_CAPTION);
     CueDecoder decoder = new CueDecoder();
     for (FakeTrackOutput track : textTracks) {
       assertThat(track.getSampleCount()).isEqualTo(1);
@@ -71,6 +76,28 @@ public class MatroskaExtractorNonParameterizedTest {
       assertThat(Iterables.getOnlyElement(cues.cues).text.toString())
           .isEqualTo("First line\nSecond line");
       assertThat(Iterables.getOnlyElement(cues.cues).line).isEqualTo(0.18f);
+    }
+  }
+
+  @Test
+  public void read_webmWebVttNotePrefixIdentifier_outputsCue() throws Exception {
+    byte[] webm =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mkv/sample_with_webm_webvtt.webm");
+    byte[] previousId = "first-cue".getBytes(StandardCharsets.UTF_8);
+    byte[] notePrefixId = "NOTE-cue0".getBytes(StandardCharsets.UTF_8);
+    int identifierOffset = Bytes.indexOf(webm, previousId);
+    assertThat(identifierOffset).isAtLeast(0);
+    System.arraycopy(notePrefixId, 0, webm, identifierOffset, notePrefixId.length);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromByteArray(
+            new MatroskaExtractor(new DefaultSubtitleParserFactory()), webm);
+
+    List<FakeTrackOutput> textTracks = output.getTrackOutputsForType(C.TRACK_TYPE_TEXT);
+    assertThat(textTracks).hasSize(2);
+    for (FakeTrackOutput track : textTracks) {
+      assertThat(track.getSampleCount()).isEqualTo(1);
     }
   }
 

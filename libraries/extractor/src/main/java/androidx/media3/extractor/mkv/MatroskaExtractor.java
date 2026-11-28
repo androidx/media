@@ -2901,6 +2901,7 @@ public class MatroskaExtractor implements Extractor {
               .setMaxInputSize(maxInputSize)
               .setLanguage(language)
               .setSelectionFlags(selectionFlags)
+              .setRoleFlags(CODEC_ID_WEBM_VTT_CAPTIONS.equals(codecId) ? C.ROLE_FLAG_CAPTION : 0)
               .setInitializationData(initializationData)
               .setCodecs(codecs)
               .setDrmInitData(drmInitData)

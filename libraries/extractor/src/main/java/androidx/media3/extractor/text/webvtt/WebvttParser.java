@@ -50,7 +50,6 @@ public final class WebvttParser implements SubtitleParser {
   private static final int EVENT_STYLE_BLOCK = 2;
   private static final int EVENT_CUE = 3;
 
-  private static final String COMMENT_START = "NOTE";
   private static final String STYLE_START = "STYLE";
 
   private final ParsableByteArray parsableWebvttData;
@@ -124,7 +123,7 @@ public final class WebvttParser implements SubtitleParser {
         foundEvent = EVENT_END_OF_FILE;
       } else if (STYLE_START.equals(line)) {
         foundEvent = EVENT_STYLE_BLOCK;
-      } else if (line.startsWith(COMMENT_START)) {
+      } else if (WebvttParserUtil.isCommentStart(line)) {
         foundEvent = EVENT_COMMENT;
       } else {
         foundEvent = EVENT_CUE;
