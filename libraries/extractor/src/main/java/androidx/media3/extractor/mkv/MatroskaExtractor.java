@@ -54,6 +54,7 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.FlacStreamMetadata;
 import androidx.media3.extractor.HevcConfig;
 import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.PositionHolder;
@@ -62,6 +63,7 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
+import androidx.media3.extractor.flac.FlacConstants;
 import androidx.media3.extractor.metadata.Chapter;
 import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -2628,7 +2630,9 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_FLAC:
           mimeType = MimeTypes.AUDIO_FLAC;
-          initializationData = Collections.singletonList(getCodecPrivate(codecId));
+          byte[] flacCodecPrivate = getCodecPrivate(codecId);
+          maxInputSize = getFlacMaxInputSize(flacCodecPrivate);
+          initializationData = Collections.singletonList(flacCodecPrivate);
           pcmEncoding = Util.getPcmEncoding(audioBitDepth);
           if (pcmEncoding == C.ENCODING_INVALID) {
             pcmEncoding = Format.NO_VALUE;
@@ -3186,6 +3190,30 @@ public class MatroskaExtractor implements Extractor {
     @EnsuresNonNull("output")
     private void assertOutputInitialized() {
       checkNotNull(output);
+    }
+
+    /**
+     * Returns the maximum frame size declared by the FLAC stream info block in {@code
+     * codecPrivate}, or {@link Format#NO_VALUE} if it is unknown or {@code codecPrivate} does not
+     * start with the stream marker and a stream info block.
+     */
+    private static int getFlacMaxInputSize(byte[] codecPrivate) {
+      if (codecPrivate.length
+              < FlacConstants.STREAM_MARKER_SIZE + FlacConstants.STREAM_INFO_BLOCK_SIZE
+          || codecPrivate[0] != 'f'
+          || codecPrivate[1] != 'L'
+          || codecPrivate[2] != 'a'
+          || codecPrivate[3] != 'C'
+          || (codecPrivate[FlacConstants.STREAM_MARKER_SIZE] & 0x7F)
+              != FlacConstants.METADATA_TYPE_STREAM_INFO) {
+        return Format.NO_VALUE;
+      }
+      int maxFrameSize =
+          new FlacStreamMetadata(
+                  codecPrivate,
+                  FlacConstants.STREAM_MARKER_SIZE + FlacConstants.METADATA_BLOCK_HEADER_SIZE)
+              .maxFrameSize;
+      return maxFrameSize > 0 ? maxFrameSize : Format.NO_VALUE;
     }
 
     @EnsuresNonNull("codecPrivate")
