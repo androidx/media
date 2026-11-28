@@ -3069,7 +3069,15 @@ public class MatroskaExtractor implements Extractor {
         } else if (compression == FOURCC_COMPRESSION_DX50
             || compression == FOURCC_COMPRESSION_XVID
             || compression == FOURCC_COMPRESSION_FMP4) {
-          return new Pair<>(MimeTypes.VIDEO_MP4V, null);
+          // The MPEG-4 Visual decoder configuration follows the BITMAPINFOHEADER.
+          int initializationDataOffset = buffer.getPosition() + 20;
+          @Nullable List<byte[]> initializationData =
+              initializationDataOffset < buffer.limit()
+                  ? ImmutableList.of(
+                      Arrays.copyOfRange(
+                          buffer.getData(), initializationDataOffset, buffer.limit()))
+                  : null;
+          return new Pair<>(MimeTypes.VIDEO_MP4V, initializationData);
         } else if (compression == FOURCC_COMPRESSION_H263) {
           return new Pair<>(MimeTypes.VIDEO_H263, null);
         } else if (compression == FOURCC_COMPRESSION_VC1) {

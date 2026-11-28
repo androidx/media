@@ -38,6 +38,8 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.Iterables;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +62,33 @@ public class MatroskaExtractorNonParameterizedTest {
       track.initializeFormat(/* trackId= */ 1);
 
       assertThat(checkNotNull(track.format).sampleMimeType).isEqualTo(MimeTypes.VIDEO_MP4V);
+    }
+  }
+
+  @Test
+  public void initializeFormat_mpeg4FourCcWithCodecPrivate_preservesDecoderInitializationData()
+      throws Exception {
+    byte[] initializationData = {0, 0, 1, (byte) 0xB0, 1, 0, 0, 1, 0x20, 0x00};
+    for (String fourCc : new String[] {"DX50", "XVID", "FMP4"}) {
+      MatroskaExtractor.Track track = new MatroskaExtractor.Track();
+      track.codecId = "V_MS/VFW/FOURCC";
+      track.width = 320;
+      track.height = 240;
+      ByteBuffer bitmapInfoHeader =
+          ByteBuffer.allocate(40 + initializationData.length).order(ByteOrder.LITTLE_ENDIAN);
+      bitmapInfoHeader.putInt(40).putInt(track.width).putInt(track.height);
+      bitmapInfoHeader.position(16);
+      bitmapInfoHeader.put(fourCc.getBytes(StandardCharsets.US_ASCII));
+      bitmapInfoHeader.position(40);
+      bitmapInfoHeader.put(initializationData);
+      track.codecPrivate = bitmapInfoHeader.array();
+
+      track.initializeFormat(/* trackId= */ 1);
+
+      Format format = checkNotNull(track.format);
+      assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_MP4V);
+      assertThat(format.initializationData).hasSize(1);
+      assertThat(format.initializationData.get(0)).isEqualTo(initializationData);
     }
   }
 
