@@ -96,6 +96,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
@@ -6654,6 +6656,79 @@ public class HlsInterstitialsAdsLoaderTest {
         () -> {
           adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
         });
+  }
+
+  @Test
+  public void setWithSkippedAdGroup_assetListLoadFailsAfterSkip_preservesSkippedState()
+      throws Exception {
+    CountDownLatch loadStarted = new CountDownLatch(1);
+    CountDownLatch failLoad = new CountDownLatch(1);
+    adsLoader.release();
+    adsLoader =
+        new HlsInterstitialsAdsLoader(
+            () ->
+                new ByteArrayDataSource(
+                    uri -> {
+                      loadStarted.countDown();
+                      try {
+                        if (!failLoad.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                          throw new IOException("Timed out waiting for the ad group to be skipped");
+                        }
+                      } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException(e);
+                      }
+                      throw new IOException("Injected asset list failure after skip");
+                    }));
+    adsLoader.addListener(mockAdsLoaderListener);
+    adsLoader.addListener(assetListLoadingListener);
+    adsMediaSource =
+        (AdsMediaSource)
+            new HlsInterstitialsAdsLoader.AdsMediaSourceFactory(
+                    adsLoader,
+                    mockAdViewProvider,
+                    (Context) ApplicationProvider.getApplicationContext())
+                .createMediaSource(contentMediaItem);
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:51,\n"
+            + "main1.ts\n"
+            + "#EXT-X-ENDLIST\n"
+            + "#EXT-X-DATERANGE:ID=\"ad0-0\",CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\",CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist.json\"\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    try {
+      AdPlaybackState initialState =
+          callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+              playlistString,
+              adsLoader,
+              /* windowIndex= */ 0,
+              /* windowPositionInPeriodUs= */ 0,
+              /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+      assertThat(loadStarted.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)).isTrue();
+      assertThat(initialState.getAdGroup(0).states).asList().containsExactly(AD_STATE_UNAVAILABLE);
+
+      // Model a live-edge join skipping the group while its asset-list request is still pending.
+      adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+      failLoad.countDown();
+
+      // A late IOException must not attempt the invalid SKIPPED -> ERROR state transition.
+      runMainLooperUntil(assetListLoadingListener::failed, TIMEOUT_MS, Clock.DEFAULT);
+      ArgumentCaptor<AdPlaybackState> stateCaptor = ArgumentCaptor.forClass(AdPlaybackState.class);
+      verify(mockEventListener, atLeast(1)).onAdPlaybackState(stateCaptor.capture());
+      assertThat(stateCaptor.getValue().getAdGroup(0).states)
+          .asList()
+          .containsExactly(AD_STATE_SKIPPED);
+      assertThat(assetListLoadingListener.assetListLoadCompletedCounter.get()).isEqualTo(0);
+    } finally {
+      failLoad.countDown();
+      adsLoader.release();
+    }
   }
 
   @Test
