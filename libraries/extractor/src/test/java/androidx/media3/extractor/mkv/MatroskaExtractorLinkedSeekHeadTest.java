@@ -381,6 +381,45 @@ public final class MatroskaExtractorLinkedSeekHeadTest {
   }
 
   @Test
+  public void prepare_staleSeekHeadInsideVoid_preservesSamples() throws Exception {
+    byte[] sample = chainedSample(false);
+    byte[] bytes = Arrays.copyOf(sample, sample.length + 2);
+    int seekHeadPosition = NESTED_INDEX_POSITION + 2;
+    System.arraycopy(sample, NESTED_INDEX_POSITION, bytes, seekHeadPosition, SEEK_HEAD_SIZE);
+    // A revised file replaced an old index with a Void but retained the earlier reference.
+    bytes[NESTED_INDEX_POSITION] = (byte) 0xEC;
+    bytes[NESTED_INDEX_POSITION + 1] = (byte) (0x80 | SEEK_HEAD_SIZE);
+    // The obsolete Seek element has its SeekID but no SeekPosition.
+    bytes[seekHeadPosition + 15] = (byte) 0xEC;
+    bytes[seekHeadPosition + 16] = (byte) 0x84;
+    Arrays.fill(bytes, seekHeadPosition + 17, seekHeadPosition + SEEK_HEAD_SIZE, (byte) 0);
+    writeOffset(bytes, ROOT_INDEX_OFFSET_POSITION, seekHeadPosition);
+    ByteBuffer.wrap(bytes, SEGMENT_POSITION - Long.BYTES, Long.BYTES)
+        .putLong((1L << 56) | (bytes.length - SEGMENT_POSITION));
+
+    Harness harness = new Harness(bytes, 0, false);
+    harness.prepare();
+
+    assertThat(harness.output.seekMap.isSeekable()).isFalse();
+    assertThat(harness.seeks)
+        .containsExactly((long) seekHeadPosition, (long) CLUSTER_CONTENT_POSITION)
+        .inOrder();
+    assertPlaybackToEndMatchesSample(harness);
+  }
+
+  @Test
+  public void prepare_unknownInputAndSegmentLengths_doesNotJumpToLinkedSeekHead() throws Exception {
+    byte[] bytes = chainedSample(false);
+    ByteBuffer.wrap(bytes, SEGMENT_POSITION - Long.BYTES, Long.BYTES).putLong((1L << 57) - 1);
+    Harness harness = new Harness(bytes, 0, /* unknownLength= */ true);
+    harness.prepare();
+
+    assertThat(harness.seeks).isEmpty();
+    assertThat(harness.output.seekMap.isSeekable()).isFalse();
+    assertThat(harness.readVideoSamples(1).getSampleCount()).isAtLeast(1);
+  }
+
+  @Test
   public void read_truncatedSeekHead_resumesMedia() throws Exception {
     byte[] complete = chainedSample(false);
     for (int length : new int[] {NESTED_INDEX_POSITION + 5, complete.length - 1}) {

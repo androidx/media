@@ -691,6 +691,12 @@ public class MatroskaExtractor implements Extractor {
       boolean readingIndex = seekPositionAfterBuildingCues != C.INDEX_UNSET;
       try {
         continueReading = readingIndex ? readIndex(input) : reader.read(input);
+      } catch (ParserException e) {
+        if (!readingIndex) {
+          throw e;
+        }
+        Log.w(TAG, "Ignoring malformed Matroska index.", e);
+        continueReading = false;
       } catch (EOFException e) {
         if (!readingIndex) {
           if (!isReadingOptionalIndex()) {
@@ -2294,7 +2300,10 @@ public class MatroskaExtractor implements Extractor {
     }
     for (int i = linkedSeekHeadPositions.size() - 1; i >= 0; i--) {
       long position = linkedSeekHeadPositions.get(i);
-      if (isValidIndexPosition(position) && !visitedIndexPositions.contains(position)) {
+      // Without either boundary, a linked offset may be beyond the end of the input.
+      if ((inputLength != C.LENGTH_UNSET || segmentContentSize != C.LENGTH_UNSET)
+          && isValidIndexPosition(position)
+          && !visitedIndexPositions.contains(position)) {
         return position;
       }
     }
@@ -2474,6 +2483,16 @@ public class MatroskaExtractor implements Extractor {
     public void startMasterElement(int id, long contentPosition, long contentSize)
         throws ParserException {
       MatroskaExtractor.this.startMasterElement(id, contentPosition, contentSize);
+    }
+
+    @Override
+    public void startMasterElement(
+        int id, long contentPosition, long contentSize, boolean contentSizeUnknown)
+        throws ParserException {
+      startMasterElement(
+          id,
+          contentPosition,
+          id == ID_SEGMENT && contentSizeUnknown ? C.LENGTH_UNSET : contentSize);
     }
 
     @Override

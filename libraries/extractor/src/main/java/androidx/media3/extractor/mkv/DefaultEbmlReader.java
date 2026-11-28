@@ -127,7 +127,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           long elementContentPosition = input.getPosition();
           long elementEndPosition = elementContentPosition + elementContentSize;
           masterElementsStack.push(new MasterElement(elementId, elementEndPosition));
-          processor.startMasterElement(elementId, elementContentPosition, elementContentSize);
+          boolean contentSizeUnknown =
+              elementContentSize == (1L << (7 * varintReader.getLastLength())) - 1;
+          processor.startMasterElement(
+              elementId, elementContentPosition, elementContentSize, contentSizeUnknown);
           elementState = ELEMENT_STATE_READ_ID;
           return true;
         case EbmlProcessor.ELEMENT_TYPE_UNSIGNED_INT:

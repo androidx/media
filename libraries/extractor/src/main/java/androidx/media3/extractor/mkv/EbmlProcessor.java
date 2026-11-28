@@ -105,6 +105,13 @@ public interface EbmlProcessor {
    */
   void startMasterElement(int id, long contentPosition, long contentSize) throws ParserException;
 
+  /** Starts a master element and reports whether its encoded content size is unknown. */
+  default void startMasterElement(
+      int id, long contentPosition, long contentSize, boolean contentSizeUnknown)
+      throws ParserException {
+    startMasterElement(id, contentPosition, contentSize);
+  }
+
   /**
    * Called when the end of a master element is encountered.
    *
