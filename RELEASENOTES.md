@@ -38,6 +38,10 @@
         metadata, and ignore malformed non-integer or non-positive `TLEN` values
         instead of throwing `NumberFormatException`
         ([#3492](https://github.com/androidx/media/issues/3492)).
+    *   Matroska: Fix `MatroskaExtractor` reporting an unseekable stream when
+        the first `SeekHead` does not reference the `Cues` but references
+        another `SeekHead` that does, directly or through further `SeekHead`
+        elements ([#1143](https://github.com/androidx/media/issues/1143)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:

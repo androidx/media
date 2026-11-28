@@ -79,10 +79,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -503,6 +505,10 @@ public class MatroskaExtractor implements Extractor {
   private long currentCueClusterPosition = C.INDEX_UNSET;
   private long currentCueRelativePosition = C.INDEX_UNSET;
   private int primarySeekTrackNumber = C.INDEX_UNSET;
+  private boolean seekForSeekHead;
+  private long seekHeadContentPosition = C.INDEX_UNSET;
+  private long seekPositionAfterReadingSeekHeads = C.INDEX_UNSET;
+  private final Set<Long> followedSeekHeadPositions = new HashSet<>();
   private boolean seekForCues;
   private long cuesContentPosition = C.INDEX_UNSET;
   private long seekPositionAfterBuildingCues = C.INDEX_UNSET;
@@ -646,6 +652,11 @@ public class MatroskaExtractor implements Extractor {
     // Cues elements will be ignored by the parsing logic.
     if (!sentSeekMap) {
       perTrackCues.clear();
+      // Restart the search for Cues, which re-reads the SeekHeads from the start of the file.
+      seekForSeekHead = false;
+      seekHeadContentPosition = C.INDEX_UNSET;
+      seekPositionAfterReadingSeekHeads = C.INDEX_UNSET;
+      followedSeekHeadPositions.clear();
     }
     for (int i = 0; i < tracks.size(); i++) {
       tracks.valueAt(i).reset();
@@ -667,7 +678,8 @@ public class MatroskaExtractor implements Extractor {
     while (continueReading && !haveOutputSample) {
       continueReading = reader.read(input);
       if (continueReading
-          && (maybeSeekForTracks(seekPosition, input.getPosition())
+          && (maybeSeekForSeekHead(seekPosition, input.getPosition(), input.getLength())
+              || maybeSeekForTracks(seekPosition, input.getPosition())
               || maybeSeekForCues(seekPosition, input.getPosition()))) {
         return Extractor.RESULT_SEEK;
       }
@@ -933,7 +945,12 @@ public class MatroskaExtractor implements Extractor {
           cuesContentPosition = seekEntryPosition;
         } else if (seekEntryId == ID_TRACKS) {
           tracksContentPosition = seekEntryPosition;
+        } else if (seekEntryId == ID_SEEK_HEAD) {
+          seekHeadContentPosition = seekEntryPosition;
         }
+        break;
+      case ID_SEEK_HEAD:
+        seekForSeekHead = true;
         break;
       case ID_CUES:
         if (!sentSeekMap) {
@@ -2216,6 +2233,46 @@ public class MatroskaExtractor implements Extractor {
     if (sentSeekMap && seekPositionAfterBuildingCues != C.INDEX_UNSET) {
       seekPosition.position = seekPositionAfterBuildingCues;
       seekPositionAfterBuildingCues = C.INDEX_UNSET;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Updates the position of the holder to the SeekHead element named by the SeekHead just read, if
+   * the Cues are still unknown and the SeekHead can be read. Once no further SeekHead is to be
+   * read, sets the holder's position back to where it was before the first SeekHead was read.
+   *
+   * @param seekPosition The holder whose position will be updated.
+   * @param currentPosition Current position of the input.
+   * @param inputLength The length of the input, or {@link C#LENGTH_UNSET} if unknown.
+   * @return Whether the seek position was updated.
+   */
+  private boolean maybeSeekForSeekHead(
+      PositionHolder seekPosition, long currentPosition, long inputLength) {
+    if (!seekForSeekHead) {
+      return false;
+    }
+    seekForSeekHead = false;
+    long nextSeekHeadPosition = seekHeadContentPosition;
+    seekHeadContentPosition = C.INDEX_UNSET;
+    // A position beyond a known input length cannot be read, and must not make a file that plays
+    // without it fail. With an unknown length the position is trusted, as it is for the Cues.
+    if (seekForCuesEnabled
+        && !sentSeekMap
+        && cuesContentPosition == C.INDEX_UNSET
+        && nextSeekHeadPosition >= 0
+        && (inputLength == C.LENGTH_UNSET || nextSeekHeadPosition < inputLength)
+        && followedSeekHeadPositions.add(nextSeekHeadPosition)) {
+      if (seekPositionAfterReadingSeekHeads == C.INDEX_UNSET) {
+        seekPositionAfterReadingSeekHeads = currentPosition;
+      }
+      seekPosition.position = nextSeekHeadPosition;
+      return true;
+    }
+    if (seekPositionAfterReadingSeekHeads != C.INDEX_UNSET) {
+      seekPosition.position = seekPositionAfterReadingSeekHeads;
+      seekPositionAfterReadingSeekHeads = C.INDEX_UNSET;
       return true;
     }
     return false;
