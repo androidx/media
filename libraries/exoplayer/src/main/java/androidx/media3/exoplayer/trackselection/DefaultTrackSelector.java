@@ -16,6 +16,8 @@
 package androidx.media3.exoplayer.trackselection;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND;
+import static androidx.media3.common.C.ROLE_FLAG_DESCRIBES_VIDEO;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED;
@@ -32,11 +34,13 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Point;
 import android.media.Spatializer;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
+import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.CaptioningManager;
 import androidx.annotation.IntDef;
 import androidx.media3.common.AudioAttributes;
@@ -402,6 +406,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
     @Override
     public ParametersBuilder setPreferredAudioRoleFlags(@C.RoleFlags int preferredAudioRoleFlags) {
       delegate.setPreferredAudioRoleFlags(preferredAudioRoleFlags);
+      return this;
+    }
+
+    @SuppressWarnings("deprecation") // Intentionally returning deprecated type
+    @CanIgnoreReturnValue
+    @Override
+    public ParametersBuilder setPreferredAudioRoleFlagsFromAccessibilityManager() {
+      delegate.setPreferredAudioRoleFlagsFromAccessibilityManager();
       return this;
     }
 
@@ -1257,6 +1269,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
       @Override
       public Builder setPreferredAudioRoleFlags(@C.RoleFlags int preferredAudioRoleFlags) {
         super.setPreferredAudioRoleFlags(preferredAudioRoleFlags);
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      @Override
+      public Builder setPreferredAudioRoleFlagsFromAccessibilityManager() {
+        super.setPreferredAudioRoleFlagsFromAccessibilityManager();
         return this;
       }
 
@@ -2898,7 +2917,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
         break;
       }
     }
+
+    @RoleFlags int preferredRoleFlagFromAccessibilityManager = 0;
+    if (SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      preferredRoleFlagFromAccessibilityManager = getPreferredRoleFlagFromAccessibilityManager(context);
+    }
     boolean hasVideoRendererWithMappedTracksFinal = hasVideoRendererWithMappedTracks;
+    @RoleFlags int preferredRoleFlagFromAccessibilityManagerFinal = preferredRoleFlagFromAccessibilityManager;
     return selectTracksForType(
         C.TRACK_TYPE_AUDIO,
         mappedTrackInfo,
@@ -2911,7 +2936,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
                 support,
                 hasVideoRendererWithMappedTracksFinal,
                 format -> isAudioFormatWithinAudioChannelCountConstraints(format, params),
-                rendererMixedMimeTypeAdaptationSupports[rendererIndex]),
+                rendererMixedMimeTypeAdaptationSupports[rendererIndex],
+                preferredRoleFlagFromAccessibilityManagerFinal),
         AudioTrackInfo::compareSelections);
   }
 
@@ -3700,6 +3726,21 @@ public class DefaultTrackSelector extends MappingTrackSelector
     return null;
   }
 
+  @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+  private static @RoleFlags int getPreferredRoleFlagFromAccessibilityManager(
+      @Nullable Context context) {
+    if (context == null) {
+      return 0;
+    }
+    AccessibilityManager accessibilityManager = (AccessibilityManager) context.getSystemService(
+        Context.ACCESSIBILITY_SERVICE);
+    if (accessibilityManager != null) {
+      return accessibilityManager.isAudioDescriptionRequested() ? ROLE_FLAG_DESCRIBES_VIDEO
+          | ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND : 0;
+    }
+    return 0;
+  }
+
   /** Base class for track selection information of a {@link Format}. */
   private abstract static class TrackInfo<T extends TrackInfo<T>> {
     /** Factory for {@link TrackInfo} implementations for a given {@link TrackGroup}. */
@@ -4032,7 +4073,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Capabilities int[] formatSupport,
         boolean hasMappedVideoTracks,
         Predicate<Format> withinAudioChannelCountConstraints,
-        @AdaptiveSupport int mixedMimeTypeAdaptationSupport) {
+        @AdaptiveSupport int mixedMimeTypeAdaptationSupport,
+        @RoleFlags int preferredRoleFlagFromAccessibilityManager) {
       ImmutableList.Builder<AudioTrackInfo> listBuilder = ImmutableList.builder();
       for (int i = 0; i < trackGroup.length; i++) {
         listBuilder.add(
@@ -4044,7 +4086,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
                 formatSupport[i],
                 hasMappedVideoTracks,
                 withinAudioChannelCountConstraints,
-                mixedMimeTypeAdaptationSupport));
+                mixedMimeTypeAdaptationSupport,
+                preferredRoleFlagFromAccessibilityManager));
       }
       return listBuilder.build();
     }
@@ -4079,7 +4122,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         @Capabilities int formatSupport,
         boolean hasMappedVideoTracks,
         Predicate<Format> withinAudioChannelCountConstraints,
-        @AdaptiveSupport int mixedMimeTypeAdaptationSupport) {
+        @AdaptiveSupport int mixedMimeTypeAdaptationSupport,
+        @RoleFlags int preferredRoleFlagFromAccessibilityManager) {
       super(rendererIndex, trackGroup, trackIndex);
       this.parameters = parameters;
       @SuppressLint("WrongConstant")
@@ -4110,8 +4154,10 @@ public class DefaultTrackSelector extends MappingTrackSelector
       }
       preferredLanguageIndex = bestLanguageIndex;
       preferredLanguageScore = bestLanguageScore;
-      preferredRoleFlagsScore =
-          getRoleFlagMatchScore(format.roleFlags, parameters.preferredAudioRoleFlags);
+      @RoleFlags int preferredAudioRoleFlags =
+          preferredRoleFlagFromAccessibilityManager == 0 ? parameters.preferredAudioRoleFlags
+              : preferredRoleFlagFromAccessibilityManager;
+      preferredRoleFlagsScore = getRoleFlagMatchScore(format.roleFlags, preferredAudioRoleFlags);
       preferredLabelMatchIndex = getBestLabelMatchIndex(format, parameters.preferredAudioLabels);
       hasMainOrNoRoleFlag = format.roleFlags == 0 || (format.roleFlags & C.ROLE_FLAG_MAIN) != 0;
       isDefaultSelectionFlag = (format.selectionFlags & C.SELECTION_FLAG_DEFAULT) != 0;
