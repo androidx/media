@@ -17,21 +17,27 @@ package androidx.media3.extractor.mkv;
 
 import static androidx.media3.extractor.Extractor.RESULT_SEEK;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.ParserException;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
+import androidx.media3.extractor.text.CueDecoder;
+import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -44,6 +50,55 @@ import org.junit.runner.RunWith;
 /** Non-parameterized tests for {@link MatroskaExtractor}. */
 @RunWith(AndroidJUnit4.class)
 public class MatroskaExtractorNonParameterizedTest {
+
+  @Test
+  public void read_explicitZlibSubtitle_outputsCue() throws Exception {
+    assertZlibSubtitleCue("sample_with_zlib_subtitle.mkv");
+  }
+
+  @Test
+  public void read_defaultZlibSubtitleWithSmallerWindow_outputsCue() throws Exception {
+    assertZlibSubtitleCue("sample_with_default_zlib_subtitle.mkv");
+  }
+
+  @Test
+  public void read_truncatedZlibSubtitle_throwsParserException() {
+    ParserException exception =
+        assertThrows(
+            ParserException.class,
+            () -> readZlibSubtitleFile("sample_with_truncated_zlib_subtitle.mkv"));
+    assertThat(exception).hasMessageThat().contains("Invalid zlib subtitle sample");
+  }
+
+  @Test
+  public void read_oversizedZlibSubtitle_throwsParserException() {
+    ParserException exception =
+        assertThrows(
+            ParserException.class,
+            () -> readZlibSubtitleFile("sample_with_oversized_zlib_subtitle.mkv"));
+    assertThat(exception).hasMessageThat().contains("Inflated subtitle sample exceeds");
+  }
+
+  private static void assertZlibSubtitleCue(String fileName) throws Exception {
+    FakeExtractorOutput output = readZlibSubtitleFile(fileName);
+    FakeTrackOutput track =
+        Iterables.getOnlyElement(output.getTrackOutputsForType(C.TRACK_TYPE_TEXT));
+    assertThat(track.getSampleCount()).isEqualTo(1);
+    byte[] sample = track.getSampleData(0);
+    CuesWithTiming cues =
+        new CueDecoder().decode(track.getSampleTimeUs(0), sample, 0, sample.length);
+    assertThat(cues.startTimeUs).isEqualTo(250_000);
+    assertThat(cues.durationUs).isEqualTo(875_000);
+    assertThat(Iterables.getOnlyElement(cues.cues).text.toString())
+        .isEqualTo("One compressed subtitle cue.");
+  }
+
+  private static FakeExtractorOutput readZlibSubtitleFile(String fileName) throws Exception {
+    return TestUtil.extractAllSamplesFromFile(
+        new MatroskaExtractor(new DefaultSubtitleParserFactory()),
+        ApplicationProvider.getApplicationContext(),
+        "media/mkv/" + fileName);
+  }
 
   @Test
   public void seek_afterSeekMapSent_seekMapRemainsValid() throws Exception {
