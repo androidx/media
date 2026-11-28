@@ -19,16 +19,21 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.extractor.text.CueDecoder;
+import androidx.media3.extractor.text.CuesWithTiming;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.TestUtil;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.Iterables;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests track selection when Matroska subtitle compression is unsupported. */
+/** Tests Matroska track selection for zlib subtitle compression. */
 @RunWith(AndroidJUnit4.class)
 public final class MatroskaExtractorZlibTrackTest {
   private static final int ID_INFO = 0x1549A966;
@@ -46,6 +51,24 @@ public final class MatroskaExtractorZlibTrackTest {
   private static final int ID_CLUSTER = 0x1F43B675;
   private static final int ID_TIME_CODE = 0xE7;
   private static final int ID_SIMPLE_BLOCK = 0xA3;
+
+  @Test
+  public void read_zlibSubtitleWithEmptyCompressionSettings_outputsCue() throws Exception {
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            new MatroskaExtractor(new DefaultSubtitleParserFactory()),
+            ApplicationProvider.getApplicationContext(),
+            "media/mkv/sample_with_empty_zlib_subtitle_settings.mkv");
+
+    FakeTrackOutput text =
+        Iterables.getOnlyElement(output.getTrackOutputsForType(C.TRACK_TYPE_TEXT));
+    assertThat(text.getSampleCount()).isEqualTo(1);
+    byte[] sample = text.getSampleData(0);
+    CuesWithTiming cues =
+        new CueDecoder().decode(text.getSampleTimeUs(0), sample, 0, sample.length);
+    assertThat(Iterables.getOnlyElement(cues.cues).text.toString())
+        .isEqualTo("One compressed subtitle cue.");
+  }
 
   @Test
   public void read_unsupportedZlibSubtitle_outputsAudioSamples() throws Exception {

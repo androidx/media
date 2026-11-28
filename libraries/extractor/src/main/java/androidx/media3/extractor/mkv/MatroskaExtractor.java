@@ -1090,9 +1090,11 @@ public class MatroskaExtractor implements Extractor {
             throw ParserException.createForUnsupportedContainerFeature(
                 "Zlib compression is only supported for subtitle tracks");
           }
+          boolean hasCompressionSettings =
+              currentTrack.sampleStrippedBytes != null
+                  && currentTrack.sampleStrippedBytes.length != 0;
           if (zlibCompressed
-              && (!isTextSubtitleCodec(currentTrack.codecId)
-                  || currentTrack.sampleStrippedBytes != null)) {
+              && (!isTextSubtitleCodec(currentTrack.codecId) || hasCompressionSettings)) {
             Log.w(
                 TAG,
                 "Skipping unsupported zlib-compressed subtitle track: " + currentTrack.codecId);
