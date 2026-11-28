@@ -22,6 +22,7 @@ import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.extractor.ExtractorInput;
+import com.google.common.base.Predicate;
 import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -80,6 +81,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   @Override
+  public int getCurrentElementId(Predicate<Integer> predicate) {
+    if (elementState != ELEMENT_STATE_READ_ID && predicate.apply(elementId)) {
+      return elementId;
+    }
+    for (MasterElement element : masterElementsStack) {
+      if (predicate.apply(element.elementId)) {
+        return element.elementId;
+      }
+    }
+    return C.INDEX_UNSET;
+  }
+
+  @Override
   public boolean read(ExtractorInput input) throws IOException {
     checkNotNull(processor);
     while (true) {
@@ -113,7 +127,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           long elementContentPosition = input.getPosition();
           long elementEndPosition = elementContentPosition + elementContentSize;
           masterElementsStack.push(new MasterElement(elementId, elementEndPosition));
-          processor.startMasterElement(elementId, elementContentPosition, elementContentSize);
+          boolean contentSizeUnknown =
+              elementContentSize == (1L << (7 * varintReader.getLastLength())) - 1;
+          processor.startMasterElement(
+              elementId, elementContentPosition, elementContentSize, contentSizeUnknown);
           elementState = ELEMENT_STATE_READ_ID;
           return true;
         case EbmlProcessor.ELEMENT_TYPE_UNSIGNED_INT:
