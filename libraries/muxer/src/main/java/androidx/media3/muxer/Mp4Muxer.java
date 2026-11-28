@@ -40,6 +40,7 @@ import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.XmpData;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -631,6 +632,7 @@ public final class Mp4Muxer implements Muxer {
    *       string type} or {@linkplain MdtaMetadataEntry#TYPE_INDICATOR_FLOAT32 float type} value is
    *       supported.
    *   <li>{@link XmpData}
+   *   <li>{@link Mp4CoverArtData}
    * </ul>
    *
    * @param metadataEntry The {@linkplain Metadata.Entry metadata}. An {@link

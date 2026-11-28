@@ -30,6 +30,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
@@ -72,7 +73,8 @@ public final class MuxerUtil {
             && isMp4TimestampDataSupported((Mp4TimestampData) metadata))
         || (metadata instanceof MdtaMetadataEntry
             && isMdtaMetadataEntrySupported((MdtaMetadataEntry) metadata))
-        || metadata instanceof XmpData;
+        || metadata instanceof XmpData
+        || metadata instanceof Mp4CoverArtData;
   }
 
   /** Returns {@link BufferInfo} corresponding to the {@link MediaCodec.BufferInfo}. */

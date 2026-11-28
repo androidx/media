@@ -42,8 +42,10 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput;
@@ -79,6 +81,30 @@ public class FragmentedMp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
+
+  @Test
+  public void createFragmentedMp4File_withCoverArt_extractsExactImage(
+      @TestParameter({"13", "14"}) int type) throws Exception {
+    String path = temporaryFolder.newFile().getPath();
+    byte[] image = new byte[] {9, 8, 7, 6};
+    Pair<ByteBuffer, BufferInfo> sample =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(path).getChannel()).build()) {
+      muxer.addMetadataEntry(new Mp4CoverArtData(image, type));
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sample.first, sample.second);
+    }
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFilePath(
+            new FragmentedMp4Extractor(new DefaultSubtitleParserFactory()), path);
+    Format format = checkNotNull(output.trackOutputs.valueAt(0).lastFormat);
+    ApicFrame coverArt = checkNotNull(format.metadata).getFirstEntryOfType(ApicFrame.class);
+    assertThat(coverArt).isNotNull();
+    assertThat(coverArt.mimeType)
+        .isEqualTo(type == 13 ? MimeTypes.IMAGE_JPEG : MimeTypes.IMAGE_PNG);
+    assertThat(coverArt.pictureData).isEqualTo(image);
+  }
 
   @Test
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpectedBoxStructure()
