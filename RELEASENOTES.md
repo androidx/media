@@ -118,6 +118,8 @@
         or `NumberFormatException` for malformed empty or decimal client-defined
         attribute values.
 *   DASH extension:
+    *   Fix off-by-one millisecond errors when parsing `xs:duration`
+        attributes with fractional seconds (such as `Period@start`).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
