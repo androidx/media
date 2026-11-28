@@ -1084,14 +1084,19 @@ public class MatroskaExtractor implements Extractor {
           throw ParserException.createForMalformedContainer(
               "CodecId is missing in TrackEntry element", /* cause= */ null);
         } else {
-          if (currentTrack.contentCompressionAlgorithm == CONTENT_COMPRESSION_ZLIB
-              && (currentTrack.type != C.TRACK_TYPE_TEXT
-                  || !isTextSubtitleCodec(currentTrack.codecId)
-                  || currentTrack.sampleStrippedBytes != null)) {
+          boolean zlibCompressed =
+              currentTrack.contentCompressionAlgorithm == CONTENT_COMPRESSION_ZLIB;
+          if (zlibCompressed && currentTrack.type != C.TRACK_TYPE_TEXT) {
             throw ParserException.createForUnsupportedContainerFeature(
-                "Zlib compression is only supported for text subtitle tracks without settings");
+                "Zlib compression is only supported for subtitle tracks");
           }
-          if (isCodecSupported(currentTrack.codecId)) {
+          if (zlibCompressed
+              && (!isTextSubtitleCodec(currentTrack.codecId)
+                  || currentTrack.sampleStrippedBytes != null)) {
+            Log.w(
+                TAG,
+                "Skipping unsupported zlib-compressed subtitle track: " + currentTrack.codecId);
+          } else if (isCodecSupported(currentTrack.codecId)) {
             currentTrack.initializeFormat(currentTrack.number);
             currentTrack.output = extractorOutput.track(currentTrack.number, currentTrack.type);
             tracks.put(currentTrack.number, currentTrack);
