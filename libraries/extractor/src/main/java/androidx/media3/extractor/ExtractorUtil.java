@@ -220,7 +220,7 @@ public final class ExtractorUtil {
       case C.ENCODING_AC3:
       case C.ENCODING_E_AC3:
       case C.ENCODING_E_AC3_JOC:
-        return Ac3Util.parseAc3SyncframeAudioSampleCount(buffer);
+        return Ac3Util.parseAc3AccessUnitAudioSampleCount(buffer);
       case C.ENCODING_AC4:
         return Ac4Util.parseAc4SyncframeAudioSampleCount(buffer);
       case C.ENCODING_DOLBY_TRUEHD:

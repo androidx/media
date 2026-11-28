@@ -55,6 +55,11 @@
         cause audible fluttering when time-stretching or pitch-shifting loud
         16-bit PCM audio
         ([#3565](https://github.com/androidx/media/issues/3565)).
+    *   Fix `ExtractorUtil.getFramesPerEncodedSample` to count all syncframes
+        of an E-AC-3 sample instead of only the first. This fixes repeated
+        `UnexpectedDiscontinuityException` errors and an incorrect playback
+        position in `DefaultAudioSink` during E-AC-3 passthrough of samples
+        that contain several syncframes.
 *   Video:
 *   Text:
 *   Metadata:

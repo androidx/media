@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -2686,6 +2687,46 @@ public final class DefaultAudioSinkTest {
     assertThat(outputBufferSizes)
         .containsExactly(1_000_000, 500_000, 250_000, 125_000, 100_000)
         .inOrder();
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Testing deprecated builder methods.
+  public void handleBuffer_eac3PassthroughWithSeveralSyncframesPerSample_reportsNoDiscontinuity()
+      throws Exception {
+    ShadowAudioTrack.addAllowedNonPcmEncoding(AudioFormat.ENCODING_E_AC3);
+    AudioSink.Listener mockListener = mock(AudioSink.Listener.class);
+    defaultAudioSink =
+        new DefaultAudioSink.Builder()
+            .setAudioCapabilities(
+                new AudioCapabilities(
+                    new int[] {C.ENCODING_E_AC3}, /* maxChannelCount= */ DEFAULT_MAX_CHANNEL_COUNT))
+            .build();
+    defaultAudioSink.setListener(mockListener);
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(
+                new Format.Builder()
+                    .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
+                    .setChannelCount(CHANNEL_COUNT_STEREO)
+                    .setSampleRate(48_000)
+                    .build())
+            .build());
+    // Two 3-block syncframes, each 16 bytes long, form a sample of 1536 frames (32 ms).
+    byte[] syncframe = Arrays.copyOf(Util.getBytesFromHexString("0B7700072F80"), 16);
+    ByteBuffer sample = ByteBuffer.allocateDirect(32).order(ByteOrder.nativeOrder());
+
+    // With a count of only the first syncframe, the expected presentation time drifts by 16 ms for
+    // each sample and exceeds the 200 ms discontinuity threshold at the 14th sample.
+    for (int i = 0; i < 20; i++) {
+      sample.clear();
+      sample.put(syncframe, 0, 16).put(syncframe, 0, 16).flip();
+      long presentationTimeUs = i * 32_000L;
+      retryUntilTrue(() ->
+          defaultAudioSink.handleBuffer(
+              sample, presentationTimeUs, /* encodedAccessUnitCount= */ 1));
+    }
+
+    verify(mockListener, never()).onAudioSinkError(any());
+    verify(mockListener, never()).onPositionDiscontinuity();
   }
 
   @Test
