@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.dash;
 
+
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -26,6 +27,7 @@ import androidx.annotation.CheckResult;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
@@ -73,6 +75,7 @@ import org.jspecify.annotations.Nullable;
 /** A default {@link DashChunkSource} implementation. */
 @UnstableApi
 public class DefaultDashChunkSource implements DashChunkSource {
+  private static final String TAG = "DefaultDashChunkSource";
 
   /** {@link DashChunkSource.Factory} for {@link DefaultDashChunkSource} instances. */
   public static final class Factory implements DashChunkSource.Factory {
@@ -320,16 +323,42 @@ public class DefaultDashChunkSource implements DashChunkSource {
 
   @Override
   public void updateManifest(DashManifest newManifest, int newPeriodIndex) {
+    // Keep Media3's normal Period index handling.
+    List<AdaptationSet> sets =
+        newManifest.getPeriod(newPeriodIndex).adaptationSets;
+
+    List<Representation> representations = new ArrayList<>();
+
+    for (int index : adaptationSetIndices) {
+      if (index < 0 || index >= sets.size()) {
+        Log.w(TAG, "DASH update skipped: missing AdaptationSet " + index);
+        return;
+      }
+      representations.addAll(sets.get(index).representations);
+    }
+
+    for (int i = 0; i < representationHolders.length; i++) {
+      int index = trackSelection.getIndexInTrackGroup(i);
+      if (index < 0 || index >= representations.size()) {
+        Log.w(TAG, "DASH update skipped: missing Representation " + index);
+        return;
+      }
+    }
+
     try {
+      long durationUs = newManifest.getPeriodDurationUs(newPeriodIndex);
+      RepresentationHolder[] updated = representationHolders.clone();
+
+      for (int i = 0; i < updated.length; i++) {
+        updated[i] = representationHolders[i].copyWithNewRepresentation(
+            durationUs,
+            representations.get(trackSelection.getIndexInTrackGroup(i)));
+      }
+
       manifest = newManifest;
       periodIndex = newPeriodIndex;
-      long periodDurationUs = manifest.getPeriodDurationUs(periodIndex);
-      List<Representation> representations = getRepresentations();
-      for (int i = 0; i < representationHolders.length; i++) {
-        Representation representation = representations.get(trackSelection.getIndexInTrackGroup(i));
-        representationHolders[i] =
-            representationHolders[i].copyWithNewRepresentation(periodDurationUs, representation);
-      }
+      System.arraycopy(updated, 0, representationHolders, 0, updated.length);
+
     } catch (BehindLiveWindowException e) {
       fatalError = e;
     }
