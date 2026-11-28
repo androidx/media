@@ -44,6 +44,7 @@ import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.DvbSubtitleInfo;
 import androidx.media3.extractor.ts.TsPayloadReader.EsInfo;
+import androidx.media3.extractor.ts.TsPayloadReader.TeletextSubtitleInfo;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -139,6 +140,7 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_ID3 = 0x15;
   public static final int TS_STREAM_TYPE_SPLICE_INFO = 0x86;
   public static final int TS_STREAM_TYPE_DVBSUBS = 0x59;
+  public static final int TS_STREAM_TYPE_TELETEXT = 0x56;
   public static final int TS_STREAM_TYPE_DTS_HD = 0x88; // As per ATSC Code Point Registry
   public static final int TS_STREAM_TYPE_DTS_UHD = 0x8B;
 
@@ -683,6 +685,7 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_DTS = 0x7B;
     private static final int TS_PMT_DESC_DVB_EXT = 0x7F;
     private static final int TS_PMT_DESC_DVBSUBS = 0x59;
+    private static final int TS_PMT_DESC_TELETEXT = 0x56;
 
     private static final int TS_PMT_DESC_DVB_EXT_AC4 = 0x15;
     private static final int TS_PMT_DESC_DVB_EXT_DTS_HD = 0x0E;
@@ -848,6 +851,7 @@ public final class TsExtractor implements Extractor {
       String language = null;
       @EsInfo.AudioType int audioType = AUDIO_TYPE_UNDEFINED;
       List<DvbSubtitleInfo> dvbSubtitleInfos = null;
+      List<TeletextSubtitleInfo> teletextSubtitleInfos = null;
       while (data.getPosition() < descriptorsEndPosition) {
         int descriptorTag = data.readUnsignedByte();
         int descriptorLength = data.readUnsignedByte();
@@ -900,6 +904,33 @@ public final class TsExtractor implements Extractor {
             dvbSubtitleInfos.add(
                 new DvbSubtitleInfo(dvbLanguage, dvbSubtitlingType, initializationData));
           }
+        } else if (descriptorTag == TS_PMT_DESC_TELETEXT) {
+          List<TeletextSubtitleInfo> parsedTeletextInfos = new ArrayList<>();
+          while (data.getPosition() + 5 <= positionOfNextDescriptor) {
+            String teletextLanguage = data.readString(3).trim();
+            int typeAndMagazine = data.readUnsignedByte();
+            int teletextType = (typeAndMagazine >> 3) & 0x1F;
+            int magazineNumber = typeAndMagazine & 0x07;
+            if (magazineNumber == 0) {
+              magazineNumber = 8;
+            }
+            int pageNumber = data.readUnsignedByte();
+            // Only expose Teletext subtitle pages (0x02) and hearing-impaired subtitle pages (0x05)
+            // as defined in ETSI EN 300 468 Table 94.
+            if (teletextType == 0x02 || teletextType == 0x05) {
+              parsedTeletextInfos.add(
+                  new TeletextSubtitleInfo(
+                      teletextLanguage, teletextType, magazineNumber, pageNumber));
+            }
+          }
+          if (!parsedTeletextInfos.isEmpty()) {
+            streamType = TS_STREAM_TYPE_TELETEXT;
+            if (teletextSubtitleInfos == null) {
+              teletextSubtitleInfos = parsedTeletextInfos;
+            } else {
+              teletextSubtitleInfos.addAll(parsedTeletextInfos);
+            }
+          }
         } else if (descriptorTag == TS_PMT_DESC_AIT) {
           streamType = TS_STREAM_TYPE_AIT;
         }
@@ -912,6 +943,7 @@ public final class TsExtractor implements Extractor {
           language,
           audioType,
           dvbSubtitleInfos,
+          teletextSubtitleInfos,
           Arrays.copyOfRange(data.getData(), descriptorsStartPosition, descriptorsEndPosition));
     }
   }
