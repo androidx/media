@@ -27,11 +27,13 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
+import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.math.RoundingMode;
 import java.util.Arrays;
 
 /** Reads chunks holding sample data. */
@@ -77,6 +79,7 @@ import java.util.Arrays;
   private long firstIndexChunkOffset;
   private long[] keyFrameOffsets;
   private int[] keyFrameIndices;
+  private long indexStreamBytes;
 
   public ChunkReader(
       int id,
@@ -100,7 +103,7 @@ import java.util.Arrays;
     chunkCount = streamHeaderChunk.length;
   }
 
-  public void appendIndexChunk(long offset, boolean isKeyFrame) {
+  public void appendIndexChunk(long offset, int size, boolean isKeyFrame) {
     if (firstIndexChunkOffset == C.INDEX_UNSET) {
       firstIndexChunkOffset = offset;
     }
@@ -114,6 +117,7 @@ import java.util.Arrays;
       indexSize++;
     }
     indexChunkCount++;
+    indexStreamBytes += size;
   }
 
   public void advanceCurrentChunk() {
@@ -137,6 +141,15 @@ import java.util.Arrays;
       // index, which should match the number of chunks because we only support formats where every
       // audio sample is a sync sample, and every sync sample should be in the index.
       chunkCount = indexSize;
+      long headerStreamBytes = (long) streamHeaderChunk.length * streamHeaderChunk.sampleSize;
+      if (indexStreamBytes > 0 && indexStreamBytes < headerStreamBytes) {
+        // The index covers only part of the stream (idx1 in OpenDML files), so we estimate the
+        // total chunk count from the average chunk size.
+        chunkCount =
+            Ints.saturatedCast(
+                Util.scaleLargeValue(
+                    indexSize, headerStreamBytes, indexStreamBytes, RoundingMode.HALF_UP));
+      }
     }
   }
 
